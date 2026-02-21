@@ -23,6 +23,7 @@ namespace SmartFinance.API.Controllers{
         public async Task<IActionResult> GetTransactionByIdAsync(int id)
         {
             var transaction = await _transactionService.GetTransactionByIdAsync(id);
+            if (transaction == null) return NotFound();
             return Ok(transaction);
         }
         [HttpPost]

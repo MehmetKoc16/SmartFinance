@@ -33,9 +33,10 @@ public class TransactionService : ITransactionService
         });
     }
 
-    public async Task<TransactionDto> GetTransactionByIdAsync(int id)
+    public async Task<TransactionDto?> GetTransactionByIdAsync(int id)
     {
         var transaction = await _repository.GetByIdAsync(id);
+        if (transaction == null) return null;
         return new TransactionDto
         {
             Id = transaction.Id,
@@ -57,7 +58,8 @@ public class TransactionService : ITransactionService
             Description = dto.Description,
             TransactionDate = dto.TransactionDate,
             Type = dto.Type,
-            CategoryId = dto.CategoryId
+            CategoryId = dto.CategoryId,
+            UserId = 1 // Geçici: JWT eklenince kaldırılacak
         };
 
         await _repository.AddAsync(transaction);

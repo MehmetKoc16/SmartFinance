@@ -25,9 +25,10 @@ public class CategoryService : ICategoryService
             CreatedDate=c.CreatedDate,
         });
     }
-    public async Task<CategoryDto> GetCategoryByIdAsync(int id)
+    public async Task<CategoryDto?> GetCategoryByIdAsync(int id)
     {
         var category = await _repository.GetByIdAsync(id);
+        if (category == null) return null;
         return new CategoryDto{
             Id=category.Id,
             Name=category.Name,
@@ -39,7 +40,8 @@ public class CategoryService : ICategoryService
     {
         var category= new Category
         {
-            Name =dto.Name
+            Name =dto.Name,
+            UserId = 1 // Geçici: JWT eklenince kaldırılacak
         };
 
         await _repository.AddAsync(category);

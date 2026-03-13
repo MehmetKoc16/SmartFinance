@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using SmartFinance.Application.DTOs.Transaction;
 using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.API.Controllers{
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class TransactionController : ControllerBase
     {
         private readonly ITransactionService _transactionService;

@@ -3,6 +3,8 @@ using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 
 namespace SmartFinance.Infrastructure.Services;
 
@@ -10,11 +12,13 @@ public class TransactionService : ITransactionService
 {
     private readonly IGenericRepository<Transaction> _repository;
     private readonly SmartFinanceDbContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context)
+    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor)
     {
         _repository = repository;
         _context = context;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<IEnumerable<TransactionDto>> GetAllTransactionsAsync()
@@ -52,6 +56,10 @@ public class TransactionService : ITransactionService
 
     public async Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto)
     {
+        // Token'dan UserId al
+        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
         var transaction = new Transaction
         {
             Amount = dto.Amount,
@@ -59,7 +67,7 @@ public class TransactionService : ITransactionService
             TransactionDate = dto.TransactionDate,
             Type = dto.Type,
             CategoryId = dto.CategoryId,
-            UserId = 1 // Geçici: JWT eklenince kaldırılacak
+            UserId = userId
         };
 
         await _repository.AddAsync(transaction);

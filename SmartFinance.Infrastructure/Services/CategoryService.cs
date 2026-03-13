@@ -2,6 +2,8 @@ using SmartFinance.Application.DTOs.Category;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 
 namespace SmartFinance.Infrastructure.Services;
 
@@ -9,11 +11,13 @@ public class CategoryService : ICategoryService
 {
     private readonly IGenericRepository<Category> _repository;
     private readonly SmartFinanceDbContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public CategoryService(IGenericRepository<Category> repository, SmartFinanceDbContext context)
+    public CategoryService(IGenericRepository<Category> repository, SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor)
     {
         _repository = repository;
         _context = context;
+        _httpContextAccessor = httpContextAccessor;
     }
     
     public async Task<IEnumerable<CategoryDto>> GetAllCategoriesAsync()
@@ -38,10 +42,14 @@ public class CategoryService : ICategoryService
 
     public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryDto dto)
     {
+        // Token'dan UserId al
+        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
         var category= new Category
         {
             Name =dto.Name,
-            UserId = 1 // Geçici: JWT eklenince kaldırılacak
+            UserId = userId
         };
 
         await _repository.AddAsync(category);

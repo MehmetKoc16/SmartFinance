@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# JWT Secret Key - GitHub'a yuklenmesin
+appsettings.Development.json
+
 # User-specific files
 *.rsuser
 *.suo

@@ -1,0 +1,25 @@
+﻿  Geri y├╝klenecek projeler belirleniyor...
+  Geri y├╝kleme i├ğin t├╝m projeler g├╝ncel.
+  SmartFinance.Domain -> C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Domain\bin\Debug\net9.0\SmartFinance.Domain.dll
+  SmartFinance.Application -> C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Application\bin\Debug\net9.0\SmartFinance.Application.dll
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\CategoryService.cs(6,17): error CS0234: 'AspNetCore' t├╝r veya ad alan─▒ ad─▒ 'Microsoft' ad alan─▒nda yok (bir derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\TransactionService.cs(7,17): error CS0234: 'AspNetCore' t├╝r veya ad alan─▒ ad─▒ 'Microsoft' ad alan─▒nda yok (bir derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\TransactionService.cs(15,22): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\CategoryService.cs(14,22): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\TransactionService.cs(17,106): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\CategoryService.cs(16,100): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+
+Olu┼şturma BA┼ŞARISIZ OLDU.
+
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\CategoryService.cs(6,17): error CS0234: 'AspNetCore' t├╝r veya ad alan─▒ ad─▒ 'Microsoft' ad alan─▒nda yok (bir derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\TransactionService.cs(7,17): error CS0234: 'AspNetCore' t├╝r veya ad alan─▒ ad─▒ 'Microsoft' ad alan─▒nda yok (bir derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\TransactionService.cs(15,22): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\CategoryService.cs(14,22): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\TransactionService.cs(17,106): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\Services\CategoryService.cs(16,100): error CS0246: 'IHttpContextAccessor' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\pc\Desktop\KOD\Proje\SmartFinance\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj]
+    0 Uyar─▒
+    6 Hata
+
+Ge├ğen S├╝re 00:00:01.21
+
+─░┼ş y├╝k├╝ g├╝ncelle┼ştirmeleri var. Daha fazla bilgi i├ğin `dotnet workload list` ├ğal─▒┼şt─▒r─▒n.

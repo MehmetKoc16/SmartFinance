@@ -5,6 +5,7 @@ using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using SmartFinance.Application.Exceptions;
 
 namespace SmartFinance.Infrastructure.Services;
 
@@ -23,8 +24,9 @@ public class TransactionService : ITransactionService
 
     public async Task<IEnumerable<TransactionDto>> GetAllTransactionsAsync()
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var transactions = await _repository.GetAllAsync();
-        return transactions.Select(t => new TransactionDto
+        return transactions.Where(t=>t.UserId==userId).Select(t => new TransactionDto
         {
             Id = t.Id,
             UserId = t.UserId,
@@ -39,8 +41,9 @@ public class TransactionService : ITransactionService
 
     public async Task<TransactionDto?> GetTransactionByIdAsync(int id)
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var transaction = await _repository.GetByIdAsync(id);
-        if (transaction == null) return null;
+        if (transaction == null || transaction.UserId!=userId) return null;
         return new TransactionDto
         {
             Id = transaction.Id,
@@ -88,7 +91,11 @@ public class TransactionService : ITransactionService
 
     public async Task UpdateTransactionAsync(int id, CreateTransactionDto dto)
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var transaction = await _repository.GetByIdAsync(id);
+        if(transaction == null || transaction.UserId!=userId)
+            throw new NotFoundException("İşlem bulunamadı!");
+
         transaction.Amount = dto.Amount;
         transaction.Description = dto.Description;
         transaction.TransactionDate = dto.TransactionDate;
@@ -101,7 +108,10 @@ public class TransactionService : ITransactionService
 
     public async Task DeleteTransactionAsync(int id)
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var transaction = await _repository.GetByIdAsync(id);
+        if(transaction == null || transaction.UserId!=userId)
+            throw new NotFoundException("İşlem bulunamadı!");
         transaction.IsDeleted = true;
         transaction.UpdatedDate = DateTime.UtcNow;
         _repository.Update(transaction);

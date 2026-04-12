@@ -51,7 +51,7 @@ namespace SmartFinance.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Categories");
+                    b.ToTable("Categories", (string)null);
                 });
 
             modelBuilder.Entity("SmartFinance.Domain.Entities.Transaction", b =>
@@ -97,7 +97,7 @@ namespace SmartFinance.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Transactions");
+                    b.ToTable("Transactions", (string)null);
                 });
 
             modelBuilder.Entity("SmartFinance.Domain.Entities.User", b =>
@@ -136,7 +136,7 @@ namespace SmartFinance.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
 
                     b.HasData(
                         new

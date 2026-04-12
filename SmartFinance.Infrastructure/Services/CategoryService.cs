@@ -4,6 +4,7 @@ using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using SmartFinance.Application.Exceptions;
 
 namespace SmartFinance.Infrastructure.Services;
 
@@ -22,8 +23,9 @@ public class CategoryService : ICategoryService
     
     public async Task<IEnumerable<CategoryDto>> GetAllCategoriesAsync()
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var categories = await _repository.GetAllAsync();
-        return categories.Select(c=> new CategoryDto {
+        return categories.Where(c=>c.UserId==userId).Select(c=>new CategoryDto{
             Id=c.Id,
             Name=c.Name,
             CreatedDate=c.CreatedDate,
@@ -31,8 +33,9 @@ public class CategoryService : ICategoryService
     }
     public async Task<CategoryDto?> GetCategoryByIdAsync(int id)
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var category = await _repository.GetByIdAsync(id);
-        if (category == null) return null;
+        if (category == null || category.UserId != userId) return null;
         return new CategoryDto{
             Id=category.Id,
             Name=category.Name,
@@ -64,7 +67,11 @@ public class CategoryService : ICategoryService
 
     public async Task UpdateCategoryAsync(int id, CreateCategoryDto dto)
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var category= await _repository.GetByIdAsync(id);
+        if(category==null || category.UserId!=userId)
+            throw new NotFoundException("Kategori bulunamadı!");
+
         category.Name=dto.Name;
         category.UpdatedDate=DateTime.UtcNow;
         _repository.Update(category);
@@ -73,7 +80,11 @@ public class CategoryService : ICategoryService
     
     public async Task DeleteCategoryAsync(int id)
     {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var category=await _repository.GetByIdAsync(id);
+        if(category==null || category.UserId!=userId)
+            throw new NotFoundException("Kategori bulunamadı!");
+            
         category.IsDeleted=true;
         category.UpdatedDate=DateTime.UtcNow;
         _repository.Update(category);

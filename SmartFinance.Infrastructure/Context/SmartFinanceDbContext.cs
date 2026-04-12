@@ -14,15 +14,5 @@ public class SmartFinanceDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SmartFinanceDbContext).Assembly);
-
-        // Test kullanıcısı (JWT eklenince kaldırılacak)
-        modelBuilder.Entity<User>().HasData(new User
-        {
-            Id = 1,
-            FullName = "Test Kullanıcı",
-            Email = "test@smartfinance.com",
-            PasswordHash = "test123",
-            CreatedDate = new DateTime(2025, 1, 1)
-        });
     }
 }

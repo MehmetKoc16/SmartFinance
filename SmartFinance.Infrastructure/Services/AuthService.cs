@@ -8,6 +8,7 @@ using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
+using SmartFinance.Application.Exceptions;
 
 namespace SmartFinance.Infrastructure.Services;
 
@@ -26,7 +27,7 @@ public class AuthService : IAuthService{
         var existingUser = await _context.Users.AnyAsync(u=> u.Email == dto.Email);
         if(existingUser)
         {
-            throw new Exception("Bu email zaten kayıtlı!");
+            throw new BadRequestException("Bu email zaten kayıtlı!");
         }
 
         var user = new User{
@@ -45,13 +46,13 @@ public class AuthService : IAuthService{
         var user = await _context.Users.FirstOrDefaultAsync(u=>u.Email == dto.Email);
         if(user== null)
         {
-            throw new Exception("Email veya şifre hatalı!");
+            throw new UnauthorizedException("Email veya şifre hatalı!");
         }
 
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(dto.Password,user.PasswordHash);
         if(!isPasswordValid)
         {
-            throw new Exception("Email veya şifre hatalı!");
+            throw new UnauthorizedException("Email veya şifre hatalı!");
         }
 
         return GenerateToken(user);

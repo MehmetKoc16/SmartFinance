@@ -7,6 +7,7 @@ using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using SmartFinance.API.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +17,11 @@ options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectio
 builder.Services.AddScoped(typeof(IGenericRepository<>),typeof(GenericRepository<>));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+// OpenAPI'ye JWT güvenlik şeması ekle (Scalar'da Authorize butonu çıksın)
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+});
 
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();

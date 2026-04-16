@@ -52,5 +52,11 @@ namespace SmartFinance.API.Controllers{
             await _transactionService.DeleteTransactionAsync(id);
             return NoContent();
         }
+        [HttpGet("summary/{year}/{month}")]
+        public async Task<IActionResult> GetMonthlySummaryAsync(int year,int month)
+        {
+            var summary = await _transactionService.GetMonthlySummaryAsync(month,year);
+            return Ok(summary);
+        }
     }
 }

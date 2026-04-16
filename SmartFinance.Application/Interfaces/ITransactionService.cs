@@ -9,4 +9,5 @@ public interface ITransactionService{
     Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto);
     Task UpdateTransactionAsync(int id, CreateTransactionDto dto);
     Task DeleteTransactionAsync(int id);
+    Task<MonthlySummaryDto> GetMonthlySummaryAsync(int month, int year);
 }

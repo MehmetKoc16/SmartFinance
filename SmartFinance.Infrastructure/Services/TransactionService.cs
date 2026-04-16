@@ -157,4 +157,24 @@ public class TransactionService : ITransactionService
         _repository.Update(transaction);
         await _context.SaveChangesAsync();
     }
+
+    public async Task<MonthlySummaryDto> GetMonthlySummaryAsync(int month, int year)
+    {
+        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var transactions=await _repository.GetAllAsync();
+        var monthly = transactions.Where(t=>t.UserId==userId && t.TransactionDate.Month==month && t.TransactionDate.Year==year);
+
+        var totalIncome=monthly.Where(t=>t.Type==TransactionType.Income).Sum(t=>t.Amount);
+
+        var totalExpense=monthly.Where(t=>t.Type==TransactionType.Expense).Sum(t=>t.Amount);
+
+        return new MonthlySummaryDto{
+            TotalIncome=totalIncome,
+            TotalExpense=totalExpense,
+            Balance=totalIncome-totalExpense,
+            TransactionCount=monthly.Count(),
+            Month=month,
+            Year=year
+        };
+    } 
 }

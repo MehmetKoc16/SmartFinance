@@ -21,6 +21,46 @@ public class TransactionService : ITransactionService
         _context = context;
         _httpContextAccessor = httpContextAccessor;
     }
+    public async Task<object> GetFilteredTransactionsAsync(TransactionFilterDto filter)
+    {
+        var userId= int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var transactions=await _repository.GetAllAsync();
+
+        var query=transactions.Where(t=>t.UserId==userId);
+
+        if(filter.StartDate.HasValue)
+            query=query.Where(t=>t.TransactionDate>=filter.StartDate.Value);
+        if(filter.EndDate.HasValue)
+            query=query.Where(t=>t.TransactionDate<=filter.EndDate.Value);
+
+        if(filter.Type.HasValue)
+            query=query.Where(t=>(int)t.Type==filter.Type.Value);
+
+        if(filter.CategoryId.HasValue)
+            query=query.Where(t=>t.CategoryId==filter.CategoryId.Value);
+
+        var totalCount=query.Count();
+
+        var items = query.Skip((filter.Page-1)*filter.PageSize).Take(filter.PageSize).Select(t=>new TransactionDto
+        {
+            Id=t.Id,
+            UserId=t.UserId,
+            Amount=t.Amount,
+            Description=t.Description,
+            TransactionDate=t.TransactionDate,
+            Type=t.Type,
+            CategoryId=t.CategoryId,
+            CreatedDate=t.CreatedDate,
+        });
+
+        return new{
+            items=items,
+            totalCount=totalCount,
+            page=filter.Page,
+            pageSize=filter.PageSize,
+            totalPages=(int)Math.Ceiling((double)totalCount/filter.PageSize)
+        };
+    }
 
     public async Task<IEnumerable<TransactionDto>> GetAllTransactionsAsync()
     {

@@ -15,6 +15,12 @@ namespace SmartFinance.API.Controllers{
         {
             _transactionService = transactionService;
         }
+        [HttpGet("filter")]
+        public async Task<IActionResult>GetAllTransactions([FromQuery] TransactionFilterDto filter)
+        {
+            var result= await _transactionService.GetFilteredTransactionsAsync(filter);
+            return Ok(result);
+        }
         [HttpGet]
         public async Task<IActionResult> GetAllTransactionsAsync()
         {

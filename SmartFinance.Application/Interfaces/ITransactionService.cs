@@ -3,6 +3,7 @@ using SmartFinance.Application.DTOs.Transaction;
 namespace SmartFinance.Application.Interfaces;
 
 public interface ITransactionService{
+    Task<object> GetFilteredTransactionsAsync(TransactionFilterDto filter);
     Task<IEnumerable<TransactionDto>> GetAllTransactionsAsync();
     Task<TransactionDto?> GetTransactionByIdAsync(int id);
     Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto);

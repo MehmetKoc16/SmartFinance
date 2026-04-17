@@ -9,7 +9,7 @@ namespace SmartFinance.Tests;
 
 public class AuthServiceTests
 {
-    private(AuthService service,SmartFinanceDbContext context) CreateService()
+    private (AuthService service,SmartFinanceDbContext context) CreateService()
     {
         var options=new DbContextOptionsBuilder<SmartFinanceDbContext>().UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()).Options;
 

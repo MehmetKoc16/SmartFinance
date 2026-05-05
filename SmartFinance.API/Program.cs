@@ -27,6 +27,7 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 
 // JWT Authentication yapılandırması
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

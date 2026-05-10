@@ -38,6 +38,14 @@ public class AuthService : IAuthService{
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
+        // Yeni kullanıcıya varsayılan kategoriler oluştur
+        var defaultCategories = new[] { "Maaş", "Yeme-İçme", "Ulaşım", "Fatura", "ATM", "Transfer", "Alışveriş", "Diğer" };
+        foreach (var catName in defaultCategories)
+        {
+            _context.Categories.Add(new Category { Name = catName, UserId = user.Id });
+        }
+        await _context.SaveChangesAsync();
+
         return GenerateToken(user);
     }
 

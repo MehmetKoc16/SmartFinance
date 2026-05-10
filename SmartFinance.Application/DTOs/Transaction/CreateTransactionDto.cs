@@ -15,5 +15,5 @@ public class CreateTransactionDto
     [Required(ErrorMessage = "İşlem tipi zorunludur!")]
     public TransactionType Type{get;set;}
     [Required(ErrorMessage = "Kategori seçimi zorunludur!")]
-    public int CategoryId{get;set;}
+    public int? CategoryId{get;set;}
 }

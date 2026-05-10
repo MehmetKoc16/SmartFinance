@@ -9,6 +9,6 @@ public class TransactionDto{
     public string Description{get;set;}=string.Empty;
     public DateTime TransactionDate{get;set;}
     public TransactionType Type{get;set;}
-    public int CategoryId{get;set;}
+    public int? CategoryId{get;set;}
     public DateTime CreatedDate{get;set;}
 }

@@ -62,6 +62,9 @@ public class HalkbankParser : IBankParser
             foreach (Match m in amountMatches)
                 description = description.Replace(m.Value, "").Trim();
 
+            // Referans/kart numaralarını temizle (5+ haneli sayı dizileri)
+            description = CleanDescription(description);
+
             // İşyeri adını basitçe açıklamanın kendisi yap (Halkbank'ta İŞYERİ: yok)
             var merchantName = ExtractMerchantName(description);
 
@@ -78,14 +81,23 @@ public class HalkbankParser : IBankParser
         return transactions;
     }
 
+    /// <summary>
+    /// Referans numaralarını, kart numaralarını ve anlamsız sayı dizilerini temizler.
+    /// "9792389001436716 96160948 46841379663847319 TURNIKE GEÇIS" → "TURNIKE GEÇIS"
+    /// </summary>
+    private static string CleanDescription(string description)
+    {
+        // 5+ haneli sayı dizilerini kaldır
+        var cleaned = Regex.Replace(description, @"\b\d{5,}\b", "");
+        // Birden fazla boşluğu teke indir
+        cleaned = Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? description.Trim() : cleaned;
+    }
+
     private static string? ExtractMerchantName(string description)
     {
         if (string.IsNullOrWhiteSpace(description)) return null;
-
-        // Halkbank açıklamaları genelde kısa ve direkt: "TURNIKE GEÇİŞ", "POS ALIŞVERİŞ..."
-        // İlk anlamlı kısmı al
         var cleaned = description.Trim();
-        // Çok uzunsa ilk 50 karakteri al
         if (cleaned.Length > 50)
             cleaned = cleaned[..50].Trim();
         return cleaned;

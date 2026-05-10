@@ -50,6 +50,8 @@ public class GenericBankParser : IBankParser
             description = datePattern.Replace(description, "");
             foreach (Match m in amountMatches)
                 description = description.Replace(m.Value, "");
+            // Referans/kart numaralarını temizle (5+ haneli sayı dizileri)
+            description = Regex.Replace(description, @"\b\d{5,}\b", "");
             description = Regex.Replace(description, @"\s+", " ").Trim();
 
             if (string.IsNullOrWhiteSpace(description)) continue;

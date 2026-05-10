@@ -52,13 +52,20 @@ public class PdfImportService : IPdfImportService
         // 1. PdfPig ile text çıkar
         var fullText = ExtractTextFromPdf(pdfStream);
 
+        Console.WriteLine($"[PdfImport] FileName: {fileName}");
+        Console.WriteLine($"[PdfImport] Text length: {fullText?.Length ?? 0}");
+        Console.WriteLine($"[PdfImport] First 500 chars: {fullText?[..Math.Min(fullText.Length, 500)]}");
+        
+        // DEBUG: Tam metni dosyaya yaz
+        File.WriteAllText("C:\\temp\\pdf_debug.txt", fullText ?? "EMPTY");
+        Console.WriteLine("[PdfImport] Full text written to C:\\temp\\pdf_debug.txt");
         if (string.IsNullOrWhiteSpace(fullText))
         {
+            Console.WriteLine("[PdfImport] Text is empty — image-based PDF?");
             return new PdfParseResultDto
             {
                 BankName = "Bilinmeyen",
                 Transactions = new(),
-                // İleride Azure OCR burada devreye girecek
             };
         }
 
@@ -66,9 +73,13 @@ public class PdfImportService : IPdfImportService
         var parser = _parsers.FirstOrDefault(p => p.CanParse(fullText))
                      ?? _parsers.Last(); // GenericBankParser
 
+        Console.WriteLine($"[PdfImport] Selected parser: {parser.BankName}");
+
         // 3. Parse et
         var transactions = parser.Parse(fullText);
         var period = parser.ExtractPeriod(fullText);
+
+        Console.WriteLine($"[PdfImport] Parsed {transactions.Count} transactions, period: {period}");
 
         // 4. Kategori eşleştirme (öğrenilen + default)
         await ApplyCategoryMappings(transactions, userId);
@@ -101,7 +112,7 @@ public class PdfImportService : IPdfImportService
                 Description = item.Description,
                 TransactionDate = item.TransactionDate,
                 Type = item.Type == 1 ? TransactionType.Income : TransactionType.Expense,
-                CategoryId = item.CategoryId ?? 0,
+                CategoryId = item.CategoryId.HasValue && item.CategoryId.Value > 0 ? item.CategoryId.Value : null,
                 UserId = userId,
             };
 
@@ -128,7 +139,26 @@ public class PdfImportService : IPdfImportService
         using var document = PdfDocument.Open(pdfStream);
         foreach (var page in document.GetPages())
         {
-            sb.AppendLine(page.Text);
+            // page.Text bazen tablo satırlarını atlıyor.
+            // GetWords() ile kelimeleri Y koordinatına göre gruplayarak satır oluştur.
+            var words = page.GetWords().ToList();
+            if (words.Count == 0)
+            {
+                sb.AppendLine(page.Text);
+                continue;
+            }
+
+            // Kelimeleri Y koordinatına göre grupla (aynı satırdaki kelimeler ~aynı Y'de)
+            var lines = words
+                .GroupBy(w => Math.Round(w.BoundingBox.Bottom, 0))
+                .OrderByDescending(g => g.Key) // PDF'de Y yukarıdan aşağı azalır
+                .Select(g => string.Join(" ", g.OrderBy(w => w.BoundingBox.Left).Select(w => w.Text)))
+                .ToList();
+
+            foreach (var line in lines)
+            {
+                sb.AppendLine(line);
+            }
         }
         return sb.ToString();
     }

@@ -11,6 +11,7 @@ public class SmartFinanceDbContext : DbContext
     public DbSet<Transaction> Transactions {get;set;}
     public DbSet<Category> Categories {get;set;}
     public DbSet<Investment> Investments {get;set;}
+    public DbSet<CategoryMapping> CategoryMappings {get;set;}
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

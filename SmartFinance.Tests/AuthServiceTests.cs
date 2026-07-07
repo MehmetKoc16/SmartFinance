@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 using SmartFinance.Application.DTOs.Auth;
 using SmartFinance.Application.Exceptions;
 using SmartFinance.Infrastructure.Context;
@@ -23,7 +24,8 @@ public class AuthServiceTests
             {"Jwt:ExpireMinutes","60"}
         }).Build();
 
-        var service = new AuthService(context, config);
+        var httpContextAccessor = new HttpContextAccessor();
+        var service = new AuthService(context, config, httpContextAccessor);
         return(service,context);
     }
 

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using SmartFinance.Application.DTOs.Auth;
 using SmartFinance.Application.Interfaces;
 
@@ -29,4 +31,22 @@ public class AuthController : ControllerBase
         var token=await _authService.LoginAsync(dto);
         return Ok(token);
     }
-}
+
+    [HttpGet("me")]
+    [Authorize]
+    public IActionResult GetMe()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var email  = User.FindFirst(ClaimTypes.Email)?.Value;
+        var name   = User.FindFirst(ClaimTypes.Name)?.Value;
+        return Ok(new { id = userId, email, fullName = name });
+    }
+
+    [HttpPut("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        await _authService.ChangePasswordAsync(dto);
+        return NoContent();
+    }
+}

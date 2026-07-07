@@ -9,17 +9,20 @@ using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
+using Microsoft.AspNetCore.Http;
 
 namespace SmartFinance.Infrastructure.Services;
 
 public class AuthService : IAuthService{
     private readonly SmartFinanceDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public AuthService(SmartFinanceDbContext context, IConfiguration configuration)
+    public AuthService(SmartFinanceDbContext context, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
     {
         _context=context;
         _configuration=configuration;
+        _httpContextAccessor=httpContextAccessor;
     }
     
     public async Task<TokenDto> RegisterAsync(RegisterDto dto)
@@ -109,5 +112,18 @@ public class AuthService : IAuthService{
             Token = new JwtSecurityTokenHandler().WriteToken(token),
             Expiration = expiration
         };
+    }
+
+    public async Task ChangePasswordAsync(ChangePasswordDto dto)
+    {
+        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await _context.Users.FindAsync(userId)
+            ?? throw new NotFoundException("Kullanıcı bulunamadı!");
+        if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+            throw new BadRequestException("Mevcut şifre hatalı!");
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        user.UpdatedDate = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
     }
 }

@@ -54,11 +54,7 @@ public class PdfImportService : IPdfImportService
 
         Console.WriteLine($"[PdfImport] FileName: {fileName}");
         Console.WriteLine($"[PdfImport] Text length: {fullText?.Length ?? 0}");
-        Console.WriteLine($"[PdfImport] First 500 chars: {fullText?[..Math.Min(fullText.Length, 500)]}");
-        
-        // DEBUG: Tam metni dosyaya yaz
-        File.WriteAllText("C:\\temp\\pdf_debug.txt", fullText ?? "EMPTY");
-        Console.WriteLine("[PdfImport] Full text written to C:\\temp\\pdf_debug.txt");
+
         if (string.IsNullOrWhiteSpace(fullText))
         {
             Console.WriteLine("[PdfImport] Text is empty — image-based PDF?");

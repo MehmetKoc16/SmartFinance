@@ -5,6 +5,7 @@ using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
 
 namespace SmartFinance.Infrastructure.Services;
@@ -97,11 +98,21 @@ public class TransactionService : ITransactionService
         };
     }
 
+    private async Task EnsureCategoryOwnedAsync(int? categoryId, int userId)
+    {
+        if (!categoryId.HasValue) return;
+        var owned = await _context.Categories.AnyAsync(c => c.Id == categoryId.Value && c.UserId == userId);
+        if (!owned)
+            throw new BadRequestException("Geçersiz kategori!");
+    }
+
     public async Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto)
     {
         // Token'dan UserId al
         var userId = int.Parse(_httpContextAccessor.HttpContext!.User
             .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        await EnsureCategoryOwnedAsync(dto.CategoryId, userId);
 
         var transaction = new Transaction
         {
@@ -135,6 +146,8 @@ public class TransactionService : ITransactionService
         var transaction = await _repository.GetByIdAsync(id);
         if(transaction == null || transaction.UserId!=userId)
             throw new NotFoundException("İşlem bulunamadı!");
+
+        await EnsureCategoryOwnedAsync(dto.CategoryId, userId);
 
         transaction.Amount = dto.Amount;
         transaction.Description = dto.Description;

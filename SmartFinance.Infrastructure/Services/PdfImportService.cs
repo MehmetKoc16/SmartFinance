@@ -99,8 +99,20 @@ public class PdfImportService : IPdfImportService
         var userId = GetUserId();
         var savedCount = 0;
 
+        // Kullanıcının sahip olduğu kategori id'leri — client'tan gelen categoryId
+        // başka bir kullanıcıya ait olsa bile kabul edilmesin diye önceden çekiliyor.
+        var ownedCategoryIds = (await _context.Categories
+            .Where(c => c.UserId == userId)
+            .Select(c => c.Id)
+            .ToListAsync())
+            .ToHashSet();
+
         foreach (var item in dto.Transactions)
         {
+            var categoryId = item.CategoryId.HasValue && ownedCategoryIds.Contains(item.CategoryId.Value)
+                ? item.CategoryId.Value
+                : (int?)null;
+
             // Transaction kaydet
             var transaction = new Transaction
             {
@@ -108,16 +120,16 @@ public class PdfImportService : IPdfImportService
                 Description = item.Description,
                 TransactionDate = item.TransactionDate,
                 Type = item.Type == 1 ? TransactionType.Income : TransactionType.Expense,
-                CategoryId = item.CategoryId.HasValue && item.CategoryId.Value > 0 ? item.CategoryId.Value : null,
+                CategoryId = categoryId,
                 UserId = userId,
             };
 
             await _context.Transactions.AddAsync(transaction);
 
             // Öğrenme: MerchantName + CategoryId varsa eşleştirmeyi kaydet
-            if (!string.IsNullOrWhiteSpace(item.MerchantName) && item.CategoryId.HasValue)
+            if (!string.IsNullOrWhiteSpace(item.MerchantName) && categoryId.HasValue)
             {
-                await SaveCategoryMapping(userId, item.MerchantName, item.CategoryId.Value);
+                await SaveCategoryMapping(userId, item.MerchantName, categoryId.Value);
             }
 
             savedCount++;

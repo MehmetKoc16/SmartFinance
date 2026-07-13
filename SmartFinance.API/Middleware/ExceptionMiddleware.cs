@@ -34,6 +34,7 @@ public class ExceptionMiddleware
             BadRequestException => (int)HttpStatusCode.BadRequest,       // 400
             NotFoundException =>(int)HttpStatusCode.NotFound,            // 404
             UnauthorizedException=>(int)HttpStatusCode.Unauthorized,     // 401
+            ExternalServiceException=>(int)HttpStatusCode.BadGateway,    // 502
             _ => (int)HttpStatusCode.InternalServerError                 // 500 (bilinmeyen)
         };
 

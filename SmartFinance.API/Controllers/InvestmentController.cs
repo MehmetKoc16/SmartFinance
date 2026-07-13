@@ -59,5 +59,19 @@ public class InvestmentController : ControllerBase
         await _investmentService.DeleteInvestmentAsync(id);
         return NoContent();
     }
- 
+
+    [HttpPost("refresh-prices")]
+    public async Task<IActionResult> RefreshPrices()
+    {
+        var result = await _investmentService.RefreshPricesAsync();
+        return Ok(result);
+    }
+
+    [HttpGet("{id}/technical-analysis")]
+    public async Task<IActionResult> GetTechnicalAnalysis(int id, [FromQuery] int days = 180)
+    {
+        var analysis = await _investmentService.GetTechnicalAnalysisAsync(id, days);
+        return Ok(analysis);
+    }
+
 }

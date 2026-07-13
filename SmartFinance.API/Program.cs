@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using SmartFinance.API.Infrastructure;
 using SmartFinance.API.Middleware;
+using SmartFinance.Infrastructure.MarketData;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,13 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 builder.Services.AddScoped<IPdfImportService, PdfImportService>();
+
+// Fiyat sağlayıcıları — her biri IPriceProvider altında kayıtlı, MarketDataService IEnumerable<IPriceProvider> ile hepsini alır
+builder.Services.AddHttpClient<IPriceProvider, CoinGeckoPriceProvider>();
+builder.Services.AddHttpClient<IPriceProvider, YahooFinancePriceProvider>();
+builder.Services.AddHttpClient<IPriceProvider, TefasPriceProvider>();
+builder.Services.AddHttpClient<IPriceProvider, TcmbPriceProvider>();
+builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 
 // JWT Authentication yapılandırması
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

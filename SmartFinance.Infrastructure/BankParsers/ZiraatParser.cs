@@ -17,7 +17,7 @@ public class ZiraatParser : IBankParser
 
     public string? ExtractPeriod(string fullText)
     {
-        var match = Regex.Match(fullText, @"(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})");
+        var match = Regex.Match(fullText, @"(\d{2}[./]\d{2}[./]\d{4})\s*-\s*(\d{2}[./]\d{2}[./]\d{4})");
         return match.Success ? match.Value : null;
     }
 
@@ -26,10 +26,11 @@ public class ZiraatParser : IBankParser
         var transactions = new List<ParsedTransactionDto>();
         var lines = fullText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        // Ziraat text formatı: dd.MM.yyyy ile başlayan satırlar
-        var datePattern = new Regex(@"^(\d{2}\.\d{2}\.\d{4})");
-        // Tutar formatı: -174 veya 5000 veya -1.234,56
-        var amountPattern = new Regex(@"(-?[\d.]+(?:,\d{1,2})?)");
+        // Ziraat text formatı: dd.MM.yyyy veya dd/MM/yyyy ile başlayan satırlar
+        var datePattern = new Regex(@"^(\d{2}[./]\d{2}[./]\d{4})");
+        // Tutar formatı: -1.234,56 veya 5000,00 — ondalık kısım zorunlu, aksi halde
+        // açıklama içindeki hesap/referans numaraları (77639385, 5006 gibi) yanlışlıkla eşleşiyor
+        var amountPattern = new Regex(@"(-?[\d.]+,\d{2})");
 
         foreach (var line in lines)
         {
@@ -37,7 +38,8 @@ public class ZiraatParser : IBankParser
             var dateMatch = datePattern.Match(trimmed);
             if (!dateMatch.Success) continue;
 
-            if (!DateTime.TryParseExact(dateMatch.Value, "dd.MM.yyyy",
+            var dateStr = dateMatch.Value.Replace("/", ".");
+            if (!DateTime.TryParseExact(dateStr, "dd.MM.yyyy",
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
                 continue;
 
@@ -69,7 +71,14 @@ public class ZiraatParser : IBankParser
                 description = description.Replace(m.Value, "");
             description = Regex.Replace(description, @"\s+", " ").Trim();
 
-            // İşyeri adını çıkar — Ziraat'te İŞYERİ: X MUTABAKAT: formatı var
+            // Referans/hesap/fiş numaralarını temizle (5+ haneli sayı dizileri)
+            var cleanedDescription = Regex.Replace(description, @"\b\d{5,}\b", "");
+            cleanedDescription = Regex.Replace(cleanedDescription, @"\s+", " ").Trim();
+            if (!string.IsNullOrWhiteSpace(cleanedDescription))
+                description = cleanedDescription;
+
+            // İşyeri adını çıkar — Ziraat'te İŞYERİ: X MUTABAKAT: formatı,
+            // Gönd: X formatı veya -İSİM/FAST işlemi formatı var
             var merchantName = ExtractMerchantName(description);
 
             transactions.Add(new ParsedTransactionDto
@@ -100,6 +109,11 @@ public class ZiraatParser : IBankParser
         var senderMatch = Regex.Match(description, @"G[öo]nd:\s*(.*?)(?:\s+\d|$)", RegexOptions.IgnoreCase);
         if (senderMatch.Success)
             return senderMatch.Groups[1].Value.Trim();
+
+        // -İSİM/FAST işlemi formatı (örn: ".../TR...-MEHMET MAŞA/FAST işlemi")
+        var fastMatch = Regex.Match(description, @"-([^-/]+)/FAST\s*işlemi", RegexOptions.IgnoreCase);
+        if (fastMatch.Success)
+            return fastMatch.Groups[1].Value.Trim();
 
         // Fallback: ilk 50 karakter
         var cleaned = description.Trim();

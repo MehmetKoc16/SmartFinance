@@ -22,10 +22,10 @@ public class GenericBankParser : IBankParser
         var transactions = new List<ParsedTransactionDto>();
         var lines = fullText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        // Genel tarih pattern'i: dd.MM.yyyy veya dd-MM-yyyy veya dd/MM/yyyy
-        var datePattern = new Regex(@"(\d{2}[.\-/]\d{2}[.\-/]\d{4})");
-        // Tutar: -1.234,56 veya 1234,56 veya -40,00
-        var amountPattern = new Regex(@"(-?[\d.]+,\d{2})");
+        // Genel tarih pattern'i: dd.MM.yyyy / dd-MM-yyyy / dd/MM/yyyy veya 2 haneli yıl (dd/MM/yy — Enpara gibi)
+        var datePattern = new Regex(@"(\d{2}[.\-/]\d{2}[.\-/]\d{2,4})");
+        // Tutar: -1.234,56 veya 1234,56 veya -40,00 veya "- 40,00" (eksi işaretiyle sayı arasında boşluk olabilir)
+        var amountPattern = new Regex(@"(-?\s?[\d.]+,\d{2})");
 
         foreach (var line in lines)
         {
@@ -34,14 +34,14 @@ public class GenericBankParser : IBankParser
             if (!dateMatch.Success) continue;
 
             var dateStr = dateMatch.Value.Replace("-", ".").Replace("/", ".");
-            if (!DateTime.TryParseExact(dateStr, "dd.MM.yyyy",
+            if (!DateTime.TryParseExact(dateStr, new[] { "dd.MM.yyyy", "dd.MM.yy" },
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
                 continue;
 
             var amountMatches = amountPattern.Matches(trimmed);
             if (amountMatches.Count < 1) continue;
 
-            var amountStr = amountMatches[0].Value.Replace(".", "").Replace(",", ".");
+            var amountStr = amountMatches[0].Value.Replace(" ", "").Replace(".", "").Replace(",", ".");
             if (!decimal.TryParse(amountStr, CultureInfo.InvariantCulture, out var amount))
                 continue;
 

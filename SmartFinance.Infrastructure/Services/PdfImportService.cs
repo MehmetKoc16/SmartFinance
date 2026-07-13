@@ -38,6 +38,7 @@ public class PdfImportService : IPdfImportService
         {
             new HalkbankParser(),
             new ZiraatParser(),
+            new EnparaParser(),
             new GenericBankParser()
         };
     }

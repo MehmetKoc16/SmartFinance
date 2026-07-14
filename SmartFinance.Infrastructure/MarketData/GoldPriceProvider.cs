@@ -7,45 +7,50 @@ using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.Infrastructure.MarketData;
 
-public class TcmbPriceProvider : IPriceProvider
+public class GoldPriceProvider : IPriceProvider
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
 
-    // Altın burada değil — GoldPriceProvider'a taşındı (güncel fiyat için GenelPara, EVDS aylık veriyle çok bayattı)
-    public IEnumerable<string> SupportedInvestmentTypes => new[] { "currency" };
+    public IEnumerable<string> SupportedInvestmentTypes => new[] { "gold" };
 
-    public TcmbPriceProvider(HttpClient httpClient, IConfiguration configuration)
+    public GoldPriceProvider(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _configuration = configuration;
-        // 2024 sonrası EVDS3 platformuna taşındı; anahtar artık URL'de değil "key" header'ında gönderiliyor
-        _httpClient.BaseAddress = new Uri("https://evds3.tcmb.gov.tr/igmevdsms-dis/");
+        if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
+        {
+            _httpClient.DefaultRequestHeaders.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36");
+        }
     }
 
-    private static string ResolveSeriesCode(string symbol)
-    {
-        if (!TcmbSeriesMap.CurrencySeriesCodes.TryGetValue(symbol, out var seriesCode))
-            throw new ExternalServiceException($"TCMB EVDS'de '{symbol}' için tanımlı bir seri kodu yok.");
-
-        return seriesCode;
-    }
-
+    // GenelPara — anahtar gerektirmeyen, gerçek zamanlı gram altın fiyatı (GA = Gram Altın satış).
+    // Bu API geçmiş veri sunmuyor; teknik analiz için hâlâ TCMB EVDS'nin aylık serisi kullanılıyor.
     public async Task<PriceQuoteDto> GetCurrentPriceAsync(string symbol, string investmentType, CancellationToken ct = default)
     {
-        var to = DateTime.Today;
-        var from = to.AddDays(-10); // hafta sonu/resmi tatil boşluklarını atlamak için birkaç gün geriden başla
-        var bars = await GetHistoricalPricesAsync(symbol, investmentType, from, to, ct);
+        var response = await _httpClient.GetAsync("https://api.genelpara.com/json/?list=altin&sembol=GA", ct);
+        if (!response.IsSuccessStatusCode)
+            throw new ExternalServiceException("GenelPara altın fiyatı sorgusu başarısız oldu.");
 
-        if (bars.Count == 0)
-            throw new ExternalServiceException($"TCMB EVDS'de '{symbol}' için fiyat bulunamadı.");
+        using var stream = await response.Content.ReadAsStreamAsync(ct);
+        var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
-        var last = bars[^1];
+        if (!doc.RootElement.TryGetProperty("data", out var dataElement) ||
+            !dataElement.TryGetProperty("GA", out var gaElement) ||
+            !gaElement.TryGetProperty("satis", out var satisElement))
+            throw new ExternalServiceException("GenelPara'da gram altın fiyatı bulunamadı.");
+
+        var satisString = satisElement.GetString();
+        if (string.IsNullOrWhiteSpace(satisString) ||
+            !decimal.TryParse(satisString, NumberStyles.Any, CultureInfo.InvariantCulture, out var price))
+            throw new ExternalServiceException("GenelPara altın fiyatı ayrıştırılamadı.");
+
         return new PriceQuoteDto
         {
             Symbol = symbol,
-            Price = last.Close,
-            AsOf = last.Date,
+            Price = price,
+            AsOf = DateTime.UtcNow,
         };
     }
 
@@ -56,17 +61,19 @@ public class TcmbPriceProvider : IPriceProvider
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new ExternalServiceException("TCMB EVDS API anahtarı yapılandırılmamış.");
 
-        var seriesCode = ResolveSeriesCode(symbol);
+        if (!TcmbSeriesMap.GoldSeriesCodes.TryGetValue(symbol, out var seriesCode))
+            throw new ExternalServiceException($"'{symbol}' için tanımlı bir altın seri kodu yok.");
         var jsonFieldName = seriesCode.Replace('.', '_');
 
-        // TCMB'nin API'si "?" ayracı kullanmıyor — path doğrudan parametrelerle devam ediyor
-        var url = $"series={seriesCode}&startDate={from:dd-MM-yyyy}&endDate={to:dd-MM-yyyy}&type=json";
+        // TCMB'nin API'si "?" ayracı kullanmıyor — path doğrudan parametrelerle devam ediyor.
+        // 2024 sonrası EVDS3'e taşındı; anahtar URL'de değil "key" header'ında gönderiliyor.
+        var url = $"https://evds3.tcmb.gov.tr/igmevdsms-dis/series={seriesCode}&startDate={from:dd-MM-yyyy}&endDate={to:dd-MM-yyyy}&type=json";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add("key", apiKey);
 
         var response = await _httpClient.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
-            throw new ExternalServiceException($"TCMB EVDS sorgusu başarısız oldu: {symbol}");
+            throw new ExternalServiceException($"TCMB EVDS altın geçmiş verisi sorgusu başarısız oldu: {symbol}");
 
         using var stream = await response.Content.ReadAsStreamAsync(ct);
         var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -78,7 +85,7 @@ public class TcmbPriceProvider : IPriceProvider
         foreach (var item in itemsElement.EnumerateArray())
         {
             if (!item.TryGetProperty(jsonFieldName, out var valueElement) || valueElement.ValueKind != JsonValueKind.String)
-                continue; // resmi tatil günlerinde değer boş dönebilir
+                continue; // resmi tatil günlerinde/aylık aralıklarda değer boş dönebilir
 
             var valueString = valueElement.GetString();
             if (string.IsNullOrWhiteSpace(valueString) ||

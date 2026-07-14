@@ -36,6 +36,7 @@ builder.Services.AddHttpClient<IPriceProvider, CoinGeckoPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, YahooFinancePriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, TefasPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, TcmbPriceProvider>();
+builder.Services.AddHttpClient<IPriceProvider, GoldPriceProvider>();
 builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 
 // JWT Authentication yapılandırması

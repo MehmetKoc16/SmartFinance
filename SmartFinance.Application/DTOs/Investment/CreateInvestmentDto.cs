@@ -13,11 +13,6 @@ public class CreateInvestmentDto{
     [Range(0.01, double.MaxValue, ErrorMessage = "Alış fiyatı 0'dan büyük olmalıdır!")]
     public decimal PurchasePrice{get;set;}
 
-    // Sadece "fund" tipi için kullanılıyor — TEFAS otomatik fiyat çekimi şu an çalışmadığından
-    // geçici olarak elle giriliyor. Diğer tiplerde bu alan yok sayılır, fiyat sağlayıcıdan çekilir.
-    [Range(0, double.MaxValue, ErrorMessage = "Güncel fiyat negatif olamaz!")]
-    public decimal CurrentPrice{get;set;}
-
     [Range(0.0001, double.MaxValue, ErrorMessage = "Miktar 0'dan büyük olmalıdır!")]
     public double Quantity{get;set;}
 

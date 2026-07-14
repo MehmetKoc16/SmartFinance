@@ -53,14 +53,17 @@ public class InvestmentService : IInvestmentService
     public async Task<InvestmentDto> CreateInvestmentAsync(CreateInvestmentDto dto)
     {
         var userId = GetUserId();
-        var currentPrice = await ResolveCurrentPriceAsync(dto.Name, dto.InvestmentType, dto.CurrentPrice);
+
+        // Güncel fiyat elle girilmiyor — kayıt öncesi sağlayıcıdan çekiliyor.
+        // Sağlayıcı başarısız olursa (yanlış sembol vb.) kayıt oluşturulmaz.
+        var quote = await _marketDataService.GetCurrentPriceAsync(dto.Name, dto.InvestmentType);
 
         var investment = new Investment
         {
             Name = dto.Name,
             FullName = dto.FullName,
             PurchasePrice = dto.PurchasePrice,
-            CurrentPrice = currentPrice,
+            CurrentPrice = quote.Price,
             Quantity = dto.Quantity,
             InvestmentType = dto.InvestmentType,
             UserId = userId
@@ -79,29 +82,18 @@ public class InvestmentService : IInvestmentService
         if (investment == null || investment.UserId != userId)
             throw new NotFoundException($"Yatırım bulunamadı. Id: {id}");
 
-        var currentPrice = await ResolveCurrentPriceAsync(dto.Name, dto.InvestmentType, dto.CurrentPrice);
+        var quote = await _marketDataService.GetCurrentPriceAsync(dto.Name, dto.InvestmentType);
 
         investment.Name = dto.Name;
         investment.FullName = dto.FullName;
         investment.PurchasePrice = dto.PurchasePrice;
-        investment.CurrentPrice = currentPrice;
+        investment.CurrentPrice = quote.Price;
         investment.Quantity = dto.Quantity;
         investment.InvestmentType = dto.InvestmentType;
         investment.UpdatedDate = DateTime.UtcNow;
 
         _repository.Update(investment);
         await _context.SaveChangesAsync();
-    }
-
-    // "fund" tipi TEFAS otomatik fiyat çekimi şu an çalışmadığı için geçici olarak elle giriliyor;
-    // diğer tüm tipler her zaman sağlayıcıdan çekiliyor, elle girilen değer yok sayılıyor.
-    private async Task<decimal> ResolveCurrentPriceAsync(string name, string investmentType, decimal manualPrice)
-    {
-        if (investmentType.Equals("fund", StringComparison.OrdinalIgnoreCase))
-            return manualPrice;
-
-        var quote = await _marketDataService.GetCurrentPriceAsync(name, investmentType);
-        return quote.Price;
     }
 
     public async Task<RefreshPricesResultDto> RefreshPricesAsync()
@@ -114,10 +106,6 @@ public class InvestmentService : IInvestmentService
 
         foreach (var investment in investments)
         {
-            // "fund" tipi elle fiyatlanıyor (TEFAS otomatik çekimi çalışmıyor) — yenilemede atlanır
-            if (investment.InvestmentType.Equals("fund", StringComparison.OrdinalIgnoreCase))
-                continue;
-
             try
             {
                 var quote = await _marketDataService.GetCurrentPriceAsync(investment.Name, investment.InvestmentType);

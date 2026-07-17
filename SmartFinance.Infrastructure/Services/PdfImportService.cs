@@ -20,14 +20,49 @@ public class PdfImportService : IPdfImportService
     private readonly List<IBankParser> _parsers;
     private readonly ZiraatExcelParser _excelParser = new();
 
-    // Bariz keyword → kategori adı eşleştirmeleri
+    // Bariz keyword → kategori adı eşleştirmeleri. AuthService'te her yeni kullanıcıya
+    // acilan 8 varsayilan kategoriyle (Maaş/Yeme-İçme/Ulaşım/Fatura/ATM/Transfer/
+    // Alışveriş/Diğer) hizali tutulmali. Banka ekstresi metinleri bazen Türkçe
+    // karakterleri koruyor (Excel) bazen ASCII'ye indirgiyor (bazı PDF'ler) — bu yuzden
+    // cogu anahtar hem aksanli hem aksansiz eklendi.
     private static readonly Dictionary<string, string> DefaultKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
-        { "MAAS", "Maaş" }, { "UCRET", "Maaş" }, { "AYLIK", "Maaş" },
-        { "EFT", "Transfer" }, { "HAVALE", "Transfer" }, { "FAST", "Transfer" },
+        { "MAAS", "Maaş" }, { "MAAŞ", "Maaş" }, { "UCRET", "Maaş" }, { "ÜCRET", "Maaş" }, { "AYLIK", "Maaş" },
+        { "EFT", "Transfer" }, { "HAVALE", "Transfer" }, { "FAST", "Transfer" }, { "VIRMAN", "Transfer" },
         { "ATM", "ATM" },
-        { "FATURA", "Fatura" }, { "ELEKTRIK", "Fatura" }, { "DOGALGAZ", "Fatura" },
-        { "SU FATURA", "Fatura" }, { "INTERNET", "Fatura" },
+        { "FATURA", "Fatura" }, { "ELEKTRIK", "Fatura" }, { "ELEKTRİK", "Fatura" }, { "DOGALGAZ", "Fatura" },
+        { "DOĞALGAZ", "Fatura" }, { "SU FATURA", "Fatura" }, { "INTERNET", "Fatura" }, { "İNTERNET", "Fatura" },
+        { "TELEFON", "Fatura" }, { "TURKCELL", "Fatura" }, { "VODAFONE", "Fatura" }, { "TURK TELEKOM", "Fatura" },
+        { "BSMV", "Fatura" }, { "KOMISYON", "Fatura" }, { "KOMİSYON", "Fatura" }, { "MASRAF", "Fatura" },
+
+        // Yeme-İçme: genel kelimeler + yaygın zincirler
+        { "YEMEK", "Yeme-İçme" }, { "RESTORAN", "Yeme-İçme" }, { "RESTAURANT", "Yeme-İçme" },
+        { "CAFE", "Yeme-İçme" }, { "KAFE", "Yeme-İçme" }, { "LOKANTA", "Yeme-İçme" },
+        { "PIDE", "Yeme-İçme" }, { "PİDE", "Yeme-İçme" }, { "KEBAP", "Yeme-İçme" }, { "KEBAB", "Yeme-İçme" },
+        { "SIMIT", "Yeme-İçme" }, { "SİMİT", "Yeme-İçme" }, { "PASTANE", "Yeme-İçme" }, { "FIRIN", "Yeme-İçme" },
+        { "BALIK", "Yeme-İçme" }, { "PIZZA", "Yeme-İçme" }, { "BURGER", "Yeme-İçme" },
+        { "STARBUCKS", "Yeme-İçme" }, { "MCDONALD", "Yeme-İçme" }, { "KFC", "Yeme-İçme" },
+        { "DOMINO", "Yeme-İçme" }, { "SUBWAY", "Yeme-İçme" }, { "YEMEKSEPETI", "Yeme-İçme" },
+        { "YEMEKSEPETİ", "Yeme-İçme" }, { "GETIR YEMEK", "Yeme-İçme" }, { "GETİR YEMEK", "Yeme-İçme" },
+        { "TRENDYOL YEMEK", "Yeme-İçme" }, { "CIKOLATA", "Yeme-İçme" }, { "ÇİKOLATA", "Yeme-İçme" },
+
+        // Ulaşım: akaryakıt, taksi, toplu taşıma, uçak
+        { "BENZIN", "Ulaşım" }, { "BENZİN", "Ulaşım" }, { "PETROL", "Ulaşım" }, { "AKARYAKIT", "Ulaşım" },
+        { "OPET", "Ulaşım" }, { "SHELL", "Ulaşım" }, { " BP ", "Ulaşım" }, { "TOTAL ENERJI", "Ulaşım" },
+        { "OTOPARK", "Ulaşım" }, { "TAKSI", "Ulaşım" }, { "TAXI", "Ulaşım" }, { "UBER", "Ulaşım" },
+        { "BITAKSI", "Ulaşım" }, { "BİTAKSİ", "Ulaşım" }, { "METROBUS", "Ulaşım" }, { "METROBÜS", "Ulaşım" },
+        { "OTOBUS", "Ulaşım" }, { "OTOBÜS", "Ulaşım" }, { "AKBIL", "Ulaşım" }, { "ISTANBULKART", "Ulaşım" },
+        { "İSTANBULKART", "Ulaşım" }, { "THY", "Ulaşım" }, { "PEGASUS", "Ulaşım" }, { "SUNEXPRESS", "Ulaşım" },
+
+        // Alışveriş: market/perakende zincirleri + genel kelimeler
+        { "MIGROS", "Alışveriş" }, { "BIM", "Alışveriş" }, { "A101", "Alışveriş" }, { "SOK", "Alışveriş" },
+        { "ŞOK", "Alışveriş" }, { "CARREFOUR", "Alışveriş" }, { "MARKET", "Alışveriş" },
+        { "MAGAZA", "Alışveriş" }, { "MAĞAZA", "Alışveriş" }, { "TEKNOSA", "Alışveriş" },
+        { "MEDIAMARKT", "Alışveriş" }, { "LCW", "Alışveriş" }, { "DEFACTO", "Alışveriş" },
+        { "KOTON", "Alışveriş" }, { "TRENDYOL", "Alışveriş" }, { "HEPSIBURADA", "Alışveriş" },
+        { "HEPSİBURADA", "Alışveriş" }, { "AMAZON", "Alışveriş" }, { "N11", "Alışveriş" },
+        { "GIDA", "Alışveriş" }, { "PLAYSTATION", "Alışveriş" },
+        { "ELEKTRONI", "Alışveriş" }, { "ELEKTRONİK", "Alışveriş" },
     };
 
     public PdfImportService(SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor)

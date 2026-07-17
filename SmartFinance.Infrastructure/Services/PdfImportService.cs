@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.DTOs.PdfImport;
@@ -17,6 +18,7 @@ public class PdfImportService : IPdfImportService
     private readonly SmartFinanceDbContext _context;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly List<IBankParser> _parsers;
+    private readonly ZiraatExcelParser _excelParser = new();
 
     // Bariz keyword → kategori adı eşleştirmeleri
     private static readonly Dictionary<string, string> DefaultKeywords = new(StringComparer.OrdinalIgnoreCase)
@@ -46,53 +48,67 @@ public class PdfImportService : IPdfImportService
     private int GetUserId() =>
         int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-    public async Task<PdfParseResultDto> ParsePdfAsync(Stream pdfStream, string fileName)
+    public async Task<PdfParseResultDto> ParsePdfAsync(Stream fileStream, string fileName)
     {
-        var userId = GetUserId();
-
-        // 1. PdfPig ile text çıkar
-        var fullText = ExtractTextFromPdf(pdfStream);
-
         Console.WriteLine($"[PdfImport] FileName: {fileName}");
-        Console.WriteLine($"[PdfImport] Text length: {fullText?.Length ?? 0}");
 
-        if (string.IsNullOrWhiteSpace(fullText))
+        List<ParsedTransactionDto> transactions;
+        string bankName;
+        string? period;
+
+        if (fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
         {
-            Console.WriteLine("[PdfImport] Text is empty — image-based PDF?");
-            return new PdfParseResultDto
-            {
-                BankName = "Bilinmeyen",
-                Transactions = new(),
-            };
+            (transactions, bankName, period) = ParseExcel(fileStream);
         }
-
-        // 2. Doğru parser'ı bul
-        var parser = _parsers.FirstOrDefault(p => p.CanParse(fullText))
-                     ?? _parsers.Last(); // GenericBankParser
-
-        Console.WriteLine($"[PdfImport] Selected parser: {parser.BankName}");
-
-        // 3. Parse et
-        var transactions = parser.Parse(fullText);
-        var period = parser.ExtractPeriod(fullText);
+        else
+        {
+            (transactions, bankName, period) = ParsePdfText(fileStream);
+        }
 
         Console.WriteLine($"[PdfImport] Parsed {transactions.Count} transactions, period: {period}");
 
-        // 4. Kategori eşleştirme (öğrenilen + default)
+        var userId = GetUserId();
+
+        // Kategori eşleştirme (öğrenilen + default)
         await ApplyCategoryMappings(transactions, userId);
 
-        // 5. Duplicate kontrolü
+        // Duplicate kontrolü
         await MarkDuplicates(transactions, userId);
 
         return new PdfParseResultDto
         {
             Transactions = transactions,
-            BankName = parser.BankName,
+            BankName = bankName,
             Period = period,
             TotalIncome = transactions.Count(t => t.Type == 1 && !t.IsDuplicate),
             TotalExpense = transactions.Count(t => t.Type == 2 && !t.IsDuplicate),
             DuplicateCount = transactions.Count(t => t.IsDuplicate),
         };
+    }
+
+    private (List<ParsedTransactionDto> Transactions, string BankName, string? Period) ParsePdfText(Stream pdfStream)
+    {
+        var fullText = ExtractTextFromPdf(pdfStream);
+        Console.WriteLine($"[PdfImport] Text length: {fullText?.Length ?? 0}");
+
+        if (string.IsNullOrWhiteSpace(fullText))
+        {
+            Console.WriteLine("[PdfImport] Text is empty — image-based PDF?");
+            return (new(), "Bilinmeyen", null);
+        }
+
+        var parser = _parsers.FirstOrDefault(p => p.CanParse(fullText))
+                     ?? _parsers.Last(); // GenericBankParser
+        Console.WriteLine($"[PdfImport] Selected parser: {parser.BankName}");
+
+        return (parser.Parse(fullText), parser.BankName, parser.ExtractPeriod(fullText));
+    }
+
+    private (List<ParsedTransactionDto> Transactions, string BankName, string? Period) ParseExcel(Stream excelStream)
+    {
+        using var workbook = new XLWorkbook(excelStream);
+        var sheet = workbook.Worksheets.First();
+        return (_excelParser.Parse(sheet), _excelParser.BankName, _excelParser.ExtractPeriod(sheet));
     }
 
     public async Task<int> ConfirmImportAsync(ConfirmImportDto dto)
@@ -254,6 +270,21 @@ public class PdfImportService : IPdfImportService
         {
             existing.CategoryId = categoryId;
             existing.UpdatedDate = DateTime.UtcNow;
+            return;
+        }
+
+        // Aynı onay isteğinde aynı işyeri adı birden fazla kez geçebilir (örn. aynı gün
+        // birden fazla ATM çekimi) — henüz SaveChanges çağrılmadığı için DB sorgusu bunu
+        // görmez; bu context'te izlenen, henüz kaydedilmemiş bir ekleme varsa UserId+
+        // MerchantKeyword unique index çakışmasını önlemek için onu güncelliyoruz.
+        var pending = _context.ChangeTracker.Entries<CategoryMapping>()
+            .FirstOrDefault(e => e.State == EntityState.Added
+                && e.Entity.UserId == userId
+                && e.Entity.MerchantKeyword == merchantName);
+
+        if (pending != null)
+        {
+            pending.Entity.CategoryId = categoryId;
         }
         else
         {

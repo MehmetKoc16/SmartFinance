@@ -24,8 +24,10 @@ public class PdfImportController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest(new { message = "Dosya yüklenmedi." });
 
-        if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { message = "Sadece PDF dosyaları destekleniyor." });
+        var isPdf = file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+        var isExcel = file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
+        if (!isPdf && !isExcel)
+            return BadRequest(new { message = "Sadece PDF veya Excel (.xlsx) dosyaları destekleniyor." });
 
         if (file.Length > 10 * 1024 * 1024) // 10 MB limit
             return BadRequest(new { message = "Dosya boyutu 10 MB'ı geçemez." });
@@ -34,7 +36,9 @@ public class PdfImportController : ControllerBase
         var result = await _pdfImportService.ParsePdfAsync(stream, file.FileName);
 
         if (!result.Transactions.Any())
-            return Ok(new { message = "PDF'den işlem çıkarılamadı. Dosya metin tabanlı olmayabilir.", result });
+            return Ok(new { message = isPdf
+                ? "PDF'den işlem çıkarılamadı. Dosya metin tabanlı olmayabilir."
+                : "Excel dosyasından işlem çıkarılamadı. Beklenen ekstre formatında olmayabilir.", result });
 
         return Ok(result);
     }

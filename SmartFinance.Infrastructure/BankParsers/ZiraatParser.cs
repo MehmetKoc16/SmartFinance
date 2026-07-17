@@ -94,7 +94,8 @@ public class ZiraatParser : IBankParser
         return transactions;
     }
 
-    private static string? ExtractMerchantName(string description)
+    /// <summary>ZiraatExcelParser da aynı Açıklama kalıplarını paylaştığı için internal.</summary>
+    internal static string? ExtractMerchantName(string description)
     {
         if (string.IsNullOrWhiteSpace(description)) return null;
 

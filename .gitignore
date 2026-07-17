@@ -486,3 +486,8 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 KOD_REHBERI.md
+
+# Gercek banka ekstresi / kisisel finansal test dosyalari commit'lenmesin (KVKK)
+*.pdf
+*.xlsx
+*.xls

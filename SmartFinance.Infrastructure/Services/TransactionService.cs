@@ -40,6 +40,15 @@ public class TransactionService : ITransactionService
         if(filter.CategoryId.HasValue)
             query=query.Where(t=>t.CategoryId==filter.CategoryId.Value);
 
+        if(!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            // .Contains() DB collation'ina gore buyuk/kucuk harf duyarli olabiliyor —
+            // ToLower() ile karsilastirarak kullanicinin yazdigi harf buyuklugunden bagimsiz hale getiriyoruz.
+            var search = filter.Search.ToLower();
+            query=query.Where(t=>t.Description.ToLower().Contains(search) ||
+                (t.MerchantName != null && t.MerchantName.ToLower().Contains(search)));
+        }
+
         var totalCount=query.Count();
 
         var items = query.Skip((filter.Page-1)*filter.PageSize).Take(filter.PageSize).Select(t=>new TransactionDto

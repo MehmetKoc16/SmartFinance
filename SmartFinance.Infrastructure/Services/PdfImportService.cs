@@ -170,6 +170,7 @@ public class PdfImportService : IPdfImportService
             {
                 Amount = item.Amount,
                 Description = item.Description,
+                MerchantName = item.MerchantName,
                 TransactionDate = item.TransactionDate,
                 Type = item.Type == 1 ? TransactionType.Income : TransactionType.Expense,
                 CategoryId = categoryId,

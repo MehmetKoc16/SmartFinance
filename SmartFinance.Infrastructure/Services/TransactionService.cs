@@ -48,6 +48,7 @@ public class TransactionService : ITransactionService
             UserId=t.UserId,
             Amount=t.Amount,
             Description=t.Description,
+            MerchantName=t.MerchantName,
             TransactionDate=t.TransactionDate,
             Type=t.Type,
             CategoryId=t.CategoryId,
@@ -73,6 +74,7 @@ public class TransactionService : ITransactionService
             UserId = t.UserId,
             Amount = t.Amount,
             Description = t.Description,
+            MerchantName = t.MerchantName,
             TransactionDate = t.TransactionDate,
             Type = t.Type,
             CategoryId = t.CategoryId,
@@ -91,6 +93,7 @@ public class TransactionService : ITransactionService
             UserId = transaction.UserId,
             Amount = transaction.Amount,
             Description = transaction.Description,
+            MerchantName = transaction.MerchantName,
             TransactionDate = transaction.TransactionDate,
             Type = transaction.Type,
             CategoryId = transaction.CategoryId,
@@ -133,6 +136,7 @@ public class TransactionService : ITransactionService
             UserId = transaction.UserId,
             Amount = transaction.Amount,
             Description = transaction.Description,
+            MerchantName = transaction.MerchantName,
             TransactionDate = transaction.TransactionDate,
             Type = transaction.Type,
             CategoryId = transaction.CategoryId,
@@ -151,6 +155,9 @@ public class TransactionService : ITransactionService
 
         transaction.Amount = dto.Amount;
         transaction.Description = dto.Description;
+        // Elle düzenleme, otomatik çıkarılmış işyeri adını geçersiz kılar —
+        // arayüz artık kullanıcının az önce yazdığı Description'ı esas alsın.
+        transaction.MerchantName = null;
         transaction.TransactionDate = dto.TransactionDate;
         transaction.Type = dto.Type;
         transaction.CategoryId = dto.CategoryId;

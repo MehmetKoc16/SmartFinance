@@ -28,6 +28,9 @@ public class CategoryService : ICategoryService
         return categories.Where(c=>c.UserId==userId).Select(c=>new CategoryDto{
             Id=c.Id,
             Name=c.Name,
+            Type=c.Type,
+            Icon=c.Icon,
+            Color=c.Color,
             CreatedDate=c.CreatedDate,
         });
     }
@@ -39,9 +42,12 @@ public class CategoryService : ICategoryService
         return new CategoryDto{
             Id=category.Id,
             Name=category.Name,
+            Type=category.Type,
+            Icon=category.Icon,
+            Color=category.Color,
             CreatedDate=category.CreatedDate,
         };
-    } 
+    }
 
     public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryDto dto)
     {
@@ -52,6 +58,9 @@ public class CategoryService : ICategoryService
         var category= new Category
         {
             Name =dto.Name,
+            Type = dto.Type,
+            Icon = dto.Icon,
+            Color = dto.Color,
             UserId = userId
         };
 
@@ -61,6 +70,9 @@ public class CategoryService : ICategoryService
         return new CategoryDto{
             Id=category.Id,
             Name=category.Name,
+            Type=category.Type,
+            Icon=category.Icon,
+            Color=category.Color,
             CreatedDate=category.CreatedDate,
         };
     }
@@ -73,6 +85,9 @@ public class CategoryService : ICategoryService
             throw new NotFoundException("Kategori bulunamadı!");
 
         category.Name=dto.Name;
+        category.Type=dto.Type;
+        category.Icon=dto.Icon;
+        category.Color=dto.Color;
         category.UpdatedDate=DateTime.UtcNow;
         _repository.Update(category);
         await _context.SaveChangesAsync();

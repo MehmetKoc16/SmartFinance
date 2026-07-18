@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using SmartFinance.Application.DTOs.Auth;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
+using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
@@ -41,11 +42,28 @@ public class AuthService : IAuthService{
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Yeni kullanıcıya varsayılan kategoriler oluştur
-        var defaultCategories = new[] { "Maaş", "Yeme-İçme", "Ulaşım", "Fatura", "ATM", "Transfer", "Alışveriş", "Diğer" };
-        foreach (var catName in defaultCategories)
+        // Yeni kullanıcıya varsayılan kategoriler oluştur (isim, tip, ikon, renk)
+        var defaultCategories = new (string Name, TransactionType Type, string Icon, string Color)[]
         {
-            _context.Categories.Add(new Category { Name = catName, UserId = user.Id });
+            ("Maaş", TransactionType.Income, "banknote", "#159A5B"),
+            ("Yeme-İçme", TransactionType.Expense, "utensils", "#F43F5E"),
+            ("Ulaşım", TransactionType.Expense, "car", "#14B8A6"),
+            ("Fatura", TransactionType.Expense, "receipt", "#06B6D4"),
+            ("ATM", TransactionType.Expense, "landmark", "#64748B"),
+            ("Transfer", TransactionType.Expense, "arrow-left-right", "#3B82F6"),
+            ("Alışveriş", TransactionType.Expense, "shopping-bag", "#8B5CF6"),
+            ("Diğer", TransactionType.Expense, "more-horizontal", "#64748B"),
+        };
+        foreach (var cat in defaultCategories)
+        {
+            _context.Categories.Add(new Category
+            {
+                Name = cat.Name,
+                Type = cat.Type,
+                Icon = cat.Icon,
+                Color = cat.Color,
+                UserId = user.Id,
+            });
         }
         await _context.SaveChangesAsync();
 

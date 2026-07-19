@@ -3,6 +3,7 @@ using System.Text;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SmartFinance.Application.DTOs.PdfImport;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
@@ -17,6 +18,7 @@ public class PdfImportService : IPdfImportService
 {
     private readonly SmartFinanceDbContext _context;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<PdfImportService> _logger;
     private readonly List<IBankParser> _parsers;
     private readonly ZiraatExcelParser _excelParser = new();
 
@@ -65,10 +67,11 @@ public class PdfImportService : IPdfImportService
         { "ELEKTRONI", "Alışveriş" }, { "ELEKTRONİK", "Alışveriş" },
     };
 
-    public PdfImportService(SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor)
+    public PdfImportService(SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<PdfImportService> logger)
     {
         _context = context;
         _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
 
         // Parser'ları öncelik sırasına göre ekle (GenericBankParser en son)
         _parsers = new List<IBankParser>
@@ -85,7 +88,7 @@ public class PdfImportService : IPdfImportService
 
     public async Task<PdfParseResultDto> ParsePdfAsync(Stream fileStream, string fileName)
     {
-        Console.WriteLine($"[PdfImport] FileName: {fileName}");
+        _logger.LogInformation("PDF/Excel ice aktarma basladi: {FileName}", fileName);
 
         List<ParsedTransactionDto> transactions;
         string bankName;
@@ -100,7 +103,7 @@ public class PdfImportService : IPdfImportService
             (transactions, bankName, period) = ParsePdfText(fileStream);
         }
 
-        Console.WriteLine($"[PdfImport] Parsed {transactions.Count} transactions, period: {period}");
+        _logger.LogInformation("{Count} islem cikarildi, donem: {Period}", transactions.Count, period);
 
         var userId = GetUserId();
 
@@ -124,17 +127,17 @@ public class PdfImportService : IPdfImportService
     private (List<ParsedTransactionDto> Transactions, string BankName, string? Period) ParsePdfText(Stream pdfStream)
     {
         var fullText = ExtractTextFromPdf(pdfStream);
-        Console.WriteLine($"[PdfImport] Text length: {fullText?.Length ?? 0}");
+        _logger.LogInformation("PDF metin uzunlugu: {Length}", fullText?.Length ?? 0);
 
         if (string.IsNullOrWhiteSpace(fullText))
         {
-            Console.WriteLine("[PdfImport] Text is empty — image-based PDF?");
+            _logger.LogWarning("PDF'den metin cikarilamadi — goruntu tabanli PDF olabilir");
             return (new(), "Bilinmeyen", null);
         }
 
         var parser = _parsers.FirstOrDefault(p => p.CanParse(fullText))
                      ?? _parsers.Last(); // GenericBankParser
-        Console.WriteLine($"[PdfImport] Selected parser: {parser.BankName}");
+        _logger.LogInformation("Secilen parser: {BankName}", parser.BankName);
 
         return (parser.Parse(fullText), parser.BankName, parser.ExtractPeriod(fullText));
     }

@@ -110,12 +110,14 @@ public class TransactionService : ITransactionService
         };
     }
 
-    private async Task EnsureCategoryOwnedAsync(int? categoryId, int userId)
+    private async Task EnsureCategoryOwnedAsync(int? categoryId, int userId, TransactionType transactionType)
     {
         if (!categoryId.HasValue) return;
-        var owned = await _context.Categories.AnyAsync(c => c.Id == categoryId.Value && c.UserId == userId);
-        if (!owned)
+        var category = await _context.Categories.FirstOrDefaultAsync(c => c.Id == categoryId.Value && c.UserId == userId);
+        if (category == null)
             throw new BadRequestException("Geçersiz kategori!");
+        if (category.Type != transactionType)
+            throw new BadRequestException("Kategori tipi işlem tipiyle uyuşmuyor!");
     }
 
     public async Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto)
@@ -124,7 +126,7 @@ public class TransactionService : ITransactionService
         var userId = int.Parse(_httpContextAccessor.HttpContext!.User
             .FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-        await EnsureCategoryOwnedAsync(dto.CategoryId, userId);
+        await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
         var transaction = new Transaction
         {
@@ -160,7 +162,7 @@ public class TransactionService : ITransactionService
         if(transaction == null || transaction.UserId!=userId)
             throw new NotFoundException("İşlem bulunamadı!");
 
-        await EnsureCategoryOwnedAsync(dto.CategoryId, userId);
+        await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
         transaction.Amount = dto.Amount;
         transaction.Description = dto.Description;

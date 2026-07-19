@@ -53,6 +53,14 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
+    {
+        var result = await _authService.UpdateProfileAsync(dto);
+        return Ok(result);
+    }
+
     /// <summary>Erisim (JWT) token'inin suresi doldugunda, kullaniciyi tekrar
     /// login'e dusurmeden yeni bir erisim+refresh token cifti alir. Bilerek
     /// [Authorize] degil — cagrilma amaci zaten suresi gecmis olabilecek bir

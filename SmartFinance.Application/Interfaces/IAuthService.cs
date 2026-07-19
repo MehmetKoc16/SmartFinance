@@ -8,4 +8,5 @@ public interface IAuthService{
     Task ChangePasswordAsync(ChangePasswordDto dto);
     Task<TokenDto> RefreshTokenAsync(string refreshToken);
     Task LogoutAsync(string refreshToken);
+    Task<object> UpdateProfileAsync(UpdateProfileDto dto);
 }

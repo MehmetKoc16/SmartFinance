@@ -190,4 +190,32 @@ public class AuthService : IAuthService{
         user.UpdatedDate = DateTime.UtcNow;
         await _context.SaveChangesAsync();
     }
+
+    public async Task<object> UpdateProfileAsync(UpdateProfileDto dto)
+    {
+        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await _context.Users.FindAsync(userId)
+            ?? throw new NotFoundException("Kullanıcı bulunamadı!");
+
+        // Email degistiriliyorsa baska bir kullanici zaten bu email'i almis mi kontrol et
+        if (!string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            var emailTaken = await _context.Users.AnyAsync(u => u.Id != userId && u.Email == dto.Email);
+            if (emailTaken)
+                throw new BadRequestException("Bu email zaten kullanılıyor!");
+        }
+
+        user.FullName = dto.FullName;
+        user.Email = dto.Email;
+        user.UpdatedDate = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        // Not: mevcut JWT'nin icindeki eski ad/email claim'leri bu istek
+        // tamamlandiktan sonra da bir sonraki token yenilemesine kadar aynen
+        // kalir (JWT icerigi imzalandiktan sonra degistirilemez) - bu yuzden
+        // guncel degerleri buradan dogrudan donuyoruz, GetMe()'nin token'dan
+        // okumasini beklemiyoruz.
+        return new { id = user.Id, email = user.Email, fullName = user.FullName };
+    }
 }

@@ -4,6 +4,7 @@ using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
 
 namespace SmartFinance.Infrastructure.Services;
@@ -24,15 +25,14 @@ public class CategoryService : ICategoryService
     public async Task<IEnumerable<CategoryDto>> GetAllCategoriesAsync()
     {
         var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var categories = await _repository.GetAllAsync();
-        return categories.Where(c=>c.UserId==userId).Select(c=>new CategoryDto{
+        return await _repository.Query().Where(c=>c.UserId==userId).Select(c=>new CategoryDto{
             Id=c.Id,
             Name=c.Name,
             Type=c.Type,
             Icon=c.Icon,
             Color=c.Color,
             CreatedDate=c.CreatedDate,
-        });
+        }).ToListAsync();
     }
     public async Task<CategoryDto?> GetCategoryByIdAsync(int id)
     {

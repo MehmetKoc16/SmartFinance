@@ -10,4 +10,11 @@ public interface IGenericRepository<T> where T : class
     Task AddAsync(T entity);
     void Update(T entity);
     void Delete(T entity);
+
+    // GetAllAsync() tum tabloyu (tum kullanicilarin kayitlarini) belleğe cekip
+    // filtrelemeyi LINQ-to-Objects ile yapiyor - kullanici/kayit sayisi arttikca
+    // her istek butun tabloyu okur. Query(), henuz calistirilmamis bir IQueryable
+    // doner; cagiran taraf .Where(...)/.Skip()/.Take()/.CountAsync() ekleyip
+    // filtrenin SQL'e itilmesini saglayabilir.
+    IQueryable<T> Query();
 }

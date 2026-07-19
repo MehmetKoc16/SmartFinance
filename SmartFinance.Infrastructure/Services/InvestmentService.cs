@@ -5,6 +5,7 @@ using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
 
 namespace SmartFinance.Infrastructure.Services;
@@ -34,9 +35,8 @@ public class InvestmentService : IInvestmentService
     public async Task<IEnumerable<InvestmentDto>> GetAllInvestmentsAsync()
     {
         var userId = GetUserId();
-        var investments = await _repository.GetAllAsync();
+        var investments = await _repository.Query().Where(x => x.UserId == userId).ToListAsync();
         return investments
-            .Where(x => x.UserId == userId)
             .OrderByDescending(x => x.CreatedDate)
             .Select(MapToDto);
     }
@@ -99,8 +99,7 @@ public class InvestmentService : IInvestmentService
     public async Task<RefreshPricesResultDto> RefreshPricesAsync()
     {
         var userId = GetUserId();
-        var allInvestments = await _repository.GetAllAsync();
-        var investments = allInvestments.Where(x => x.UserId == userId).ToList();
+        var investments = await _repository.Query().Where(x => x.UserId == userId).ToListAsync();
 
         var result = new RefreshPricesResultDto();
 
@@ -159,8 +158,7 @@ public class InvestmentService : IInvestmentService
     public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync()
     {
         var userId = GetUserId();
-        var allInvestments = await _repository.GetAllAsync();
-        var investments = allInvestments.Where(x => x.UserId == userId).ToList();
+        var investments = await _repository.Query().Where(x => x.UserId == userId).ToListAsync();
 
         if (!investments.Any())
         {

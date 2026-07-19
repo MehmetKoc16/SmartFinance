@@ -25,9 +25,9 @@ public class TransactionService : ITransactionService
     public async Task<object> GetFilteredTransactionsAsync(TransactionFilterDto filter)
     {
         var userId= int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var transactions=await _repository.GetAllAsync();
-
-        var query=transactions.Where(t=>t.UserId==userId);
+        // Query() henuz calistirilmamis bir IQueryable dondurur — asagidaki .Where()
+        // zincirleri belleğe tum tabloyu cekmek yerine SQL'e itilir.
+        var query=_repository.Query().Where(t=>t.UserId==userId);
 
         if(filter.StartDate.HasValue)
             query=query.Where(t=>t.TransactionDate>=filter.StartDate.Value);
@@ -49,9 +49,9 @@ public class TransactionService : ITransactionService
                 (t.MerchantName != null && t.MerchantName.ToLower().Contains(search)));
         }
 
-        var totalCount=query.Count();
+        var totalCount=await query.CountAsync();
 
-        var items = query.Skip((filter.Page-1)*filter.PageSize).Take(filter.PageSize).Select(t=>new TransactionDto
+        var items = await query.Skip((filter.Page-1)*filter.PageSize).Take(filter.PageSize).Select(t=>new TransactionDto
         {
             Id=t.Id,
             UserId=t.UserId,
@@ -62,7 +62,7 @@ public class TransactionService : ITransactionService
             Type=t.Type,
             CategoryId=t.CategoryId,
             CreatedDate=t.CreatedDate,
-        });
+        }).ToListAsync();
 
         return new{
             items=items,
@@ -76,8 +76,7 @@ public class TransactionService : ITransactionService
     public async Task<IEnumerable<TransactionDto>> GetAllTransactionsAsync()
     {
         var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var transactions = await _repository.GetAllAsync();
-        return transactions.Where(t=>t.UserId==userId).Select(t => new TransactionDto
+        return await _repository.Query().Where(t=>t.UserId==userId).Select(t => new TransactionDto
         {
             Id = t.Id,
             UserId = t.UserId,
@@ -88,7 +87,7 @@ public class TransactionService : ITransactionService
             Type = t.Type,
             CategoryId = t.CategoryId,
             CreatedDate = t.CreatedDate,
-        });
+        }).ToListAsync();
     }
 
     public async Task<TransactionDto?> GetTransactionByIdAsync(int id)
@@ -192,20 +191,19 @@ public class TransactionService : ITransactionService
     public async Task<MonthlySummaryDto> GetMonthlySummaryAsync(int month, int year)
     {
         var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var transactions=await _repository.GetAllAsync();
-        var monthly = transactions.Where(t=>t.UserId==userId && t.TransactionDate.Month==month && t.TransactionDate.Year==year);
+        var monthly = _repository.Query().Where(t=>t.UserId==userId && t.TransactionDate.Month==month && t.TransactionDate.Year==year);
 
-        var totalIncome=monthly.Where(t=>t.Type==TransactionType.Income).Sum(t=>t.Amount);
+        var totalIncome=await monthly.Where(t=>t.Type==TransactionType.Income).SumAsync(t=>t.Amount);
 
-        var totalExpense=monthly.Where(t=>t.Type==TransactionType.Expense).Sum(t=>t.Amount);
+        var totalExpense=await monthly.Where(t=>t.Type==TransactionType.Expense).SumAsync(t=>t.Amount);
 
         return new MonthlySummaryDto{
             TotalIncome=totalIncome,
             TotalExpense=totalExpense,
             Balance=totalIncome-totalExpense,
-            TransactionCount=monthly.Count(),
+            TransactionCount=await monthly.CountAsync(),
             Month=month,
             Year=year
         };
-    } 
+    }
 }

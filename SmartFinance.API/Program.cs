@@ -7,6 +7,8 @@ using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartFinance.API.Infrastructure;
 using SmartFinance.API.Middleware;
 using SmartFinance.Infrastructure.MarketData;
@@ -62,6 +64,22 @@ builder.Services.AddCors(options=>{
         policy.WithOrigins("http://localhost:3000","http://localhost:5173").AllowAnyHeader().AllowAnyMethod();
     });
 });
+
+// Login/register brute-force ve spam denemelerine karsi: ayni IP'den dakikada
+// en fazla 5 istek. Diger uc noktalar (yetkilendirme gerektiren, zaten JWT ile
+// korunan) bu sinirlamaya dahil degil.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+});
 var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -73,6 +91,7 @@ if(app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

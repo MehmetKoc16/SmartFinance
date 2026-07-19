@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using SmartFinance.Application.DTOs.Auth;
 using SmartFinance.Application.Interfaces;
@@ -18,14 +19,16 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register(RegisterDto dto)
     {
         var token=await _authService.RegisterAsync(dto);
         return Ok(token);
 
-    } 
+    }
 
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login(LoginDto dto)
     {
         var token=await _authService.LoginAsync(dto);

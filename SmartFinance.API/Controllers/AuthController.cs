@@ -52,4 +52,25 @@ public class AuthController : ControllerBase
         await _authService.ChangePasswordAsync(dto);
         return NoContent();
     }
+
+    /// <summary>Erisim (JWT) token'inin suresi doldugunda, kullaniciyi tekrar
+    /// login'e dusurmeden yeni bir erisim+refresh token cifti alir. Bilerek
+    /// [Authorize] degil — cagrilma amaci zaten suresi gecmis olabilecek bir
+    /// erisim token'ini yenilemek.</summary>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto dto)
+    {
+        var token = await _authService.RefreshTokenAsync(dto.RefreshToken);
+        return Ok(token);
+    }
+
+    /// <summary>Refresh token'i sunucu tarafinda iptal eder — cikis yapildiginda
+    /// cagrilir, boylece cihazda kalan/sizmis bir refresh token artik
+    /// kullanilamaz.</summary>
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequestDto dto)
+    {
+        await _authService.LogoutAsync(dto.RefreshToken);
+        return NoContent();
+    }
 }

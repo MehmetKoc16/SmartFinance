@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -67,7 +68,7 @@ public class AuthService : IAuthService{
         }
         await _context.SaveChangesAsync();
 
-        return GenerateToken(user);
+        return await GenerateTokenAsync(user);
     }
 
     public async Task<TokenDto> LoginAsync(LoginDto dto)
@@ -84,11 +85,41 @@ public class AuthService : IAuthService{
             throw new UnauthorizedException("Email veya şifre hatalı!");
         }
 
-        return GenerateToken(user);
+        return await GenerateTokenAsync(user);
     }
 
-    // Token üret (private = sadece bu sınıf içinden çağrılabilir)
-    private TokenDto GenerateToken(User user)
+    public async Task<TokenDto> RefreshTokenAsync(string refreshToken)
+    {
+        // Refresh token'in kendisi de bir "sifre" gibi davranilir — DB'de
+        // birebir eslesen, henuz iptal edilmemis (RevokedAt=null) ve suresi
+        // gecmemis (ExpiresAt>now) bir kayit aranir. IsActive bu ikisini kontrol eder.
+        var existing = await _context.RefreshTokens
+            .Include(rt => rt.User)
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+        if (existing == null || !existing.IsActive)
+            throw new UnauthorizedException("Oturum süresi dolmuş, lütfen tekrar giriş yapın.");
+
+        // Rotasyon: kullanilan refresh token hemen iptal edilir, yerine yenisi
+        // verilir. Boylece calinmis/sizmis bir token bir kez kullanildiktan
+        // sonra tekrar kullanilamaz.
+        existing.RevokedAt = DateTime.UtcNow;
+
+        return await GenerateTokenAsync(existing.User);
+    }
+
+    public async Task LogoutAsync(string refreshToken)
+    {
+        var existing = await _context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+        if (existing == null) return; // zaten yok/iptal — sessizce cik
+        existing.RevokedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+
+    // Token üret (private = sadece bu sınıf içinden çağrılabilir).
+    // Hem erisim (JWT) hem de yenileme (refresh) token'i uretip refresh
+    // token'i DB'ye kaydeder — bu yuzden artik async.
+    private async Task<TokenDto> GenerateTokenAsync(User user)
     {
         // 1. Token'a gömülecek bilgiler (Claims = iddialar/bilgiler)
         //    Bu bilgiler token içinde şifreli olarak taşınır
@@ -124,11 +155,26 @@ public class AuthService : IAuthService{
             signingCredentials: credentials             // İmza
         );
 
-        // 6. Token'ı metne çevir ve DTO olarak döndür
+        // 6. Refresh token uret — 64 byte kriptografik olarak guvenli rastgele
+        //    deger, Base64'e cevrilir. JWT'nin aksine icinde bilgi tasimaz,
+        //    sadece DB'deki kaydiyla eslesen opak bir anahtar.
+        var refreshTokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var refreshTokenExpireDays = int.Parse(_configuration["Jwt:RefreshTokenExpireDays"] ?? "30");
+
+        _context.RefreshTokens.Add(new RefreshToken
+        {
+            Token = refreshTokenValue,
+            ExpiresAt = DateTime.UtcNow.AddDays(refreshTokenExpireDays),
+            UserId = user.Id,
+        });
+        await _context.SaveChangesAsync();
+
+        // 7. Token'ı metne çevir ve DTO olarak döndür
         return new TokenDto
         {
             Token = new JwtSecurityTokenHandler().WriteToken(token),
-            Expiration = expiration
+            Expiration = expiration,
+            RefreshToken = refreshTokenValue,
         };
     }
 

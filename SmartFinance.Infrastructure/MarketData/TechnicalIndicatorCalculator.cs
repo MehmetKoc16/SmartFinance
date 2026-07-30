@@ -5,11 +5,14 @@ namespace SmartFinance.Infrastructure.MarketData;
 
 public static class TechnicalIndicatorCalculator
 {
-    public static TechnicalAnalysisDto Calculate(string symbol, string investmentType, IReadOnlyList<PriceBarDto> bars)
+    // Sadece istenen gostergeler hesaplanir — secilmeyenler icin gereksiz islem/veri yok.
+    public static List<IndicatorSeriesDto> Calculate(IReadOnlyList<PriceBarDto> bars, IEnumerable<string> indicatorKeys)
     {
-        var orderedBars = bars.OrderBy(b => b.Date).ToList();
+        var wanted = indicatorKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (wanted.Count == 0) return new List<IndicatorSeriesDto>();
 
-        var quotes = orderedBars
+        var quotes = bars
+            .OrderBy(b => b.Date)
             .Select(b => new Quote
             {
                 Date = b.Date,
@@ -21,40 +24,13 @@ public static class TechnicalIndicatorCalculator
             })
             .ToList();
 
-        var rsiResults = quotes.GetRsi(14).ToList();
-        var macdResults = quotes.GetMacd(12, 26, 9).ToList();
-        var bollingerResults = quotes.GetBollingerBands(20, 2).ToList();
-
-        return new TechnicalAnalysisDto
-        {
-            Symbol = symbol,
-            InvestmentType = investmentType,
-            PriceBars = orderedBars,
-            Rsi = rsiResults.Select(r => new IndicatorPointDto
+        return IndicatorCatalog.All
+            .Where(def => wanted.Contains(def.Key))
+            .Select(def => new IndicatorSeriesDto
             {
-                Date = r.Date,
-                Value = (decimal?)r.Rsi,
-            }).ToList(),
-            Macd = new MacdResultDto
-            {
-                Points = macdResults.Select(m => new MacdPointDto
-                {
-                    Date = m.Date,
-                    Macd = (decimal?)m.Macd,
-                    Signal = (decimal?)m.Signal,
-                    Histogram = (decimal?)m.Histogram,
-                }).ToList(),
-            },
-            BollingerBands = new BollingerBandsResultDto
-            {
-                Points = bollingerResults.Select(b => new BollingerBandPointDto
-                {
-                    Date = b.Date,
-                    UpperBand = (decimal?)b.UpperBand,
-                    MiddleBand = (decimal?)b.Sma,
-                    LowerBand = (decimal?)b.LowerBand,
-                }).ToList(),
-            },
-        };
+                Key = def.Key,
+                Points = def.Calculate(quotes),
+            })
+            .ToList();
     }
 }

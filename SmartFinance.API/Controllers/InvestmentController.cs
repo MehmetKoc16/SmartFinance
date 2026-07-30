@@ -68,9 +68,13 @@ public class InvestmentController : ControllerBase
     }
 
     [HttpGet("{id}/technical-analysis")]
-    public async Task<IActionResult> GetTechnicalAnalysis(int id, [FromQuery] int days = 180)
+    public async Task<IActionResult> GetTechnicalAnalysis(int id, [FromQuery] int days = 180, [FromQuery] string? indicators = null)
     {
-        var analysis = await _investmentService.GetTechnicalAnalysisAsync(id, days);
+        var keys = string.IsNullOrWhiteSpace(indicators)
+            ? Enumerable.Empty<string>()
+            : indicators.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var analysis = await _investmentService.GetTechnicalAnalysisAsync(id, days, keys);
         return Ok(analysis);
     }
 

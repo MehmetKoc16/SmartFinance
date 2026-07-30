@@ -9,6 +9,12 @@ public class YahooFinancePriceProvider : IPriceProvider
 {
     private readonly HttpClient _httpClient;
 
+    // quoteSummary uc noktasi (fiyat/grafik uc noktasinin aksine) bir oturum cerezi +
+    // "crumb" token'i istiyor — tum saglayici ornekleri arasinda paylasilan static
+    // alanlarda tutuluyor ki her istatistik istegi icin yeniden el sikisma yapilmasin.
+    private static string? _cachedCrumb;
+    private static readonly SemaphoreSlim _crumbLock = new(1, 1);
+
     public IEnumerable<string> SupportedInvestmentTypes => new[] { "stock" };
 
     public YahooFinancePriceProvider(HttpClient httpClient)
@@ -96,6 +102,102 @@ public class YahooFinancePriceProvider : IPriceProvider
         }
 
         return bars.Where(b => b.Date >= from.Date && b.Date <= to.Date).OrderBy(b => b.Date).ToList();
+    }
+
+    // Fiyat geçmişinin aksine istatistikler tamamlayıcı bilgi — sorgu başarısız olursa
+    // (sembolde eksik veri, Yahoo'nun bu modülü döndürmemesi vb.) tüm teknik analiz
+    // yanıtını düşürmek yerine null dönüp devam ediyoruz.
+    public async Task<StockStatisticsDto?> GetStatisticsAsync(string symbol, CancellationToken ct = default)
+    {
+        try
+        {
+            var yahooSymbol = ToYahooSymbol(symbol);
+            var response = await SendQuoteSummaryRequestAsync(yahooSymbol, ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                // Crumb gecersizlesmis olabilir (oturum degismis) — bir kez yenileyip tekrar dene.
+                _cachedCrumb = null;
+                response = await SendQuoteSummaryRequestAsync(yahooSymbol, ct);
+            }
+            if (!response.IsSuccessStatusCode) return null;
+
+            using var stream = await response.Content.ReadAsStreamAsync(ct);
+            var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+            var results = doc.RootElement.GetProperty("quoteSummary").GetProperty("result");
+            if (results.ValueKind != JsonValueKind.Array || results.GetArrayLength() == 0) return null;
+
+            var result = results[0];
+            var summaryDetail = result.TryGetProperty("summaryDetail", out var sd) ? sd : default;
+            var keyStats = result.TryGetProperty("defaultKeyStatistics", out var ks) ? ks : default;
+            var financialData = result.TryGetProperty("financialData", out var fd) ? fd : default;
+
+            var marketCap = TryGetRaw(summaryDetail, "marketCap");
+            var priceToBook = TryGetRaw(keyStats, "priceToBook");
+
+            return new StockStatisticsDto
+            {
+                Open = TryGetRaw(summaryDetail, "open"),
+                PreviousClose = TryGetRaw(summaryDetail, "previousClose"),
+                DayHigh = TryGetRaw(summaryDetail, "dayHigh"),
+                DayLow = TryGetRaw(summaryDetail, "dayLow"),
+                FiftyTwoWeekHigh = TryGetRaw(summaryDetail, "fiftyTwoWeekHigh"),
+                FiftyTwoWeekLow = TryGetRaw(summaryDetail, "fiftyTwoWeekLow"),
+                AverageVolume = TryGetRaw(summaryDetail, "averageVolume"),
+                MarketCap = marketCap,
+                TrailingPE = TryGetRaw(summaryDetail, "trailingPE"),
+                PriceToBook = priceToBook,
+                EquityValue = (marketCap.HasValue && priceToBook is > 0) ? marketCap / priceToBook : null,
+                ReturnOnEquity = TryGetRaw(financialData, "returnOnEquity"),
+                Ebitda = TryGetRaw(financialData, "ebitda"),
+                ProfitMargin = TryGetRaw(financialData, "profitMargins"),
+                GrossMargin = TryGetRaw(financialData, "grossMargins"),
+            };
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendQuoteSummaryRequestAsync(string yahooSymbol, CancellationToken ct)
+    {
+        await EnsureCrumbAsync(ct);
+        var url = $"v10/finance/quoteSummary/{yahooSymbol}?modules=summaryDetail,defaultKeyStatistics,financialData";
+        if (_cachedCrumb != null)
+            url += $"&crumb={Uri.EscapeDataString(_cachedCrumb)}";
+        return await _httpClient.GetAsync(url, ct);
+    }
+
+    // fc.yahoo.com'a yapilan istek 404 dondurse bile oturum cerezini set ediyor —
+    // bu cerezle query1.finance.yahoo.com/v1/test/getcrumb'dan gecerli bir crumb alinabiliyor.
+    private async Task EnsureCrumbAsync(CancellationToken ct)
+    {
+        if (_cachedCrumb != null) return;
+        await _crumbLock.WaitAsync(ct);
+        try
+        {
+            if (_cachedCrumb != null) return;
+            await _httpClient.GetAsync("https://fc.yahoo.com", ct);
+            var response = await _httpClient.GetAsync("https://query1.finance.yahoo.com/v1/test/getcrumb", ct);
+            if (response.IsSuccessStatusCode)
+                _cachedCrumb = await response.Content.ReadAsStringAsync(ct);
+        }
+        finally
+        {
+            _crumbLock.Release();
+        }
+    }
+
+    // Yahoo'nun sayisal alanlari genelde {"raw": 123.45, "fmt": "123.45"} seklinde gelir.
+    private static decimal? TryGetRaw(JsonElement module, string fieldName)
+    {
+        if (module.ValueKind != JsonValueKind.Object) return null;
+        if (!module.TryGetProperty(fieldName, out var field)) return null;
+        if (field.ValueKind != JsonValueKind.Object) return null;
+        if (!field.TryGetProperty("raw", out var raw)) return null;
+        if (raw.ValueKind != JsonValueKind.Number) return null;
+        return raw.GetDecimal();
     }
 
     private static JsonElement GetFirstResultOrThrow(JsonDocument doc, string symbol)

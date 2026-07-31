@@ -28,11 +28,21 @@ public class MarketDataService : IMarketDataService
         ResolveProvider(investmentType).GetCurrentPriceAsync(symbol, investmentType, ct);
 
     public async Task<TechnicalAnalysisDto> GetTechnicalAnalysisAsync(
-        string symbol, string investmentType, int days, IEnumerable<string> indicatorKeys, CancellationToken ct = default)
+        string symbol, string investmentType, string range, IEnumerable<string> indicatorKeys, CancellationToken ct = default)
     {
         var provider = ResolveProvider(investmentType);
         var to = DateTime.Today;
-        var from = to.AddDays(-days);
+        // "1d" -> from==to, saglayicilar bunu gun-ici (saatlik) istek sinyali olarak kullanir.
+        var from = range switch
+        {
+            "1d" => to,
+            "1w" => to.AddDays(-7),
+            "1m" => to.AddDays(-30),
+            "ytd" => new DateTime(to.Year, 1, 1),
+            "1y" => to.AddDays(-365),
+            "5y" => to.AddDays(-1825),
+            _ => to.AddDays(-180), // "6m" ve gecersiz/bos deger icin varsayilan
+        };
 
         var bars = await provider.GetHistoricalPricesAsync(symbol, investmentType, from, to, ct);
         if (bars.Count == 0)

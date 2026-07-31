@@ -7,5 +7,5 @@ public interface IMarketDataService
     Task<PriceQuoteDto> GetCurrentPriceAsync(string symbol, string investmentType, CancellationToken ct = default);
 
     Task<TechnicalAnalysisDto> GetTechnicalAnalysisAsync(
-        string symbol, string investmentType, int days, IEnumerable<string> indicatorKeys, CancellationToken ct = default);
+        string symbol, string investmentType, string range, IEnumerable<string> indicatorKeys, CancellationToken ct = default);
 }

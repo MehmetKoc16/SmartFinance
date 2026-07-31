@@ -12,5 +12,5 @@ public interface IInvestmentService
     Task DeleteInvestmentAsync(int id);
     Task<PortfolioSummaryDto> GetPortfolioSummaryAsync();
     Task<RefreshPricesResultDto> RefreshPricesAsync();
-    Task<TechnicalAnalysisDto> GetTechnicalAnalysisAsync(int id, int days, IEnumerable<string> indicatorKeys);
+    Task<TechnicalAnalysisDto> GetTechnicalAnalysisAsync(int id, string range, IEnumerable<string> indicatorKeys);
 }

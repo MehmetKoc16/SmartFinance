@@ -51,8 +51,10 @@ public class CoinGeckoPriceProvider : IPriceProvider
     {
         var coinId = await ResolveCoinIdAsync(symbol, ct);
 
+        // from==to -> gun-ici (saatlik) istek: MarketDataService "1d" araligi icin bu sinyali gonderiyor.
+        var isIntraday = from.Date == to.Date;
         var fromUnix = ((DateTimeOffset)DateTime.SpecifyKind(from, DateTimeKind.Utc)).ToUnixTimeSeconds();
-        var toUnix = ((DateTimeOffset)DateTime.SpecifyKind(to, DateTimeKind.Utc)).ToUnixTimeSeconds();
+        var toUnix = ((DateTimeOffset)DateTime.SpecifyKind(isIntraday ? to.AddDays(1) : to, DateTimeKind.Utc)).ToUnixTimeSeconds();
 
         var response = await _httpClient.GetAsync(
             $"coins/{coinId}/market_chart/range?vs_currency=try&from={fromUnix}&to={toUnix}", ct);
@@ -69,7 +71,10 @@ public class CoinGeckoPriceProvider : IPriceProvider
             {
                 var timestampMs = point[0].GetInt64();
                 var price = point[1].GetDecimal();
-                var date = DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).UtcDateTime.Date;
+                var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).UtcDateTime;
+                // Gun-ici barlarda saat bilgisi korunur (grafikte saat bazli gosterim icin);
+                // gunluk barlarda geceyarisina yuvarlanir (mevcut davranis).
+                var date = isIntraday ? timestamp : timestamp.Date;
 
                 bars.Add(new PriceBarDto
                 {
@@ -83,7 +88,10 @@ public class CoinGeckoPriceProvider : IPriceProvider
             }
         }
 
-        // Kısa aralıklarda CoinGecko saatlik veri döner — günün son fiyatına indirgeyip günlük bar oluştur
+        if (isIntraday)
+            return bars.OrderBy(b => b.Date).ToList();
+
+        // Uzun araliklarda CoinGecko saatlik veri donebilir — gunun son fiyatina indirgeyip gunluk bar olustur
         return bars
             .GroupBy(b => b.Date)
             .Select(g => g.Last())

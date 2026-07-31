@@ -60,10 +60,19 @@ public class YahooFinancePriceProvider : IPriceProvider
         string symbol, string investmentType, DateTime from, DateTime to, CancellationToken ct = default)
     {
         var yahooSymbol = ToYahooSymbol(symbol);
+        // from==to -> gun-ici (saatlik) istek: MarketDataService "1d" araligi icin bu sinyali gonderiyor.
+        var isIntraday = from.Date == to.Date;
         var days = Math.Max(1, (to - from).Days);
-        var range = days <= 30 ? "1mo" : days <= 90 ? "3mo" : days <= 180 ? "6mo" : "1y";
+        var yahooRange = isIntraday ? "1d"
+            : days <= 7 ? "5d"
+            : days <= 30 ? "1mo"
+            : days <= 90 ? "3mo"
+            : days <= 180 ? "6mo"
+            : days <= 365 ? "1y"
+            : "5y";
+        var interval = isIntraday ? "5m" : "1d";
 
-        var response = await _httpClient.GetAsync($"v8/finance/chart/{yahooSymbol}?range={range}&interval=1d", ct);
+        var response = await _httpClient.GetAsync($"v8/finance/chart/{yahooSymbol}?range={yahooRange}&interval={interval}", ct);
         if (!response.IsSuccessStatusCode)
             throw new ExternalServiceException($"Yahoo Finance geçmiş fiyat sorgusu başarısız oldu: {symbol}");
 
@@ -89,7 +98,10 @@ public class YahooFinancePriceProvider : IPriceProvider
             // Piyasanın kapalı olduğu günler için Yahoo null değer döner — bu barları atla
             if (closes[i].ValueKind == JsonValueKind.Null) continue;
 
-            var date = DateTimeOffset.FromUnixTimeSeconds(timestamps[i].GetInt64()).UtcDateTime.Date;
+            var timestamp = DateTimeOffset.FromUnixTimeSeconds(timestamps[i].GetInt64()).UtcDateTime;
+            // Gun-ici barlarda saat bilgisi korunur (grafikte saat bazli gosterim icin);
+            // gunluk barlarda geceyarisina yuvarlanir (mevcut davranis).
+            var date = isIntraday ? timestamp : timestamp.Date;
             bars.Add(new PriceBarDto
             {
                 Date = date,
@@ -100,6 +112,11 @@ public class YahooFinancePriceProvider : IPriceProvider
                 Volume = volumes[i].ValueKind == JsonValueKind.Null ? 0 : volumes[i].GetDecimal(),
             });
         }
+
+        // Gun-ici barlarda "to.Date" geceyarisi anlamina geldigi icin ogleden sonraki
+        // butun barlari yanlislikla elerdi — bu durumda Yahoo'nun range=1d yanitina guvenilir.
+        if (isIntraday)
+            return bars.OrderBy(b => b.Date).ToList();
 
         return bars.Where(b => b.Date >= from.Date && b.Date <= to.Date).OrderBy(b => b.Date).ToList();
     }

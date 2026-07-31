@@ -131,14 +131,14 @@ public class InvestmentService : IInvestmentService
         return result;
     }
 
-    public async Task<TechnicalAnalysisDto> GetTechnicalAnalysisAsync(int id, int days, IEnumerable<string> indicatorKeys)
+    public async Task<TechnicalAnalysisDto> GetTechnicalAnalysisAsync(int id, string range, IEnumerable<string> indicatorKeys)
     {
         var userId = GetUserId();
         var investment = await _repository.GetByIdAsync(id);
         if (investment == null || investment.UserId != userId)
             throw new NotFoundException($"Yatırım bulunamadı. Id: {id}");
 
-        return await _marketDataService.GetTechnicalAnalysisAsync(investment.Name, investment.InvestmentType, days, indicatorKeys);
+        return await _marketDataService.GetTechnicalAnalysisAsync(investment.Name, investment.InvestmentType, range, indicatorKeys);
     }
 
     public async Task DeleteInvestmentAsync(int id)

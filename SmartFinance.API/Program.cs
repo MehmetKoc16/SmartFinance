@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SmartFinance.API.Infrastructure;
 using SmartFinance.API.Middleware;
@@ -24,7 +25,26 @@ builder.Services.AddHttpContextAccessor();
 // Piyasa verisi onbellegi — dis servislere (Yahoo/TEFAS/TCMB/CoinGecko) yapilan
 // tekrarli istekleri onler. Singleton olmali ki tum istekler ayni onbellegi paylassin.
 builder.Services.AddMemoryCache();
+
+// Sunucu izleme (uptime monitoring) ve dagitim sonrasi dogrulama icin.
+// Veritabani baglantisini da sinar: surec ayakta ama DB'ye ulasamiyorsa
+// "saglikli" gorunmemeli.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<SmartFinanceDbContext>(name: "database");
+
 builder.Services.AddControllers();
+
+// [ApiController] gecersiz modelde varsayilan olarak RFC 7807 ProblemDetails
+// doner: {"title":"One or more validation errors occurred.","errors":{...}}.
+// Istemci ise tum hatalarda oldugu gibi "message" alanina bakiyor — bu yuzden
+// DTO'lardaki Turkce ErrorMessage metinleri kullaniciya hic ulasmiyor, yerine
+// genel "İşlem başarısız" gosteriliyordu. Yanit, ExceptionMiddleware'in
+// uretttigi bicimle ayni hale getiriliyor.
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = ValidationProblemResponseFactory.Create;
+});
+
 // OpenAPI'ye JWT güvenlik şeması ekle (Scalar'da Authorize butonu çıksın)
 builder.Services.AddOpenApi(options =>
 {
@@ -128,4 +148,10 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
+
+// Izleme araclari token tasimaz, bu yuzden anonim. Duzenli araliklarla
+// cagrildigi icin rate limit disinda birakilir; aksi halde izleme trafigi
+// sunucunun kendi kotasini tuketebilirdi.
+app.MapHealthChecks("/health").AllowAnonymous().DisableRateLimiting();
+
 app.Run();

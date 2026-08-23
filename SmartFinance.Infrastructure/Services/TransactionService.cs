@@ -15,12 +15,14 @@ public class TransactionService : ITransactionService
     private readonly IGenericRepository<Transaction> _repository;
     private readonly SmartFinanceDbContext _context;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
 
-    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor)
+    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor, ICurrentUserService currentUserService)
     {
         _repository = repository;
         _context = context;
         _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
     }
     public async Task<object> GetFilteredTransactionsAsync(TransactionFilterDto filter)
     {
@@ -75,7 +77,7 @@ public class TransactionService : ITransactionService
 
     public async Task<IEnumerable<TransactionDto>> GetAllTransactionsAsync()
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         return await _repository.Query().Where(t=>t.UserId==userId).Select(t => new TransactionDto
         {
             Id = t.Id,
@@ -206,4 +208,5 @@ public class TransactionService : ITransactionService
             Year=year
         };
     }
+
 }

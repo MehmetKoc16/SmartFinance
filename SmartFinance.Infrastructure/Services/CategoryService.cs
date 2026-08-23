@@ -3,7 +3,6 @@ using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
 
@@ -13,18 +12,18 @@ public class CategoryService : ICategoryService
 {
     private readonly IGenericRepository<Category> _repository;
     private readonly SmartFinanceDbContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
 
-    public CategoryService(IGenericRepository<Category> repository, SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor)
+    public CategoryService(IGenericRepository<Category> repository, SmartFinanceDbContext context, ICurrentUserService currentUserService)
     {
         _repository = repository;
         _context = context;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
     }
     
     public async Task<IEnumerable<CategoryDto>> GetAllCategoriesAsync()
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         return await _repository.Query().Where(c=>c.UserId==userId).Select(c=>new CategoryDto{
             Id=c.Id,
             Name=c.Name,
@@ -36,7 +35,7 @@ public class CategoryService : ICategoryService
     }
     public async Task<CategoryDto?> GetCategoryByIdAsync(int id)
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         var category = await _repository.GetByIdAsync(id);
         if (category == null || category.UserId != userId) return null;
         return new CategoryDto{
@@ -52,8 +51,7 @@ public class CategoryService : ICategoryService
     public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryDto dto)
     {
         // Token'dan UserId al
-        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
-            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId = _currentUserService.UserId;
 
         var category= new Category
         {
@@ -79,7 +77,7 @@ public class CategoryService : ICategoryService
 
     public async Task UpdateCategoryAsync(int id, CreateCategoryDto dto)
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         var category= await _repository.GetByIdAsync(id);
         if(category==null || category.UserId!=userId)
             throw new NotFoundException("Kategori bulunamadı!");
@@ -95,7 +93,7 @@ public class CategoryService : ICategoryService
     
     public async Task DeleteCategoryAsync(int id)
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         var category=await _repository.GetByIdAsync(id);
         if(category==null || category.UserId!=userId)
             throw new NotFoundException("Kategori bulunamadı!");

@@ -27,7 +27,7 @@ public class AuthServiceTests
         }).Build();
 
         var httpContextAccessor = new HttpContextAccessor();
-        var service = new AuthService(context, config, httpContextAccessor);
+        var service = new AuthService(context, config, new CurrentUserService(httpContextAccessor));
         return(service,context,httpContextAccessor);
     }
 

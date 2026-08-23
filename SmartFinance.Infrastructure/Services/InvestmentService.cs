@@ -3,8 +3,6 @@ using SmartFinance.Application.DTOs.MarketData;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Infrastructure.Context;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
 
@@ -14,23 +12,23 @@ public class InvestmentService : IInvestmentService
 {
     private readonly IGenericRepository<Investment> _repository;
     private readonly SmartFinanceDbContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMarketDataService _marketDataService;
 
     public InvestmentService(
         IGenericRepository<Investment> repository,
         SmartFinanceDbContext context,
-        IHttpContextAccessor httpContextAccessor,
+        ICurrentUserService currentUserService,
         IMarketDataService marketDataService)
     {
         _repository = repository;
         _context = context;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
         _marketDataService = marketDataService;
     }
 
     private int GetUserId() =>
-        int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        _currentUserService.UserId;
 
     public async Task<IEnumerable<InvestmentDto>> GetAllInvestmentsAsync()
     {

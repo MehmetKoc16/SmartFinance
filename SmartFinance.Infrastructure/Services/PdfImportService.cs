@@ -1,7 +1,5 @@
-using System.Security.Claims;
 using System.Text;
 using ClosedXML.Excel;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartFinance.Application.DTOs.PdfImport;
@@ -17,7 +15,7 @@ namespace SmartFinance.Infrastructure.Services;
 public class PdfImportService : IPdfImportService
 {
     private readonly SmartFinanceDbContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<PdfImportService> _logger;
     private readonly List<IBankParser> _parsers;
     private readonly ZiraatExcelParser _excelParser = new();
@@ -67,10 +65,10 @@ public class PdfImportService : IPdfImportService
         { "ELEKTRONI", "Alışveriş" }, { "ELEKTRONİK", "Alışveriş" },
     };
 
-    public PdfImportService(SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<PdfImportService> logger)
+    public PdfImportService(SmartFinanceDbContext context, ICurrentUserService currentUserService, ILogger<PdfImportService> logger)
     {
         _context = context;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
         _logger = logger;
 
         // Parser'ları öncelik sırasına göre ekle (GenericBankParser en son)
@@ -84,7 +82,7 @@ public class PdfImportService : IPdfImportService
     }
 
     private int GetUserId() =>
-        int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        _currentUserService.UserId;
 
     public async Task<PdfParseResultDto> ParsePdfAsync(Stream fileStream, string fileName)
     {

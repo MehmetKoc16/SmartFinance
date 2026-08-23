@@ -11,20 +11,19 @@ using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
-using Microsoft.AspNetCore.Http;
 
 namespace SmartFinance.Infrastructure.Services;
 
 public class AuthService : IAuthService{
     private readonly SmartFinanceDbContext _context;
     private readonly IConfiguration _configuration;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AuthService(SmartFinanceDbContext context, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+    public AuthService(SmartFinanceDbContext context, IConfiguration configuration, ICurrentUserService currentUserService)
     {
         _context=context;
         _configuration=configuration;
-        _httpContextAccessor=httpContextAccessor;
+        _currentUserService = currentUserService;
     }
     
     public async Task<TokenDto> RegisterAsync(RegisterDto dto)
@@ -180,8 +179,7 @@ public class AuthService : IAuthService{
 
     public async Task ChangePasswordAsync(ChangePasswordDto dto)
     {
-        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
-            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId = _currentUserService.UserId;
         var user = await _context.Users.FindAsync(userId)
             ?? throw new NotFoundException("Kullanıcı bulunamadı!");
         if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
@@ -193,8 +191,7 @@ public class AuthService : IAuthService{
 
     public async Task<object> UpdateProfileAsync(UpdateProfileDto dto)
     {
-        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
-            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId = _currentUserService.UserId;
         var user = await _context.Users.FindAsync(userId)
             ?? throw new NotFoundException("Kullanıcı bulunamadı!");
 

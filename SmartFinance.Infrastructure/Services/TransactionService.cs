@@ -4,7 +4,6 @@ using SmartFinance.Domain.Entities;
 using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
 
@@ -14,19 +13,17 @@ public class TransactionService : ITransactionService
 {
     private readonly IGenericRepository<Transaction> _repository;
     private readonly SmartFinanceDbContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ICurrentUserService _currentUserService;
 
-    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor, ICurrentUserService currentUserService)
+    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context, ICurrentUserService currentUserService)
     {
         _repository = repository;
         _context = context;
-        _httpContextAccessor = httpContextAccessor;
         _currentUserService = currentUserService;
     }
     public async Task<object> GetFilteredTransactionsAsync(TransactionFilterDto filter)
     {
-        var userId= int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId= _currentUserService.UserId;
         // Query() henuz calistirilmamis bir IQueryable dondurur — asagidaki .Where()
         // zincirleri belleğe tum tabloyu cekmek yerine SQL'e itilir.
         var query=_repository.Query().Where(t=>t.UserId==userId);
@@ -94,7 +91,7 @@ public class TransactionService : ITransactionService
 
     public async Task<TransactionDto?> GetTransactionByIdAsync(int id)
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         var transaction = await _repository.GetByIdAsync(id);
         if (transaction == null || transaction.UserId!=userId) return null;
         return new TransactionDto
@@ -124,8 +121,7 @@ public class TransactionService : ITransactionService
     public async Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto)
     {
         // Token'dan UserId al
-        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
-            .FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId = _currentUserService.UserId;
 
         await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
@@ -158,7 +154,7 @@ public class TransactionService : ITransactionService
 
     public async Task UpdateTransactionAsync(int id, CreateTransactionDto dto)
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         var transaction = await _repository.GetByIdAsync(id);
         if(transaction == null || transaction.UserId!=userId)
             throw new NotFoundException("İşlem bulunamadı!");
@@ -180,7 +176,7 @@ public class TransactionService : ITransactionService
 
     public async Task DeleteTransactionAsync(int id)
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         var transaction = await _repository.GetByIdAsync(id);
         if(transaction == null || transaction.UserId!=userId)
             throw new NotFoundException("İşlem bulunamadı!");
@@ -192,7 +188,7 @@ public class TransactionService : ITransactionService
 
     public async Task<MonthlySummaryDto> GetMonthlySummaryAsync(int month, int year)
     {
-        var userId=int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId=_currentUserService.UserId;
         var monthly = _repository.Query().Where(t=>t.UserId==userId && t.TransactionDate.Month==month && t.TransactionDate.Year==year);
 
         var totalIncome=await monthly.Where(t=>t.Type==TransactionType.Income).SumAsync(t=>t.Amount);

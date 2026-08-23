@@ -32,7 +32,7 @@ public class InvestmentServiceTests
 
         var marketData = new Mock<IMarketDataService>();
         var repository = new GenericRepository<Investment>(context);
-        var service = new InvestmentService(repository, context, httpContextAccessor, marketData.Object);
+        var service = new InvestmentService(repository, context, new CurrentUserService(httpContextAccessor), marketData.Object);
         return (service, context, user.Id, marketData);
     }
 

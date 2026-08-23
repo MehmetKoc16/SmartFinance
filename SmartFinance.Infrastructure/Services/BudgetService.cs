@@ -4,8 +4,6 @@ using SmartFinance.Application.Exceptions;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace SmartFinance.Infrastructure.Services;
@@ -14,17 +12,17 @@ public class BudgetService : IBudgetService
 {
     private readonly IGenericRepository<Budget> _repository;
     private readonly SmartFinanceDbContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
 
-    public BudgetService(IGenericRepository<Budget> repository, SmartFinanceDbContext context, IHttpContextAccessor httpContextAccessor)
+    public BudgetService(IGenericRepository<Budget> repository, SmartFinanceDbContext context, ICurrentUserService currentUserService)
     {
         _repository = repository;
         _context = context;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
     }
 
     private int GetUserId() =>
-        int.Parse(_httpContextAccessor.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        _currentUserService.UserId;
 
     public async Task<IEnumerable<BudgetDto>> GetAllAsync()
     {

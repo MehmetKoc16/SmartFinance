@@ -29,7 +29,7 @@ public class CategoryServiceTests
         };
 
         var repository = new GenericRepository<Category>(context);
-        var service = new CategoryService(repository, context, httpContextAccessor);
+        var service = new CategoryService(repository, context, new CurrentUserService(httpContextAccessor));
         return (service, context, user.Id);
     }
 

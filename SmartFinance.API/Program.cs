@@ -6,6 +6,7 @@ using SmartFinance.Infrastructure.Services;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -20,6 +21,9 @@ options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectio
 
 builder.Services.AddScoped(typeof(IGenericRepository<>),typeof(GenericRepository<>));
 builder.Services.AddHttpContextAccessor();
+// Piyasa verisi onbellegi — dis servislere (Yahoo/TEFAS/TCMB/CoinGecko) yapilan
+// tekrarli istekleri onler. Singleton olmali ki tum istekler ayni onbellegi paylassin.
+builder.Services.AddMemoryCache();
 builder.Services.AddControllers();
 // OpenAPI'ye JWT güvenlik şeması ekle (Scalar'da Authorize butonu çıksın)
 builder.Services.AddOpenApi(options =>
@@ -66,12 +70,12 @@ builder.Services.AddCors(options=>{
     });
 });
 
-// Login/register brute-force ve spam denemelerine karsi: ayni IP'den dakikada
-// en fazla 5 istek. Diger uc noktalar (yetkilendirme gerektiren, zaten JWT ile
-// korunan) bu sinirlamaya dahil degil.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Login/register brute-force ve spam denemelerine karsi: ayni IP'den dakikada
+    // en fazla 5 istek. Bu uc noktalar anonim oldugu icin bolumleme IP bazli.
     options.AddPolicy("auth", httpContext => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions
@@ -80,6 +84,31 @@ builder.Services.AddRateLimiter(options =>
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
         }));
+
+    // Dis piyasa servislerini (Yahoo/TEFAS/TCMB/CoinGecko) tetikleyen uc noktalar.
+    // Onbellek tekrarli istekleri zaten karsiliyor; bu sinir farkli sembol/aralik
+    // kombinasyonlariyla saglayicilarin hiz sinirina takilip IP yasagi yemeyi onler.
+    options.AddPolicy("market", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: RateLimitPartitioner.Resolve(httpContext),
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
+    // Genel emniyet agi: tum uc noktalar icin kullanici basina dakikada 100 istek.
+    // Normal kullanimda asilmayacak kadar yuksek, kacak bir dongu veya kotu niyetli
+    // istemcinin sunucuyu yormasini engelleyecek kadar dusuk.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: RateLimitPartitioner.Resolve(httpContext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
 });
 var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
@@ -92,8 +121,11 @@ if(app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
-app.UseRateLimiter();
+// UseAuthentication'dan SONRA gelmeli: rate limit bolumlemesi User.Claims'teki
+// kullanici kimligine bakiyor, kimlik dogrulama calismadan bu alan bos olur ve
+// tum kullanicilar ayni kotayi paylasirdi.
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

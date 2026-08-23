@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartFinance.Application.DTOs.Investment;
 using SmartFinance.Application.Interfaces;
  
@@ -60,7 +61,9 @@ public class InvestmentController : ControllerBase
         return NoContent();
     }
 
+    // Portfoydeki her yatirim icin dis servise gider — tek istek N dis cagri demek.
     [HttpPost("refresh-prices")]
+    [EnableRateLimiting("market")]
     public async Task<IActionResult> RefreshPrices()
     {
         var result = await _investmentService.RefreshPricesAsync();
@@ -68,6 +71,7 @@ public class InvestmentController : ControllerBase
     }
 
     [HttpGet("{id}/technical-analysis")]
+    [EnableRateLimiting("market")]
     public async Task<IActionResult> GetTechnicalAnalysis(int id, [FromQuery] string range = "6m", [FromQuery] string? indicators = null)
     {
         var keys = string.IsNullOrWhiteSpace(indicators)

@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SmartFinance.API\SmartFinance.API.csproj" />
     <ProjectReference Include="..\SmartFinance.Application\SmartFinance.Application.csproj" />
     <ProjectReference Include="..\SmartFinance.Infrastructure\SmartFinance.Infrastructure.csproj" />
   </ItemGroup>

@@ -2,7 +2,7 @@
 // OpenAPI dökümanına JWT Bearer güvenlik kuralı ekler
 
 using Microsoft.AspNetCore.OpenApi;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;   // Microsoft.OpenApi 2.0'da "Models" alt-namespace'i kaldırıldı
 
 namespace SmartFinance.API.Infrastructure;
 
@@ -24,26 +24,29 @@ public class BearerSecuritySchemeTransformer : IOpenApiDocumentTransformer
             Scheme = "Bearer",                             // Şema: Bearer
             BearerFormat = "JWT",                          // Format: JWT
             Description = "JWT token'ını buraya yaz. Örnek: eyJhbGci...",
-            Reference = new OpenApiReference
-            {
-                Id = "Bearer",                             // Referans adı
-                Type = ReferenceType.SecurityScheme         // Tip: Güvenlik şeması
-            }
         };
 
         // 2. Dökümanın güvenlik bileşenlerine ekle
         document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
         document.Components.SecuritySchemes["Bearer"] = securityScheme;
 
-        // 3. Tüm endpoint'lere güvenlik kuralı ekle
+        // 3. Tüm endpoint'lere güvenlik kuralı ekle.
+        // OpenApi 2.0'da gereksinim, şemanın kendisiyle değil şemaya bir
+        // referansla kuruluyor ("#/components/securitySchemes/Bearer").
+        var requirement = new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+        };
+
         foreach (var path in document.Paths.Values)
         {
+            if (path.Operations is null) continue;
+
             foreach (var operation in path.Operations.Values)
             {
-                operation.Security.Add(new OpenApiSecurityRequirement
-                {
-                    [securityScheme] = Array.Empty<string>()
-                });
+                operation.Security ??= new List<OpenApiSecurityRequirement>();
+                operation.Security.Add(requirement);
             }
         }
 

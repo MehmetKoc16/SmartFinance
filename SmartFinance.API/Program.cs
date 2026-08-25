@@ -85,9 +85,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// CORS yalnizca TARAYICI kaynakli istekleri ilgilendirir; mobil uygulama
+// (Flutter) bu kontrole hic takilmaz. Buradaki liste ileride bir web paneli
+// veya tanitim sitesi eklenirse gerekli olacak — bu yuzden dar tutuluyor.
 builder.Services.AddCors(options=>{
     options.AddPolicy("AllowFrontend",policy=>{
-        policy.WithOrigins("http://localhost:3000","http://localhost:5173").AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(
+                "https://walletmark.com.tr",
+                "https://www.walletmark.com.tr",
+                "http://localhost:3000",   // yerel gelistirme
+                "http://localhost:5173")   // yerel gelistirme (Vite)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 

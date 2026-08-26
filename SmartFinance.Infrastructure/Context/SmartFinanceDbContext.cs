@@ -14,7 +14,9 @@ public class SmartFinanceDbContext : DbContext
     public DbSet<CategoryMapping> CategoryMappings {get;set;}
     public DbSet<RefreshToken> RefreshTokens {get;set;}
     public DbSet<Budget> Budgets {get;set;}
-    
+    // Kullaniciya degil piyasaya ait paylasilan veri — TEFAS fon NAV gecmisi.
+    public DbSet<FundPriceHistory> FundPriceHistories {get;set;}
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SmartFinanceDbContext).Assembly);

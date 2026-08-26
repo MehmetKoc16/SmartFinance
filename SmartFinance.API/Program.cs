@@ -67,6 +67,13 @@ builder.Services.AddHttpClient<IPriceProvider, TcmbPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, GoldPriceProvider>();
 builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 
+// Fon NAV gecmisi kendi veritabanimizda saklanir: TEFAS tek istekte 1 aylik veri
+// veriyor ve IP basina dakikada ~6 istekle sinirliyor. Bu sinir tum kullanicilar
+// arasinda paylasildigi icin istek aninda cekmek olceklenmiyordu.
+builder.Services.AddScoped<IFundHistoryStore, FundHistoryStore>();
+// TEFAS'a giden tek yer: gecelik senkron isi. Kullanici istekleri depodan okur.
+builder.Services.AddHostedService<FundHistorySyncService>();
+
 // JWT Authentication yapılandırması
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

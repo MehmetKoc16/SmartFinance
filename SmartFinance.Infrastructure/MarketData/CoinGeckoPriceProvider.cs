@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using SmartFinance.Application.DTOs.MarketData;
 using SmartFinance.Application.Exceptions;
 using SmartFinance.Application.Interfaces;
@@ -11,7 +12,7 @@ public class CoinGeckoPriceProvider : IPriceProvider
 
     public IEnumerable<string> SupportedInvestmentTypes => new[] { "crypto" };
 
-    public CoinGeckoPriceProvider(HttpClient httpClient)
+    public CoinGeckoPriceProvider(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _httpClient.BaseAddress = new Uri("https://api.coingecko.com/api/v3/");
@@ -20,6 +21,18 @@ public class CoinGeckoPriceProvider : IPriceProvider
             // Cloudflare, User-Agent'sız istekleri bot sayıp 403 döndürüyor
             _httpClient.DefaultRequestHeaders.Add("User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36");
+        }
+
+        // Anahtarsız (public) katman dakikada yalnızca 5-15 istek veriyor —
+        // birkaç farklı kripto tutan tek bir kullanıcının portföy yenilemesi
+        // bile bunu aşabiliyor. Ücretsiz Demo hesabı anahtarı sınırı dakikada
+        // 100'e çıkarıyor. Anahtar tanımlı değilse uygulama yine çalışır,
+        // yalnızca dar sınırla — bu yüzden zorunlu tutulmuyor.
+        var apiKey = configuration["MarketData:CoinGeckoApiKey"];
+        if (!string.IsNullOrWhiteSpace(apiKey) &&
+            !_httpClient.DefaultRequestHeaders.Contains("x-cg-demo-api-key"))
+        {
+            _httpClient.DefaultRequestHeaders.Add("x-cg-demo-api-key", apiKey);
         }
     }
 

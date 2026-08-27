@@ -29,7 +29,10 @@ public class MarketDataServiceCacheTests
             .ReturnsAsync((StockStatisticsDto?)null);
 
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new MarketDataService([provider.Object], cache);
+        // Guncel fiyat onbellegi ayri bir soyutlamada: arka plandaki
+        // PriceRefreshService ile MarketDataService ayni anahtar bicimini
+        // paylasmak zorunda oldugu icin.
+        var service = new MarketDataService([provider.Object], cache, new PriceCache(cache));
         return (service, provider);
     }
 

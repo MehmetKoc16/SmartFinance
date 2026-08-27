@@ -74,6 +74,14 @@ builder.Services.AddScoped<IFundHistoryStore, FundHistoryStore>();
 // TEFAS'a giden tek yer: gecelik senkron isi. Kullanici istekleri depodan okur.
 builder.Services.AddHostedService<FundHistorySyncService>();
 
+// Guncel fiyat onbellegi. MarketDataService okur, PriceRefreshService yazar —
+// ikisi de ayni anahtar bicimini kullansin diye tek sinif uzerinden gidiyor.
+builder.Services.AddScoped<IPriceCache, PriceCache>();
+// Hisse/kripto fiyatlarini arka planda TOPLU isteklerle yeniler. Boylece dis
+// servise giden istek sayisi kullanici sayisindan bagimsiz hale gelir:
+// yalnizca farkli sembol sayisina bagli kalir.
+builder.Services.AddHostedService<PriceRefreshService>();
+
 // JWT Authentication yapılandırması
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

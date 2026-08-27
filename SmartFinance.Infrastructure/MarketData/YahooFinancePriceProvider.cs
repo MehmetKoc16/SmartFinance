@@ -5,9 +5,14 @@ using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.Infrastructure.MarketData;
 
-public class YahooFinancePriceProvider : IPriceProvider
+public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider
 {
     private readonly HttpClient _httpClient;
+
+    // Yahoo'nun quote ucu tek istekte cok sembol kabul ediyor (26.08.2026'da
+    // 10 sembolle dogrulandi). 50, guvenli bir ust sinir — URL uzunlugu ve
+    // saglayici toleransi acisindan sorun cikarmayacak buyukluk.
+    public int MaxBatchSize => 50;
 
     // quoteSummary uc noktasi (fiyat/grafik uc noktasinin aksine) bir oturum cerezi +
     // "crumb" token'i istiyor — tum saglayici ornekleri arasinda paylasilan static
@@ -175,6 +180,68 @@ public class YahooFinancePriceProvider : IPriceProvider
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Birden fazla sembolün fiyatını tek istekte alır (v7/finance/quote).
+    /// Arka plandaki fiyat yenileyici bunu kullanır: 100 sembol, 50'şerlik
+    /// iki istekte gelir — sembol başına ayrı istek atmak yerine.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, decimal>> GetCurrentPricesAsync(
+        IReadOnlyCollection<string> symbols, CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (symbols.Count == 0) return result;
+
+        // Yahoo sembolü ("THYAO" -> "THYAO.IS") ile bizim sembolümüz arasında
+        // geri eşleme gerekiyor: yanıt Yahoo biçiminde geliyor.
+        var byYahooSymbol = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in symbols)
+            byYahooSymbol[ToYahooSymbol(s)] = s.Trim().ToUpperInvariant();
+
+        var joined = string.Join(",", byYahooSymbol.Keys);
+        var response = await SendQuoteRequestAsync(joined, ct);
+
+        // Crumb süresi dolmuş olabilir — bir kez yenileyip tekrar dene.
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            _cachedCrumb = null;
+            response = await SendQuoteRequestAsync(joined, ct);
+        }
+
+        if (!response.IsSuccessStatusCode) return result;
+
+        using var stream = await response.Content.ReadAsStreamAsync(ct);
+        var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+        if (!doc.RootElement.TryGetProperty("quoteResponse", out var qr) ||
+            !qr.TryGetProperty("result", out var list) ||
+            list.ValueKind != JsonValueKind.Array)
+            return result;
+
+        foreach (var item in list.EnumerateArray())
+        {
+            if (!item.TryGetProperty("symbol", out var symEl)) continue;
+            if (!item.TryGetProperty("regularMarketPrice", out var priceEl)) continue;
+            if (priceEl.ValueKind != JsonValueKind.Number) continue;
+
+            var yahooSymbol = symEl.GetString();
+            if (yahooSymbol == null) continue;
+            if (!byYahooSymbol.TryGetValue(yahooSymbol, out var original)) continue;
+
+            result[original] = priceEl.GetDecimal();
+        }
+
+        return result;
+    }
+
+    private async Task<HttpResponseMessage> SendQuoteRequestAsync(string joinedSymbols, CancellationToken ct)
+    {
+        await EnsureCrumbAsync(ct);
+        var url = $"v7/finance/quote?symbols={Uri.EscapeDataString(joinedSymbols)}";
+        if (_cachedCrumb != null)
+            url += $"&crumb={Uri.EscapeDataString(_cachedCrumb)}";
+        return await _httpClient.GetAsync(url, ct);
     }
 
     private async Task<HttpResponseMessage> SendQuoteSummaryRequestAsync(string yahooSymbol, CancellationToken ct)

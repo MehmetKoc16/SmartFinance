@@ -9,11 +9,13 @@ public class MarketDataService : IMarketDataService
 {
     private readonly IEnumerable<IPriceProvider> _providers;
     private readonly IMemoryCache _cache;
+    private readonly IPriceCache _priceCache;
 
-    public MarketDataService(IEnumerable<IPriceProvider> providers, IMemoryCache cache)
+    public MarketDataService(IEnumerable<IPriceProvider> providers, IMemoryCache cache, IPriceCache priceCache)
     {
         _providers = providers;
         _cache = cache;
+        _priceCache = priceCache;
     }
 
     private IPriceProvider ResolveProvider(string investmentType)
@@ -45,9 +47,6 @@ public class MarketDataService : IMarketDataService
 
     /// Anahtarlara gunun tarihi de giriyor: aralik hesabi DateTime.Today'e
     /// dayandigi icin gece yarisini gecen bir kayit bayat aralik dondururdu.
-    private static string PriceKey(string symbol, string investmentType) =>
-        $"price:{investmentType.ToLowerInvariant()}:{symbol.ToUpperInvariant()}";
-
     private static string HistoryKey(string symbol, string investmentType, string range, DateTime to) =>
         $"history:{investmentType.ToLowerInvariant()}:{symbol.ToUpperInvariant()}:{range}:{to:yyyy-MM-dd}";
 
@@ -56,12 +55,15 @@ public class MarketDataService : IMarketDataService
 
     public async Task<PriceQuoteDto> GetCurrentPriceAsync(string symbol, string investmentType, CancellationToken ct = default)
     {
-        var key = PriceKey(symbol, investmentType);
-        if (_cache.TryGetValue(key, out PriceQuoteDto? cached) && cached != null)
+        // Normal isleyiste bu onbellegi arka plandaki PriceRefreshService toplu
+        // isteklerle doldurur; kullanici istekleri dis servise hic gitmez.
+        // Asagidaki tek tek cekme yolu yalnizca yedek: yeni eklenmis bir sembol
+        // henuz yenileme turuna girmemisse veya toplu istek desteklenmiyorsa.
+        if (_priceCache.TryGet(symbol, investmentType, out var cached) && cached != null)
             return cached;
 
         var quote = await ResolveProvider(investmentType).GetCurrentPriceAsync(symbol, investmentType, ct);
-        _cache.Set(key, quote, CurrentPriceTtl);
+        _priceCache.Set(symbol, investmentType, quote, CurrentPriceTtl);
         return quote;
     }
 

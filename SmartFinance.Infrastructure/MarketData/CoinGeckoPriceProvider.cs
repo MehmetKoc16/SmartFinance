@@ -6,7 +6,7 @@ using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.Infrastructure.MarketData;
 
-public class CoinGeckoPriceProvider : IPriceProvider
+public class CoinGeckoPriceProvider : IPriceProvider, IBatchPriceProvider
 {
     private readonly HttpClient _httpClient;
 
@@ -110,6 +110,59 @@ public class CoinGeckoPriceProvider : IPriceProvider
             .Select(g => g.Last())
             .OrderBy(b => b.Date)
             .ToList();
+    }
+
+    // simple/price ucu virgulle ayrilmis coin id listesi kabul ediyor.
+    // 50, URL uzunlugu acisindan guvenli bir ust sinir.
+    public int MaxBatchSize => 50;
+
+    /// <summary>
+    /// Birden fazla kripto paranın fiyatını tek istekte alır.
+    /// Sembol -> coin id çözümlemesi çoğunlukla yerel haritadan (CryptoSymbolMap)
+    /// yapıldığı için ek istek gerektirmez; haritada olmayan semboller
+    /// çözümlenemezse sonuçtan sessizce düşer.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, decimal>> GetCurrentPricesAsync(
+        IReadOnlyCollection<string> symbols, CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (symbols.Count == 0) return result;
+
+        // coin id -> bizim sembolumuz (yanit id bazli geliyor)
+        var bySymbolId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in symbols)
+        {
+            try
+            {
+                var id = await ResolveCoinIdAsync(s.Trim().ToUpperInvariant(), ct);
+                bySymbolId[id] = s.Trim().ToUpperInvariant();
+            }
+            catch
+            {
+                // Cozumlenemeyen sembol toplu istegi bozmamali.
+            }
+        }
+
+        if (bySymbolId.Count == 0) return result;
+
+        var ids = string.Join(",", bySymbolId.Keys);
+        var response = await _httpClient.GetAsync(
+            $"simple/price?ids={Uri.EscapeDataString(ids)}&vs_currencies=try", ct);
+        if (!response.IsSuccessStatusCode) return result;
+
+        using var stream = await response.Content.ReadAsStreamAsync(ct);
+        var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+        foreach (var (coinId, originalSymbol) in bySymbolId)
+        {
+            if (!doc.RootElement.TryGetProperty(coinId, out var coinEl)) continue;
+            if (!coinEl.TryGetProperty("try", out var priceEl)) continue;
+            if (priceEl.ValueKind != JsonValueKind.Number) continue;
+
+            result[originalSymbol] = priceEl.GetDecimal();
+        }
+
+        return result;
     }
 
     private async Task<string> ResolveCoinIdAsync(string symbol, CancellationToken ct)

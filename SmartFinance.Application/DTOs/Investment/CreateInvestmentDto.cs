@@ -7,6 +7,11 @@ public class CreateInvestmentDto{
     [MaxLength(50, ErrorMessage = "Sembol en fazla 50 karakter olabilir!")]
     public string Name{get;set;}=string.Empty;
 
+    /// <summary>
+    /// İsteğe bağlı. Arayüz artık bu alanı sormuyor — tam ad, fiyat sorgusunun
+    /// yanıtından otomatik dolduruluyor. Eski istemciler hâlâ gönderebildiği
+    /// için alan korunuyor.
+    /// </summary>
     [MaxLength(200, ErrorMessage = "Tam ad en fazla 200 karakter olabilir!")]
     public string FullName{get;set;}=string.Empty;
 

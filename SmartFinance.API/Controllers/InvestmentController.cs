@@ -44,6 +44,12 @@ public class InvestmentController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateInvestmentDto dto)
     {
         var created = await _investmentService.CreateInvestmentAsync(dto);
+
+        // Ayni semboldan tekrar alimda yeni kayit acilmiyor, mevcut pozisyon
+        // guncelleniyor — bu durumda 201 Created yaniltici olurdu.
+        if (created.Merged)
+            return Ok(created);
+
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 

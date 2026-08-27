@@ -68,6 +68,8 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
             Symbol = symbol,
             Price = priceElement.GetDecimal(),
             AsOf = DateTime.UtcNow,
+            // Yanıtın meta bloğunda zaten geliyor — ek istek gerekmiyor.
+            LongName = TryGetString(meta, "longName") ?? TryGetString(meta, "shortName"),
         };
     }
 
@@ -300,6 +302,14 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
         }
 
         return result;
+    }
+
+    private static string? TryGetString(JsonElement element, string fieldName)
+    {
+        if (!element.TryGetProperty(fieldName, out var field)) return null;
+        if (field.ValueKind != JsonValueKind.String) return null;
+        var value = field.GetString();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private static decimal? TryGetNumber(JsonElement element, string fieldName)

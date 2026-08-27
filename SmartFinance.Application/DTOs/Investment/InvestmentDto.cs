@@ -11,6 +11,14 @@ public class InvestmentDto
     public string InvestmentType{get;set;} = string.Empty;
     public DateTime CreatedDate {get;set;}
 
+    /// <summary>
+    /// Yalnızca yatırım EKLEME yanıtında anlamlı: true ise yeni bir kayıt
+    /// açılmadı, aynı sembolden mevcut pozisyona eklenip maliyet ağırlıklı
+    /// ortalamaya çekildi. Arayüz doğru mesajı gösterebilsin diye var.
+    /// Listeleme yanıtlarında her zaman false.
+    /// </summary>
+    public bool Merged {get;set;}
+
     public decimal TotalPurchaseValue=>PurchasePrice*(decimal)Quantity;
     public decimal TotalCurrentValue => CurrentPrice*(decimal)Quantity;
     public decimal ProfitLoss => TotalCurrentValue-TotalPurchaseValue;

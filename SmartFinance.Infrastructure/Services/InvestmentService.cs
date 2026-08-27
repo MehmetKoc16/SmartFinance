@@ -51,15 +51,44 @@ public class InvestmentService : IInvestmentService
     public async Task<InvestmentDto> CreateInvestmentAsync(CreateInvestmentDto dto)
     {
         var userId = GetUserId();
+        var symbol = NormalizeSymbol(dto.Name);
 
         // Güncel fiyat elle girilmiyor — kayıt öncesi sağlayıcıdan çekiliyor.
         // Sağlayıcı başarısız olursa (yanlış sembol vb.) kayıt oluşturulmaz.
-        var quote = await _marketDataService.GetCurrentPriceAsync(dto.Name, dto.InvestmentType);
+        var quote = await _marketDataService.GetCurrentPriceAsync(symbol, dto.InvestmentType);
+
+        // Aynı semboldan tekrar alım YENİ KAYIT AÇMAZ, mevcut pozisyona eklenir.
+        // Aksi halde portföyde aynı hisse birden çok satır olarak görünür ve
+        // "bu hissede ne kadar kârdayım" sorusunun tek bir cevabı olmaz.
+        var existing = await _repository.Query()
+            .Where(x => x.UserId == userId
+                     && x.InvestmentType == dto.InvestmentType
+                     && x.Name.ToUpper() == symbol)
+            .OrderBy(x => x.CreatedDate)
+            .FirstOrDefaultAsync();
+
+        if (existing != null)
+        {
+            AddToPosition(existing, dto.PurchasePrice, dto.Quantity);
+            existing.CurrentPrice = quote.Price;
+            existing.FullName = PickFullName(existing.FullName, quote.LongName, dto.FullName);
+            existing.UpdatedDate = DateTime.UtcNow;
+
+            _repository.Update(existing);
+            await _context.SaveChangesAsync();
+
+            var mergedDto = MapToDto(existing);
+            mergedDto.Merged = true;
+            return mergedDto;
+        }
 
         var investment = new Investment
         {
-            Name = dto.Name,
-            FullName = dto.FullName,
+            Name = symbol,
+            // Tam ad artık kullanıcıdan istenmiyor: sağlayıcının yanıtında
+            // zaten geliyorsa oradan alınıyor, gelmiyorsa boş kalıyor ve
+            // arayüz yalnızca sembolü gösteriyor.
+            FullName = PickFullName(null, quote.LongName, dto.FullName),
             PurchasePrice = dto.PurchasePrice,
             CurrentPrice = quote.Price,
             Quantity = dto.Quantity,
@@ -73,6 +102,36 @@ public class InvestmentService : IInvestmentService
         return MapToDto(investment);
     }
 
+    private static string NormalizeSymbol(string name) => name.Trim().ToUpperInvariant();
+
+    /// <summary>
+    /// Mevcut pozisyona alım ekler ve maliyeti AĞIRLIKLI ORTALAMAYA çeker:
+    /// (eski toplam maliyet + yeni toplam maliyet) / toplam adet.
+    ///
+    /// İki fiyatın basit ortalamasını almak yanlış olurdu: 1 adet 100'den,
+    /// 9 adet 200'den alındığında gerçek ortalama 190, basit ortalama 150'dir.
+    /// </summary>
+    private static void AddToPosition(Investment investment, decimal purchasePrice, double quantity)
+    {
+        var totalQuantity = investment.Quantity + quantity;
+        if (totalQuantity <= 0) return;
+
+        var existingCost = investment.PurchasePrice * (decimal)investment.Quantity;
+        var addedCost = purchasePrice * (decimal)quantity;
+
+        investment.PurchasePrice = Math.Round((existingCost + addedCost) / (decimal)totalQuantity, 6);
+        investment.Quantity = totalQuantity;
+    }
+
+    /// Elde olan ad korunur; yoksa sağlayıcının verdiği kullanılır. İstemcinin
+    /// gönderdiği ad yalnızca son çare — eski sürümler bu alanı hâlâ yolluyor.
+    private static string PickFullName(string? current, string? fromProvider, string? fromClient)
+    {
+        if (!string.IsNullOrWhiteSpace(current)) return current;
+        if (!string.IsNullOrWhiteSpace(fromProvider)) return fromProvider;
+        return fromClient?.Trim() ?? string.Empty;
+    }
+
     public async Task UpdateInvestmentAsync(int id, CreateInvestmentDto dto)
     {
         var userId = GetUserId();
@@ -80,10 +139,10 @@ public class InvestmentService : IInvestmentService
         if (investment == null || investment.UserId != userId)
             throw new NotFoundException($"Yatırım bulunamadı. Id: {id}");
 
-        var quote = await _marketDataService.GetCurrentPriceAsync(dto.Name, dto.InvestmentType);
+        var quote = await _marketDataService.GetCurrentPriceAsync(NormalizeSymbol(dto.Name), dto.InvestmentType);
 
-        investment.Name = dto.Name;
-        investment.FullName = dto.FullName;
+        investment.Name = NormalizeSymbol(dto.Name);
+        investment.FullName = PickFullName(null, quote.LongName, dto.FullName);
         investment.PurchasePrice = dto.PurchasePrice;
         investment.CurrentPrice = quote.Price;
         investment.Quantity = dto.Quantity;

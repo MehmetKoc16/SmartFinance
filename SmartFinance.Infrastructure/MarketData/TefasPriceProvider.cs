@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
 using SmartFinance.Application.DTOs.MarketData;
 using SmartFinance.Application.Exceptions;
 using SmartFinance.Application.Interfaces;
@@ -10,6 +11,7 @@ public class TefasPriceProvider : IPriceProvider, IHistorySource
 {
     private readonly HttpClient _httpClient;
     private readonly IPriceHistoryStore _historyStore;
+    private readonly IMemoryCache _cache;
 
     // TEFAS tek istekte 1 aylık sınırı SUNUCU TARAFINDA dayatıyor: daha genişini
     // isteyince HTTP 200 ile birlikte "Tarih aralığı 1 ayı aşamaz" hatası dönüyor
@@ -31,9 +33,10 @@ public class TefasPriceProvider : IPriceProvider, IHistorySource
 
     public TimeSpan InterSymbolDelay => InterChunkDelay;
 
-    public TefasPriceProvider(HttpClient httpClient, IPriceHistoryStore historyStore)
+    public TefasPriceProvider(HttpClient httpClient, IPriceHistoryStore historyStore, IMemoryCache cache)
     {
         _historyStore = historyStore;
+        _cache = cache;
         _httpClient = httpClient;
         _httpClient.BaseAddress = new Uri("https://www.tefas.gov.tr/");
         if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
@@ -67,6 +70,9 @@ public class TefasPriceProvider : IPriceProvider, IHistorySource
             Symbol = symbol,
             Price = last.Close,
             AsOf = last.Date,
+            // TEFAS yanıtı ayrıştırılırken yakalanmışsa kullanılır; yalnızca ad
+            // için TEFAS'a ayrı bir istek atılmaz (kota dakikada ~6 istek).
+            LongName = _cache.Get<string>(NameCacheKey(symbol)),
         };
     }
 
@@ -161,7 +167,12 @@ public class TefasPriceProvider : IPriceProvider, IHistorySource
         return await _httpClient.PostAsync("api/funds/fonGnlBlgSiraliGetir", content, ct);
     }
 
-    private static async Task<List<PriceBarDto>> ParseResponseAsync(HttpResponseMessage response, string symbol, CancellationToken ct)
+    // Fon unvani yanitin icinde zaten geliyor; yatirim eklenirken kullaniciya
+    // gostermek icin saklaniyor. Unvan nadiren degistigi icin uzun omurlu.
+    private static string NameCacheKey(string symbol) => $"fundname:{symbol.Trim().ToUpperInvariant()}";
+    private static readonly TimeSpan NameCacheTtl = TimeSpan.FromDays(30);
+
+    private async Task<List<PriceBarDto>> ParseResponseAsync(HttpResponseMessage response, string symbol, CancellationToken ct)
     {
         if (!response.IsSuccessStatusCode)
             throw new ExternalServiceException($"TEFAS geçmiş fiyat sorgusu başarısız oldu: {symbol}");
@@ -193,6 +204,14 @@ public class TefasPriceProvider : IPriceProvider, IHistorySource
 
             var date = DateTime.Parse(item.GetProperty("tarih").GetString()!);
             var price = priceElement.GetDecimal();
+
+            if (item.TryGetProperty("fonUnvan", out var titleElement) &&
+                titleElement.ValueKind == JsonValueKind.String)
+            {
+                var title = titleElement.GetString();
+                if (!string.IsNullOrWhiteSpace(title))
+                    _cache.Set(NameCacheKey(symbol), title, NameCacheTtl);
+            }
 
             bars.Add(new PriceBarDto { Date = date, Open = price, High = price, Low = price, Close = price, Volume = 0 });
         }

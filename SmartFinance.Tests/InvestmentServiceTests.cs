@@ -76,6 +76,112 @@ public class InvestmentServiceTests
         Assert.Empty(context.Investments);
     }
 
+    /// Ayni semboldan tekrar alim yeni satir acmamali: portfoyde ayni hisse
+    /// birden cok kez gorunurse "bu hissede ne kadar kardayim" sorusunun tek
+    /// bir cevabi olmaz.
+    [Fact]
+    public async Task CreateInvestment_AyniSembolTekrarAlinirsa_YeniKayitAcilmaz()
+    {
+        var (service, context, _, marketData) = CreateService();
+        marketData.Setup(m => m.GetCurrentPriceAsync("THYAO", "stock", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PriceQuoteDto { Symbol = "THYAO", Price = 300m, AsOf = DateTime.UtcNow });
+
+        await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "THYAO", PurchasePrice = 100, Quantity = 1, InvestmentType = "stock" });
+        var second = await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "THYAO", PurchasePrice = 200, Quantity = 9, InvestmentType = "stock" });
+
+        Assert.Single(context.Investments);
+        Assert.True(second.Merged);
+        Assert.Equal(10, second.Quantity);
+    }
+
+    /// Agirlikli ortalama: 1 adet 100'den + 9 adet 200'den = 190.
+    /// Iki fiyatin basit ortalamasi (150) yanlis olurdu.
+    [Fact]
+    public async Task CreateInvestment_TekrarAlim_MaliyetiAgirlikliOrtalamayaCeker()
+    {
+        var (service, _, _, marketData) = CreateService();
+        marketData.Setup(m => m.GetCurrentPriceAsync("THYAO", "stock", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PriceQuoteDto { Symbol = "THYAO", Price = 300m, AsOf = DateTime.UtcNow });
+
+        await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "THYAO", PurchasePrice = 100, Quantity = 1, InvestmentType = "stock" });
+        var result = await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "THYAO", PurchasePrice = 200, Quantity = 9, InvestmentType = "stock" });
+
+        Assert.Equal(190m, result.PurchasePrice);
+        // Toplam maliyet korunmali: 1x100 + 9x200 = 1900.
+        Assert.Equal(1900m, result.TotalPurchaseValue);
+    }
+
+    [Fact]
+    public async Task CreateInvestment_SembolKucukHarfGirilse_AyniPozisyonaEklenir()
+    {
+        var (service, context, _, marketData) = CreateService();
+        marketData.Setup(m => m.GetCurrentPriceAsync("THYAO", "stock", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PriceQuoteDto { Symbol = "THYAO", Price = 300m, AsOf = DateTime.UtcNow });
+
+        await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "THYAO", PurchasePrice = 100, Quantity = 2, InvestmentType = "stock" });
+        var result = await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = " thyao ", PurchasePrice = 100, Quantity = 3, InvestmentType = "stock" });
+
+        Assert.Single(context.Investments);
+        Assert.Equal("THYAO", Assert.Single(context.Investments).Name);
+        Assert.Equal(5, result.Quantity);
+    }
+
+    /// Ayni kod farkli piyasalarda bulunabilir; tip farkliysa birlestirilmemeli.
+    [Fact]
+    public async Task CreateInvestment_AyniKodFarkliTip_AyriKayitKalir()
+    {
+        var (service, context, _, marketData) = CreateService();
+        marketData.Setup(m => m.GetCurrentPriceAsync("AFA", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PriceQuoteDto { Symbol = "AFA", Price = 1.28m, AsOf = DateTime.UtcNow });
+
+        await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "AFA", PurchasePrice = 1, Quantity = 1000, InvestmentType = "fund" });
+        var result = await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "AFA", PurchasePrice = 40, Quantity = 5, InvestmentType = "stock" });
+
+        Assert.Equal(2, context.Investments.Count());
+        Assert.False(result.Merged);
+    }
+
+    /// Kullanici artik tam adi elle yazmiyor — saglayicinin yanitindan geliyor.
+    [Fact]
+    public async Task CreateInvestment_TamAdSaglayicidanDoldurulur()
+    {
+        var (service, _, _, marketData) = CreateService();
+        marketData.Setup(m => m.GetCurrentPriceAsync("THYAO", "stock", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PriceQuoteDto
+            {
+                Symbol = "THYAO", Price = 300m, AsOf = DateTime.UtcNow,
+                LongName = "Türk Hava Yollari Anonim Ortakligi",
+            });
+
+        var result = await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "THYAO", PurchasePrice = 100, Quantity = 1, InvestmentType = "stock" });
+
+        Assert.Equal("Türk Hava Yollari Anonim Ortakligi", result.FullName);
+    }
+
+    /// Saglayici ad dondurmezse kayit yine olusmali; arayuz o durumda yalnizca
+    /// sembolu gosteriyor.
+    [Fact]
+    public async Task CreateInvestment_SaglayiciAdDondurmezse_TamAdBosKalir()
+    {
+        var (service, _, _, marketData) = CreateService();
+        marketData.Setup(m => m.GetCurrentPriceAsync("XYZ", "crypto", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PriceQuoteDto { Symbol = "XYZ", Price = 5m, AsOf = DateTime.UtcNow });
+
+        var result = await service.CreateInvestmentAsync(new CreateInvestmentDto
+        { Name = "XYZ", PurchasePrice = 5, Quantity = 1, InvestmentType = "crypto" });
+
+        Assert.Equal(string.Empty, result.FullName);
+    }
+
     [Fact]
     public async Task RefreshPrices_BirYatirimBasarisizOlursa_DigerleriEtkilenmez()
     {

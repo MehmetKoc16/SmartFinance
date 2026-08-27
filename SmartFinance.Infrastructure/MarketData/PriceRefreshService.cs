@@ -76,10 +76,11 @@ public class PriceRefreshService : BackgroundService
         var sp = scope.ServiceProvider;
         var context = sp.GetRequiredService<SmartFinanceDbContext>();
         var cache = sp.GetRequiredService<IPriceCache>();
+        var historyStore = sp.GetRequiredService<IPriceHistoryStore>();
         var providers = sp.GetServices<IPriceProvider>().ToList();
 
         // Portföylerde gerçekten tutulan semboller — TEFAS fonları hariç
-        // (onların fiyatı FundHistorySyncService tarafından güncelleniyor).
+        // (onların fiyatı PriceHistorySyncService tarafından güncelleniyor).
         var tracked = await context.Investments
             .AsNoTracking()
             .Where(i => i.InvestmentType != "fund")
@@ -127,16 +128,49 @@ public class PriceRefreshService : BackgroundService
                 {
                     if (totalRequests > 0) await Task.Delay(InterBatchDelay, ct);
 
-                    var prices = await batchProvider.GetCurrentPricesAsync(chunk, ct);
-                    totalRequests++;
-
                     var asOf = DateTime.UtcNow;
-                    foreach (var (symbol, price) in prices)
+
+                    // Sağlayıcı günün tam barını dönebiliyorsa (Yahoo'nun toplu
+                    // quote yanıtı açılış/yüksek/düşük/hacim de içeriyor) aynı
+                    // istekten hem önbellek hem geçmiş deposu besleniyor.
+                    // Böylece seans sürerken grafiğin son mumu eksik kalmıyor
+                    // ve bunun için EK BİR DIŞ İSTEK atılmıyor.
+                    if (batchProvider is IBatchBarProvider barProvider)
                     {
-                        cache.Set(symbol, investmentType,
-                            new PriceQuoteDto { Symbol = symbol, Price = price, AsOf = asOf },
-                            CacheTtl);
-                        totalRefreshed++;
+                        var bars = await barProvider.GetTodayBarsAsync(chunk, ct);
+                        totalRequests++;
+
+                        foreach (var (symbol, bar) in bars)
+                        {
+                            cache.Set(symbol, investmentType,
+                                new PriceQuoteDto { Symbol = symbol, Price = bar.Close, AsOf = asOf },
+                                CacheTtl);
+                            totalRefreshed++;
+
+                            try
+                            {
+                                await historyStore.UpsertAsync(symbol, investmentType, new[] { bar }, ct);
+                            }
+                            catch (Exception ex)
+                            {
+                                // Depoya yazamamak fiyat gösterimini engellememeli —
+                                // önbellek zaten güncellendi.
+                                _logger.LogWarning(ex, "{Symbol} için günün barı depoya yazılamadı.", symbol);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var prices = await batchProvider.GetCurrentPricesAsync(chunk, ct);
+                        totalRequests++;
+
+                        foreach (var (symbol, price) in prices)
+                        {
+                            cache.Set(symbol, investmentType,
+                                new PriceQuoteDto { Symbol = symbol, Price = price, AsOf = asOf },
+                                CacheTtl);
+                            totalRefreshed++;
+                        }
                     }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }

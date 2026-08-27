@@ -67,12 +67,13 @@ builder.Services.AddHttpClient<IPriceProvider, TcmbPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, GoldPriceProvider>();
 builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 
-// Fon NAV gecmisi kendi veritabanimizda saklanir: TEFAS tek istekte 1 aylik veri
-// veriyor ve IP basina dakikada ~6 istekle sinirliyor. Bu sinir tum kullanicilar
-// arasinda paylasildigi icin istek aninda cekmek olceklenmiyordu.
-builder.Services.AddScoped<IFundHistoryStore, FundHistoryStore>();
-// TEFAS'a giden tek yer: gecelik senkron isi. Kullanici istekleri depodan okur.
-builder.Services.AddHostedService<FundHistorySyncService>();
+// Gunluk fiyat gecmisi (fon + hisse) kendi veritabanimizda saklanir: TEFAS tek
+// istekte 1 aylik veri veriyor ve IP basina dakikada ~6 istekle siniriyor,
+// Yahoo'nun siniri ise hic belgelenmemis. Bu sinirlar IP basina oldugu icin tum
+// kullanicilar arasinda paylasiliyor; istek aninda cekmek olceklenmiyordu.
+builder.Services.AddScoped<IPriceHistoryStore, PriceHistoryStore>();
+// Dis kaynaga giden tek yer: gecelik senkron isi. Kullanici istekleri depodan okur.
+builder.Services.AddHostedService<PriceHistorySyncService>();
 
 // Guncel fiyat onbellegi. MarketDataService okur, PriceRefreshService yazar —
 // ikisi de ayni anahtar bicimini kullansin diye tek sinif uzerinden gidiyor.

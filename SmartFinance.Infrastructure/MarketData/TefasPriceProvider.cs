@@ -6,10 +6,10 @@ using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.Infrastructure.MarketData;
 
-public class TefasPriceProvider : IPriceProvider
+public class TefasPriceProvider : IPriceProvider, IHistorySource
 {
     private readonly HttpClient _httpClient;
-    private readonly IFundHistoryStore _historyStore;
+    private readonly IPriceHistoryStore _historyStore;
 
     // TEFAS tek istekte 1 aylık sınırı SUNUCU TARAFINDA dayatıyor: daha genişini
     // isteyince HTTP 200 ile birlikte "Tarih aralığı 1 ayı aşamaz" hatası dönüyor
@@ -23,9 +23,15 @@ public class TefasPriceProvider : IPriceProvider
     private static readonly TimeSpan InterChunkDelay = TimeSpan.FromSeconds(11);
     private const int MaxRetries = 4;
 
-    public IEnumerable<string> SupportedInvestmentTypes => new[] { "fund" };
+    public IEnumerable<string> SupportedInvestmentTypes => new[] { InvestmentType };
 
-    public TefasPriceProvider(HttpClient httpClient, IFundHistoryStore historyStore)
+    // Depoda bu tiple saklaniyor; ayni kod farkli piyasalarda cakisabilecegi icin
+    // tekillik sembol + tip uzerinden kuruluyor.
+    private const string InvestmentType = "fund";
+
+    public TimeSpan InterSymbolDelay => InterChunkDelay;
+
+    public TefasPriceProvider(HttpClient httpClient, IPriceHistoryStore historyStore)
     {
         _historyStore = historyStore;
         _httpClient = httpClient;
@@ -66,55 +72,21 @@ public class TefasPriceProvider : IPriceProvider
 
     /// <summary>
     /// Kullanıcı isteklerinin geçtiği yol: önce kendi veritabanımıza bakılır.
-    /// TEFAS'a yalnızca o fon için hiç verimiz yoksa (kullanıcı yeni bir fon
+    /// TEFAS'a yalnızca depo istenen aralığı kapsamıyorsa (kullanıcı fonu yeni
     /// ekledi) gidilir; sonrasını gecelik senkron işi güncel tutar.
     ///
     /// Böylece 6 aylık grafik ~90 saniye yerine milisaniyelerde dönüyor ve
     /// TEFAS'ın paylaşılan hız kotası kullanıcı trafiğiyle tüketilmiyor.
     /// </summary>
-    public async Task<IReadOnlyList<PriceBarDto>> GetHistoricalPricesAsync(
+    public Task<IReadOnlyList<PriceBarDto>> GetHistoricalPricesAsync(
         string symbol, string investmentType, DateTime from, DateTime to, CancellationToken ct = default)
-    {
-        var fromDate = from.Date;
-        var toDate = to.Date;
-
-        var stored = await _historyStore.GetRangeAsync(symbol, fromDate, toDate, ct);
-
-        // Depoda veri OLMASI yeterli değil, istenen aralığı KAPSAMASI gerekir.
-        // Örnek: kullanıcı fonu yeni ekledi, güncel fiyat için yalnızca son 10 gün
-        // çekilmişti; ardından 6 aylık grafik istendiğinde eksik olan önceki
-        // pencerenin tamamlanması gerekir.
-        var earliestStored = stored.Count > 0 ? stored[0].Date.Date : (DateTime?)null;
-
-        // Hafta sonu ve resmi tatillerde NAV yayınlanmaz; birkaç günlük boşluk
-        // "eksik veri" değildir. Tolerans olmadan her istekte boşuna TEFAS'a
-        // gidilirdi.
-        const int GapToleranceDays = 5;
-        var needsBackfill = earliestStored is null
-            || (earliestStored.Value - fromDate).TotalDays > GapToleranceDays;
-
-        if (needsBackfill)
-        {
-            var backfillTo = earliestStored?.AddDays(-1) ?? toDate;
-            if (backfillTo >= fromDate)
-            {
-                var fetched = await FetchFromTefasAsync(symbol, fromDate, backfillTo, ct);
-                if (fetched.Count > 0)
-                {
-                    await _historyStore.UpsertAsync(symbol, fetched, ct);
-                    stored = await _historyStore.GetRangeAsync(symbol, fromDate, toDate, ct);
-                }
-            }
-        }
-
-        return stored;
-    }
+        => HistoryBackfill.ReadWithBackfillAsync(_historyStore, this, symbol, InvestmentType, from, to, ct);
 
     /// <summary>
     /// TEFAS'a giden gerçek istek — yalnızca ilk kez görülen fonlarda ve
     /// gecelik senkron işinde çağrılır.
     /// </summary>
-    public async Task<IReadOnlyList<PriceBarDto>> FetchFromTefasAsync(
+    public async Task<IReadOnlyList<PriceBarDto>> FetchDailyBarsAsync(
         string symbol, DateTime from, DateTime to, CancellationToken ct = default)
     {
         var bars = new List<PriceBarDto>();

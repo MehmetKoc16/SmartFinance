@@ -5,9 +5,10 @@ using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.Infrastructure.MarketData;
 
-public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider
+public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IBatchBarProvider, IHistorySource
 {
     private readonly HttpClient _httpClient;
+    private readonly IPriceHistoryStore _historyStore;
 
     // Yahoo'nun quote ucu tek istekte cok sembol kabul ediyor (26.08.2026'da
     // 10 sembolle dogrulandi). 50, guvenli bir ust sinir — URL uzunlugu ve
@@ -20,11 +21,20 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider
     private static string? _cachedCrumb;
     private static readonly SemaphoreSlim _crumbLock = new(1, 1);
 
-    public IEnumerable<string> SupportedInvestmentTypes => new[] { "stock" };
+    public IEnumerable<string> SupportedInvestmentTypes => new[] { InvestmentType };
 
-    public YahooFinancePriceProvider(HttpClient httpClient)
+    // Depoda bu tiple saklanıyor; aynı kod farklı piyasalarda çakışabileceği için
+    // tekillik sembol + tip üzerinden kuruluyor.
+    private const string InvestmentType = "stock";
+
+    // Yahoo'nun hız sınırı belgelenmemiş ve IP bazlı (resmi olmayan API), bu
+    // yüzden senkron işinde semboller arasında ihtiyatlı bir ara bırakılıyor.
+    public TimeSpan InterSymbolDelay => TimeSpan.FromSeconds(3);
+
+    public YahooFinancePriceProvider(HttpClient httpClient, IPriceHistoryStore historyStore)
     {
         _httpClient = httpClient;
+        _historyStore = historyStore;
         _httpClient.BaseAddress = new Uri("https://query1.finance.yahoo.com/");
         if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
         {
@@ -61,12 +71,41 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider
         };
     }
 
-    public async Task<IReadOnlyList<PriceBarDto>> GetHistoricalPricesAsync(
+    /// <summary>
+    /// Kullanıcı isteklerinin geçtiği yol: günlük barlar önce kendi
+    /// veritabanımızdan okunur, Yahoo'ya yalnızca depo istenen aralığı
+    /// kapsamıyorsa gidilir. Böylece grafik istekleri kullanıcı sayısıyla
+    /// birlikte büyüyen bir dış yük oluşturmuyor — Yahoo'nun sınırı
+    /// belgelenmemiş ve IP bazlı olduğu için bu önemli.
+    ///
+    /// Gün içi (5 dakikalık) barlar istisna: saklanmıyor, doğrudan Yahoo'dan
+    /// geliyor. Gün içi veri saatlerle ölçülür ve ertesi gün değersizdir;
+    /// günlük barlarla aynı tabloda tutmak tekillik anahtarını da bozardı.
+    /// Bu isteklerin dış yükünü mevcut önbellek sınırlıyor.
+    /// </summary>
+    public Task<IReadOnlyList<PriceBarDto>> GetHistoricalPricesAsync(
         string symbol, string investmentType, DateTime from, DateTime to, CancellationToken ct = default)
     {
-        var yahooSymbol = ToYahooSymbol(symbol);
         // from==to -> gun-ici (saatlik) istek: MarketDataService "1d" araligi icin bu sinyali gonderiyor.
-        var isIntraday = from.Date == to.Date;
+        if (from.Date == to.Date)
+            return FetchChartAsync(symbol, from, to, intraday: true, ct);
+
+        return HistoryBackfill.ReadWithBackfillAsync(_historyStore, this, symbol, InvestmentType, from, to, ct);
+    }
+
+    /// <summary>
+    /// Yahoo'ya giden gerçek istek — yalnızca ilk kez görülen sembollerde ve
+    /// gecelik senkron işinde çağrılır.
+    /// </summary>
+    public Task<IReadOnlyList<PriceBarDto>> FetchDailyBarsAsync(
+        string symbol, DateTime from, DateTime to, CancellationToken ct = default)
+        => FetchChartAsync(symbol, from, to, intraday: false, ct);
+
+    private async Task<IReadOnlyList<PriceBarDto>> FetchChartAsync(
+        string symbol, DateTime from, DateTime to, bool intraday, CancellationToken ct)
+    {
+        var yahooSymbol = ToYahooSymbol(symbol);
+        var isIntraday = intraday;
         var days = Math.Max(1, (to - from).Days);
         var yahooRange = isIntraday ? "1d"
             : days <= 7 ? "5d"
@@ -190,7 +229,20 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider
     public async Task<IReadOnlyDictionary<string, decimal>> GetCurrentPricesAsync(
         IReadOnlyCollection<string> symbols, CancellationToken ct = default)
     {
-        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var bars = await GetTodayBarsAsync(symbols, ct);
+        return bars.ToDictionary(kv => kv.Key, kv => kv.Value.Close, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Aynı toplu istekten günün tam barını çıkarır. Yahoo'nun quote yanıtı
+    /// açılış/gün içi en yüksek-en düşük/hacim alanlarını zaten içerdiği için
+    /// bu bilgi bedava geliyor; arka plan yenileyici bunu depoya yazarak
+    /// seans sürerken grafiğin son mumunun eksik kalmasını önlüyor.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, PriceBarDto>> GetTodayBarsAsync(
+        IReadOnlyCollection<string> symbols, CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, PriceBarDto>(StringComparer.OrdinalIgnoreCase);
         if (symbols.Count == 0) return result;
 
         // Yahoo sembolü ("THYAO" -> "THYAO.IS") ile bizim sembolümüz arasında
@@ -229,10 +281,32 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider
             if (yahooSymbol == null) continue;
             if (!byYahooSymbol.TryGetValue(yahooSymbol, out var original)) continue;
 
-            result[original] = priceEl.GetDecimal();
+            var close = priceEl.GetDecimal();
+
+            // Gün içi alanlar eksik gelebiliyor (işlem görmeyen sembol, veri
+            // gecikmesi); o durumda barın tamamı son fiyata düşürülür — yanlış
+            // bir sıfır değeri grafikte uçuk bir mum olarak görünürdü.
+            result[original] = new PriceBarDto
+            {
+                Date = TryGetNumber(item, "regularMarketTime") is { } unix
+                    ? DateTimeOffset.FromUnixTimeSeconds((long)unix).UtcDateTime.Date
+                    : DateTime.UtcNow.Date,
+                Open = TryGetNumber(item, "regularMarketOpen") ?? close,
+                High = TryGetNumber(item, "regularMarketDayHigh") ?? close,
+                Low = TryGetNumber(item, "regularMarketDayLow") ?? close,
+                Close = close,
+                Volume = TryGetNumber(item, "regularMarketVolume") ?? 0,
+            };
         }
 
         return result;
+    }
+
+    private static decimal? TryGetNumber(JsonElement element, string fieldName)
+    {
+        if (!element.TryGetProperty(fieldName, out var field)) return null;
+        if (field.ValueKind != JsonValueKind.Number) return null;
+        return field.GetDecimal();
     }
 
     private async Task<HttpResponseMessage> SendQuoteRequestAsync(string joinedSymbols, CancellationToken ct)

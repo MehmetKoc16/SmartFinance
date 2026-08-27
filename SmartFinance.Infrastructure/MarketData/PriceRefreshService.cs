@@ -97,6 +97,15 @@ public class PriceRefreshService : BackgroundService
             if (ct.IsCancellationRequested) return;
 
             var investmentType = group.Key;
+
+            // Piyasa kapalıyken fiyat zaten değişmiyor — boşuna dış istek atma.
+            // Kripto 7/24 açık olduğu için bu kontrolden muaf.
+            if (!MarketSchedule.ShouldRefresh(investmentType, DateTime.UtcNow))
+            {
+                _logger.LogDebug("{Type} piyasası kapalı, yenileme atlandı.", investmentType);
+                continue;
+            }
+
             var symbols = group.Select(g => g.Name.Trim().ToUpperInvariant()).Distinct().ToList();
 
             var provider = providers.FirstOrDefault(p =>

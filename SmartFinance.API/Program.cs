@@ -60,7 +60,11 @@ builder.Services.AddScoped<IBudgetService, BudgetService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // Fiyat sağlayıcıları — her biri IPriceProvider altında kayıtlı, MarketDataService IEnumerable<IPriceProvider> ile hepsini alır
-builder.Services.AddHttpClient<IPriceProvider, CoinGeckoPriceProvider>();
+// CoinGecko artik dogrudan kullanilmiyor: Binance'te listelenmeyen coin'ler
+// (ornegin TON) icin BinanceCryptoPriceProvider'in yedegi olarak duruyor.
+// Bu yuzden IPriceProvider olarak degil, kendi tipiyle kayitli.
+builder.Services.AddHttpClient<CoinGeckoPriceProvider>();
+builder.Services.AddHttpClient<IPriceProvider, BinanceCryptoPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, YahooFinancePriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, TefasPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, TcmbPriceProvider>();

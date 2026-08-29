@@ -47,11 +47,24 @@ public class MarketScheduleTests
         Assert.True(MarketSchedule.ShouldRefresh("crypto", t));
     }
 
+    /// Altin fiyati Binance PAXG/TRY paritesinden geliyor; o piyasa 7/24 acik.
+    /// TCMB'nin aylik serisi kullanilirken bu gecerli degildi.
+    [Theory]
+    [InlineData(2026, 8, 26, 2)]   // Carsamba gece
+    [InlineData(2026, 8, 29, 11)]  // Cumartesi ogle
+    [InlineData(2026, 8, 30, 22)]  // Pazar gece
+    public void Altin_HerZamanYenilenir(int y, int m, int d, int utcHour)
+    {
+        var t = new DateTime(y, m, d, utcHour, 0, 0, DateTimeKind.Utc);
+        Assert.True(MarketSchedule.ShouldRefresh("gold", t));
+    }
+
     [Fact]
     public void TipBuyukKucukHarfDuyarsiz()
     {
         var geceyarisi = UtcOnWednesday(2);
         Assert.True(MarketSchedule.ShouldRefresh("CRYPTO", geceyarisi));
+        Assert.True(MarketSchedule.ShouldRefresh("Gold", geceyarisi));
         Assert.False(MarketSchedule.ShouldRefresh("STOCK", geceyarisi));
     }
 

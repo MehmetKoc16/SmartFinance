@@ -21,10 +21,15 @@ public static class MarketSchedule
     private static readonly TimeSpan SessionStart = new(9, 30, 0);
     private static readonly TimeSpan SessionEnd = new(18, 30, 0);
 
+    // 7/24 işlem gören piyasalar. Altın buraya 29.08.2026'da eklendi: fiyatı
+    // artık Binance'teki PAXG/TRY paritesinden geliyor ve o piyasa hafta sonu
+    // da açık. TCMB'nin aylık serisi kullanılırken bu geçerli değildi.
+    private static readonly HashSet<string> AlwaysOpenTypes =
+        new(StringComparer.OrdinalIgnoreCase) { "crypto", "gold" };
+
     public static bool ShouldRefresh(string investmentType, DateTime utcNow)
     {
-        // Kripto piyasası hiç kapanmaz.
-        if (string.Equals(investmentType, "crypto", StringComparison.OrdinalIgnoreCase))
+        if (AlwaysOpenTypes.Contains(investmentType))
             return true;
 
         var istanbul = utcNow + IstanbulOffset;

@@ -88,7 +88,7 @@ public class TcmbPriceProvider : IPriceProvider
             // "Tarih" alanının biçimi seriye göre değişiyor (günlük: "dd-MM-yyyy", aylık: "yyyy-M") —
             // ikisinde de tutarlı olan UNIXTIME (saniye) alanını kullanmak daha güvenilir.
             var unixSeconds = long.Parse(item.GetProperty("UNIXTIME").GetProperty("$numberLong").GetString()!);
-            var date = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime.Date;
+            var date = EvdsDate.FromUnixSeconds(unixSeconds);
 
             bars.Add(new PriceBarDto { Date = date, Open = price, High = price, Low = price, Close = price, Volume = 0 });
         }

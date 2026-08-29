@@ -69,6 +69,7 @@ builder.Services.AddHttpClient<IPriceProvider, YahooFinancePriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, TefasPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, TcmbPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, GoldPriceProvider>();
+builder.Services.AddHttpClient<IPriceProvider, SilverPriceProvider>();
 builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 
 // Gunluk fiyat gecmisi (fon + hisse) kendi veritabanimizda saklanir: TEFAS tek

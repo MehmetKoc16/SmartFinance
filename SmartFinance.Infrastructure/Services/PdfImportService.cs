@@ -147,10 +147,11 @@ public class PdfImportService : IPdfImportService
         return (_excelParser.Parse(sheet), _excelParser.BankName, _excelParser.ExtractPeriod(sheet));
     }
 
-    public async Task<int> ConfirmImportAsync(ConfirmImportDto dto)
+    public async Task<ImportResultDto> ConfirmImportAsync(ConfirmImportDto dto)
     {
         var userId = GetUserId();
         var savedCount = 0;
+        var skippedCount = 0;
 
         // Kullanıcının sahip olduğu kategori id'leri — client'tan gelen categoryId
         // başka bir kullanıcıya ait olsa bile kabul edilmesin diye önceden çekiliyor.
@@ -160,8 +161,21 @@ public class PdfImportService : IPdfImportService
             .ToListAsync())
             .ToHashSet();
 
+        var existingCounts = await BuildExistingCountsAsync(userId, dto.Transactions);
+
         foreach (var item in dto.Transactions)
         {
+            // Zaten kayıtlı bir işlemi ikinci kez eklemeyiz. Kullanıcının aynı
+            // ekstreyi tekrar yüklemesi sık görülen bir durum ve koruma
+            // olmadığında giderler iki katı görünüyordu.
+            var key = DuplicateKey(item.TransactionDate, item.Amount, item.Type, item.Description);
+            if (existingCounts.TryGetValue(key, out var remaining) && remaining > 0)
+            {
+                existingCounts[key] = remaining - 1;
+                skippedCount++;
+                continue;
+            }
+
             var categoryId = item.CategoryId.HasValue && ownedCategoryIds.Contains(item.CategoryId.Value)
                 ? item.CategoryId.Value
                 : (int?)null;
@@ -190,7 +204,58 @@ public class PdfImportService : IPdfImportService
         }
 
         await _context.SaveChangesAsync();
-        return savedCount;
+        return new ImportResultDto { SavedCount = savedCount, SkippedCount = skippedCount };
+    }
+
+    /// <summary>
+    /// Gelen işlemlerle AYNI olan mevcut kayıtları sayar.
+    /// </summary>
+    /// Neden küme değil de SAYIM: kullanıcı aynı gün, aynı yerden, aynı tutarda
+    /// iki alışveriş yapmış olabilir (iki kahve gibi). Küme kullanılsaydı
+    /// ikincisi mükerrer sanılıp sessizce yutulurdu. Sayım karşılaştırmasıyla
+    /// yalnızca FAZLASI atlanır: veritabanında 1, dosyada 2 varsa 1 tanesi
+    /// eklenir; aynı dosya ikinci kez yüklenirse hiçbiri eklenmez.
+    ///
+    /// Yalnızca gelen işlemlerin tarih aralığı sorgulanır — tüm geçmişi
+    /// belleğe çekmek gereksiz olurdu.
+    private async Task<Dictionary<string, int>> BuildExistingCountsAsync(
+        int userId, List<ConfirmTransactionItemDto> incoming)
+    {
+        // OrdinalIgnoreCase: anahtarlar buyuk harfe cevrilerek uretilmiyor.
+        // ToUpperInvariant Turkce "i" harfini "I" yapip "İ" ile eslesmemesine
+        // yol aciyordu — kultur duyarli donusum yerine karsilastirmayi
+        // comparer'a birakmak hem dogru hem daha ucuz.
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (incoming.Count == 0) return counts;
+
+        var from = incoming.Min(i => i.TransactionDate).Date;
+        var to = incoming.Max(i => i.TransactionDate).Date.AddDays(1).AddTicks(-1);
+
+        var existing = await _context.Transactions
+            .AsNoTracking()
+            .Where(t => t.UserId == userId && t.TransactionDate >= from && t.TransactionDate <= to)
+            .Select(t => new { t.TransactionDate, t.Amount, t.Type, t.Description })
+            .ToListAsync();
+
+        foreach (var t in existing)
+        {
+            var key = DuplicateKey(t.TransactionDate, t.Amount, (int)t.Type, t.Description);
+            counts[key] = counts.TryGetValue(key, out var c) ? c + 1 : 1;
+        }
+
+        return counts;
+    }
+
+    /// Tarih (saat yok) + tutar + yön + açıklama. Açıklama banka ekstresindeki
+    /// satırın kendisi olduğu için aynı işlemi en güvenilir ayırt eden alan.
+    /// Fazla boşluklar temizlenir; harf büyüklüğü farkını sözlüğün
+    /// OrdinalIgnoreCase karşılaştırıcısı absorbe eder.
+    private static string DuplicateKey(DateTime date, decimal amount, int type, string? description)
+    {
+        var normalized = string.Join(' ',
+            (description ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"{date:yyyy-MM-dd}|{Math.Round(amount, 2)}|{type}|{normalized}");
     }
 
     // ─── Private Helpers ─────────────────────────────────────────

@@ -50,7 +50,16 @@ public class PdfImportController : ControllerBase
         if (dto.Transactions == null || !dto.Transactions.Any())
             return BadRequest(new { message = "En az bir işlem seçmelisiniz." });
 
-        var savedCount = await _pdfImportService.ConfirmImportAsync(dto);
-        return Ok(new { message = $"{savedCount} işlem başarıyla kaydedildi.", count = savedCount });
+        var result = await _pdfImportService.ConfirmImportAsync(dto);
+
+        // Ayni ekstre ikinci kez yuklendiginde kullanici "hicbir sey olmadi"
+        // sanmasin: ne kaydedildigi ve ne atlandigi acikca soylenir.
+        var message = result.SkippedCount == 0
+            ? $"{result.SavedCount} işlem başarıyla kaydedildi."
+            : result.SavedCount == 0
+                ? $"Bu işlemlerin tamamı zaten kayıtlı ({result.SkippedCount} işlem atlandı)."
+                : $"{result.SavedCount} işlem kaydedildi, {result.SkippedCount} işlem zaten kayıtlı olduğu için atlandı.";
+
+        return Ok(new { message, count = result.SavedCount, skipped = result.SkippedCount });
     }
 }

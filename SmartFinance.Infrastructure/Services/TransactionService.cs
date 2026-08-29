@@ -50,6 +50,19 @@ public class TransactionService : ITransactionService
 
         var totalCount=await query.CountAsync();
 
+        // SIRALAMA ZORUNLU: OrderBy olmadan SQL Server satirlari herhangi bir
+        // sirada dondurebilir (pratikte kumelenmis indeks sirasi, yani ekleme
+        // sirasi). Bu yuzden "Son Islemler" en yeni degil EN ESKI kayitlari
+        // gosteriyordu ve yeni eklenen islemler listenin en sonuna dusuyordu.
+        //
+        // Ikincil siralama Id: TransactionDate saat bilgisi tasimiyor, ayni
+        // gune ait cok sayida kayit esitleniyor. Esitlik deterministik
+        // bozulmazsa OFFSET/FETCH sayfalari kararsiz kalir — ayni kayit iki
+        // sayfada birden cikabilir veya hic cikmayabilir.
+        query = query
+            .OrderByDescending(t => t.TransactionDate)
+            .ThenByDescending(t => t.Id);
+
         var items = await query.Skip((filter.Page-1)*filter.PageSize).Take(filter.PageSize).Select(t=>new TransactionDto
         {
             Id=t.Id,

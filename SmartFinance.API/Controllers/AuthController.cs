@@ -37,12 +37,12 @@ public class AuthController : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public IActionResult GetMe()
+    public async Task<IActionResult> GetMe()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var email  = User.FindFirst(ClaimTypes.Email)?.Value;
-        var name   = User.FindFirst(ClaimTypes.Name)?.Value;
-        return Ok(new { id = userId, email, fullName = name });
+        // Token icindeki bilgileri geri yansitmak yerine kullanicinin hala var
+        // oldugu dogrulaniyor — silinen hesabin token'i 60 dakika daha gecerli
+        // kaliyor ve uygulama giris yapilmis gorunmeye devam ediyordu.
+        return Ok(await _authService.GetMeAsync());
     }
 
     [HttpPut("change-password")]
@@ -65,6 +65,18 @@ public class AuthController : ControllerBase
     /// login'e dusurmeden yeni bir erisim+refresh token cifti alir. Bilerek
     /// [Authorize] degil — cagrilma amaci zaten suresi gecmis olabilecek bir
     /// erisim token'ini yenilemek.</summary>
+    /// <summary>
+    /// Hesabi ve kullaniciya ait tum veriyi kalici olarak siler.
+    /// Google Play, hesap olusturan uygulamalarda bu ucu zorunlu tutuyor.
+    /// </summary>
+    [HttpDelete("account")]
+    [Authorize]
+    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountDto dto)
+    {
+        await _authService.DeleteAccountAsync(dto);
+        return Ok(new { message = "Hesabınız ve tüm verileriniz kalıcı olarak silindi." });
+    }
+
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto dto)
     {
@@ -81,4 +93,4 @@ public class AuthController : ControllerBase
         await _authService.LogoutAsync(dto.RefreshToken);
         return NoContent();
     }
-}
+}

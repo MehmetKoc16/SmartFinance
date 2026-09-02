@@ -16,6 +16,10 @@ public class SmartFinanceDbContext : DbContext
     public DbSet<Budget> Budgets {get;set;}
     // Kullaniciya degil piyasaya ait paylasilan veri — fon/hisse gunluk fiyat gecmisi.
     public DbSet<PriceHistory> PriceHistories {get;set;}
+    // Premium abonelikler — premium durumunun tek dogruluk kaynagi.
+    public DbSet<Subscription> Subscriptions {get;set;}
+    // Ucretsiz katmanda aylik ice aktarma sinirini sayabilmek icin.
+    public DbSet<ImportLog> ImportLogs {get;set;}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

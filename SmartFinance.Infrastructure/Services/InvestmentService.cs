@@ -1,3 +1,4 @@
+using SmartFinance.Application.Common;
 using SmartFinance.Application.DTOs.Investment;
 using SmartFinance.Application.DTOs.MarketData;
 using SmartFinance.Application.Interfaces;
@@ -14,17 +15,20 @@ public class InvestmentService : IInvestmentService
     private readonly SmartFinanceDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IMarketDataService _marketDataService;
+    private readonly IEntitlementService _entitlementService;
 
     public InvestmentService(
         IGenericRepository<Investment> repository,
         SmartFinanceDbContext context,
         ICurrentUserService currentUserService,
-        IMarketDataService marketDataService)
+        IMarketDataService marketDataService,
+        IEntitlementService entitlementService)
     {
         _repository = repository;
         _context = context;
         _currentUserService = currentUserService;
         _marketDataService = marketDataService;
+        _entitlementService = entitlementService;
     }
 
     private int GetUserId() =>
@@ -81,6 +85,16 @@ public class InvestmentService : IInvestmentService
             mergedDto.Merged = true;
             return mergedDto;
         }
+
+        // Sinir yalnizca YENI pozisyon acarken uygulaniyor. Mevcut pozisyona
+        // ekleme (yukaridaki birlestirme yolu) sayiyi artirmadigi icin
+        // sinirin ustunde olan kullanici da alimini kaydedebilir — sahip
+        // oldugu veriyi guncelleyememek kabul edilemez olurdu.
+        var mevcutSayi = await _repository.Query().CountAsync(x => x.UserId == userId);
+        await _entitlementService.EnsureWithinFreeLimitAsync(
+            mevcutSayi, FreeTierLimits.Investments,
+            $"Ücretsiz planda en fazla {FreeTierLimits.Investments} yatırım takip edebilirsiniz. " +
+            "Sınırsız yatırım için Premium'a geçin.");
 
         var investment = new Investment
         {
@@ -194,6 +208,15 @@ public class InvestmentService : IInvestmentService
         var investment = await _repository.GetByIdAsync(id);
         if (investment == null || investment.UserId != userId)
             throw new NotFoundException($"Yatırım bulunamadı. Id: {id}");
+
+        // Teknik gostergeler premium'a ait. Fiyat grafigi ucretsiz katmanda da
+        // aciliyor: kullanici neyi kacirdigini gormeden odeme yapmaz.
+        //
+        // Burada 402 FIRLATILMIYOR — oyle yapsaydik grafigin tamami kapanirdi.
+        // Bunun yerine gosterge listesi bosaltiliyor; uygulama kilitli paneli
+        // /subscription/status'ten gelen bilgiye gore ciziyor.
+        if (!FreeTierLimits.IndicatorsIncluded && !await _entitlementService.IsPremiumAsync())
+            indicatorKeys = Enumerable.Empty<string>();
 
         return await _marketDataService.GetTechnicalAnalysisAsync(investment.Name, investment.InvestmentType, range, indicatorKeys);
     }

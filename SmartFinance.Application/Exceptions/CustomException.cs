@@ -23,3 +23,15 @@ public class ExternalServiceException : Exception
     public ExternalServiceException(string message) : base(message)
     {}
 }
+/// <summary>
+/// Islem premium abonelik gerektiriyor.
+///
+/// Ayri bir tip: istemcinin bunu diger 400'lerden ayirt edip hata mesaji
+/// yerine paywall ekrani acabilmesi gerekiyor. HTTP 402 (Payment Required)
+/// tam olarak bu durum icin ayrilmis bir kod.
+/// </summary>
+public class PremiumRequiredException : Exception
+{
+    public PremiumRequiredException(string message) : base(message)
+    {}
+}

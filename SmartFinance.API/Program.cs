@@ -72,6 +72,11 @@ builder.Services.AddHttpClient<IPriceProvider, GoldPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, SilverPriceProvider>();
 builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 
+// Premium hakki ve ucretsiz katman sinirlari. Sinirlarin uygulandigi TEK yer
+// sunucu: istemcinin "ben premium'um" demesine guvenilmez.
+builder.Services.AddScoped<IEntitlementService, EntitlementService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+
 // Gunluk fiyat gecmisi (fon + hisse) kendi veritabanimizda saklanir: TEFAS tek
 // istekte 1 aylik veri veriyor ve IP basina dakikada ~6 istekle siniriyor,
 // Yahoo'nun siniri ise hic belgelenmemis. Bu sinirlar IP basina oldugu icin tum

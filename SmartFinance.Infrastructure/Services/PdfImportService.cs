@@ -2,6 +2,7 @@ using System.Text;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SmartFinance.Application.Common;
 using SmartFinance.Application.DTOs.PdfImport;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
@@ -17,6 +18,7 @@ public class PdfImportService : IPdfImportService
     private readonly SmartFinanceDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<PdfImportService> _logger;
+    private readonly IEntitlementService _entitlementService;
     private readonly List<IBankParser> _parsers;
     private readonly ZiraatExcelParser _excelParser = new();
 
@@ -65,11 +67,13 @@ public class PdfImportService : IPdfImportService
         { "ELEKTRONI", "Alışveriş" }, { "ELEKTRONİK", "Alışveriş" },
     };
 
-    public PdfImportService(SmartFinanceDbContext context, ICurrentUserService currentUserService, ILogger<PdfImportService> logger)
+    public PdfImportService(SmartFinanceDbContext context, ICurrentUserService currentUserService,
+        ILogger<PdfImportService> logger, IEntitlementService entitlementService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _logger = logger;
+        _entitlementService = entitlementService;
 
         // Parser'ları öncelik sırasına göre ekle (GenericBankParser en son)
         _parsers = new List<IBankParser>
@@ -161,6 +165,16 @@ public class PdfImportService : IPdfImportService
             .ToListAsync())
             .ToHashSet();
 
+        // Aylik ice aktarma siniri. Kontrol kayittan ONCE: sinir asilmissa
+        // hicbir sey yazilmamali.
+        var ayBasi = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        var buAykiIceAktarma = await _context.ImportLogs
+            .CountAsync(x => x.UserId == userId && x.CreatedDate >= ayBasi);
+        await _entitlementService.EnsureWithinFreeLimitAsync(
+            buAykiIceAktarma, FreeTierLimits.ImportsPerMonth,
+            $"Ücretsiz planda ayda en fazla {FreeTierLimits.ImportsPerMonth} ekstre içe aktarabilirsiniz. " +
+            "Sınırsız içe aktarma için Premium'a geçin.");
+
         var existingCounts = await BuildExistingCountsAsync(userId, dto.Transactions);
 
         foreach (var item in dto.Transactions)
@@ -201,6 +215,17 @@ public class PdfImportService : IPdfImportService
             }
 
             savedCount++;
+        }
+
+        // Yalnizca gercekten kayit yapilan ice aktarma hakki yakar: tamami
+        // mukerrer oldugu icin hicbir sey eklenmeyen bir yukleme sayilmamali.
+        if (savedCount > 0)
+        {
+            await _context.ImportLogs.AddAsync(new ImportLog
+            {
+                UserId = userId,
+                TransactionCount = savedCount,
+            });
         }
 
         await _context.SaveChangesAsync();

@@ -491,3 +491,14 @@ KOD_REHBERI.md
 *.pdf
 *.xlsx
 *.xls
+# --- Gizlilik: depo herkese acik, bunlar asla girmemeli ---
+# Bunlar .githooks/pre-commit ile de ayrica engelleniyor; gitignore ilk
+# savunma hatti, kanca ise gitignore'i atlayan (git add -f gibi) durumlar icin.
+.claude/
+istek.txt
+*.env
+*.pem
+*.jks
+*.p12
+*.keystore
+secrets.json

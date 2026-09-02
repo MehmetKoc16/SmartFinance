@@ -30,6 +30,8 @@ public class PasswordResetTests
             {"Jwt:ExpireMinutes","60"},
             {"Jwt:RefreshTokenExpireDays","30"},
             {"App:WebBaseUrl","https://walletmark.com.tr"},
+            // Zamanlama tabani testlerde kapali: her cagriya 1,2 sn eklerdi.
+            {"Auth:ForgotPasswordMinResponseMs","0"},
         }).Build();
 
         var posta = new FakeEmailSender();
@@ -208,5 +210,60 @@ public class PasswordResetTests
 
         var digerGuncel = context.Users.Single(x => x.Id == digeri.Id);
         Assert.True(BCrypt.Net.BCrypt.Verify("DigerSifre1!", digerGuncel.PasswordHash));
+    }
+
+    /// SMTP kesintisi CAGIRANA yansimamali.
+    ///
+    /// Yansisaydi: kayitli adres 500, kayitsiz adres 200 donerdi. O anda
+    /// yanitlarin ayni olmasina dayanan hesap-sizdirmama korumasi tamamen
+    /// bosa cikar, uc bir "bu e-posta kayitli mi" sorgulama aracina donerdi.
+    /// Brevo anahtari 90 gun kullanilmazsa kendiliginden gecersiz oldugu icin
+    /// bu varsayimsal degil, beklenen bir senaryo.
+    [Fact]
+    public async Task Gonderim_Coktugunde_HataFirlatilmaz()
+    {
+        var (service, context, posta) = Kur();
+        KullaniciEkle(context, "a@test.com");
+        posta.Hata = new InvalidOperationException("SMTP baglantisi kurulamadi");
+
+        // Firlatirsa test burada patlar.
+        await service.ForgotPasswordAsync(new ForgotPasswordDto { Email = "a@test.com" });
+    }
+
+    /// Gonderim coktugunde uretilmis token da kapatilmali: kullaniciya HIC
+    /// ulasmamis bir baglanti 60 dakika acik kalmamali.
+    [Fact]
+    public async Task Gonderim_Coktugunde_TokenIptalEdilir()
+    {
+        var (service, context, posta) = Kur();
+        KullaniciEkle(context, "a@test.com");
+        posta.Hata = new InvalidOperationException("SMTP baglantisi kurulamadi");
+
+        await service.ForgotPasswordAsync(new ForgotPasswordDto { Email = "a@test.com" });
+
+        var kayit = Assert.Single(context.PasswordResetTokens);
+        Assert.NotNull(kayit.UsedAt);
+    }
+
+    /// Suresi dolmus kayitlar birikmemeli: tablo yalnizca bu uc uzerinden
+    /// buyuyor ve hicbir sey silmiyordu.
+    [Fact]
+    public async Task Talep_SuresiCoktanDolmusKayitlariTemizler()
+    {
+        var (service, context, _) = Kur();
+        var u = KullaniciEkle(context, "a@test.com");
+
+        context.PasswordResetTokens.AddRange(
+            // 8 gun once dolmus -> silinmeli
+            new PasswordResetToken { UserId = u.Id, TokenHash = "eski", ExpiresAt = DateTime.UtcNow.AddDays(-8) },
+            // dun dolmus -> HENUZ silinmemeli (sorun ayiklama payi)
+            new PasswordResetToken { UserId = u.Id, TokenHash = "dun", ExpiresAt = DateTime.UtcNow.AddDays(-1) });
+        await context.SaveChangesAsync();
+
+        await service.ForgotPasswordAsync(new ForgotPasswordDto { Email = "a@test.com" });
+
+        var kalanlar = context.PasswordResetTokens.Select(t => t.TokenHash).ToList();
+        Assert.DoesNotContain("eski", kalanlar);
+        Assert.Contains("dun", kalanlar);
     }
 }

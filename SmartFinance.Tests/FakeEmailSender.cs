@@ -10,8 +10,13 @@ public class FakeEmailSender : IEmailSender
 
     public List<Gonderilen> Kutu { get; } = new();
 
+    /// Doluysa gonderim bunu firlatir. SMTP kesintisini (Brevo anahtarinin
+    /// suresi dolmus, IP izni dusmus) testte canlandirmak icin.
+    public Exception? Hata { get; set; }
+
     public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default)
     {
+        if (Hata != null) throw Hata;
         Kutu.Add(new Gonderilen(toEmail, subject, htmlBody));
         return Task.CompletedTask;
     }

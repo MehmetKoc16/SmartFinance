@@ -45,9 +45,12 @@ public class AuthService : IAuthService{
             throw new BadRequestException("Bu email zaten kayıtlı!");
         }
 
+        // Bastaki/sondaki bosluklar kirpiliyor: aksi halde "Mehmet Koc " gibi
+        // bir ad e-postada "Merhaba Mehmet Koc ," seklinde gorunuyor ve
+        // arayuzde de sirintiya yol aciyor.
         var user = new User{
-            FullName= dto.FullName,
-            Email= dto.Email,
+            FullName= dto.FullName.Trim(),
+            Email= dto.Email.Trim(),
             PasswordHash= BCrypt.Net.BCrypt.HashPassword(dto.Password)
         };
         _context.Users.Add(user);
@@ -400,8 +403,8 @@ public class AuthService : IAuthService{
                 throw new BadRequestException("Bu email zaten kullanılıyor!");
         }
 
-        user.FullName = dto.FullName;
-        user.Email = dto.Email;
+        user.FullName = dto.FullName.Trim();
+        user.Email = dto.Email.Trim();
         user.UpdatedDate = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 

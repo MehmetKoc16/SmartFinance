@@ -41,6 +41,26 @@ public class AuthServiceTests
         accessor.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
     }
 
+    /// Ad ve e-postadaki bastaki/sondaki bosluklar kirpilmali: kirpilmazsa
+    /// "Mehmet Koc " gibi bir ad e-postada "Merhaba Mehmet Koc ," seklinde
+    /// gorunuyordu (canli e-postada goruldu).
+    [Fact]
+    public async Task Register_AdVeEpostadakiBosluklariKirpar()
+    {
+        var (service, context, _) = CreateService();
+
+        await service.RegisterAsync(new RegisterDto
+        {
+            FullName = "  Mehmet Koç  ",
+            Email = "  bosluklu@test.com  ",
+            Password = "Sifre123!",
+        });
+
+        var user = context.Users.Single();
+        Assert.Equal("Mehmet Koç", user.FullName);
+        Assert.Equal("bosluklu@test.com", user.Email);
+    }
+
     [Fact]
     public async Task Register_BasariliKayit_TokenDoner()
     {

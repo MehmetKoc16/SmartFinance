@@ -18,7 +18,10 @@ public class CreateInvestmentDto{
     [Range(0.01, double.MaxValue, ErrorMessage = "Alış fiyatı 0'dan büyük olmalıdır!")]
     public decimal PurchasePrice{get;set;}
 
-    [Range(0.0001, double.MaxValue, ErrorMessage = "Miktar 0'dan büyük olmalıdır!")]
+    // Alt sinir kripto icin 1 satoshi (0,00000001 BTC). Onceki 0,0001 siniri
+    // hisse dusunularek konmustu; BTC'de 0,0001 bugunku kurla ~370 TL ediyor,
+    // yani bundan az kriptosu olan kullanici pozisyonunu hic ekleyemiyordu.
+    [Range(0.00000001, double.MaxValue, ErrorMessage = "Miktar 0'dan büyük olmalıdır!")]
     public double Quantity{get;set;}
 
     [Required(ErrorMessage = "Yatırım tipi zorunludur!")]

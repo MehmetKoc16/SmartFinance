@@ -71,6 +71,9 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpDelete("account")]
     [Authorize]
+    // Sifre dogrulayan bir uc: kaba kuvvet denemelerine karsi giris/kayit ile
+    // ayni siniri paylasiyor. Web silme sayfasi da bu ucu cagiriyor.
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountDto dto)
     {
         await _authService.DeleteAccountAsync(dto);

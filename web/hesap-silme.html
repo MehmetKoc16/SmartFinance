@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hesap Silme — Wallet Mark</title>
+<meta name="description" content="Wallet Mark hesabınızı ve tüm verilerinizi kalıcı olarak silin.">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo">W</div>
+    <div class="brand">Wallet Mark</div>
+    <nav>
+      <a href="/">Ana Sayfa</a>
+      <a href="/gizlilik">Gizlilik Politikası</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Hesabınızı silin</h1>
+  <p class="lead">
+    Hesabınızı ve tüm verilerinizi bu sayfadan kalıcı olarak silebilirsiniz.
+    Uygulamayı kurmanıza gerek yoktur.
+  </p>
+
+  <div class="card warn">
+    <h3>Bu işlem geri alınamaz</h3>
+    <p>Onayladığınızda şunlar veritabanından <strong>kalıcı olarak</strong> silinir:</p>
+    <ul>
+      <li>Tüm gelir ve gider işlemleriniz</li>
+      <li>Yatırım portföyünüz</li>
+      <li>Kategorileriniz ve bütçeleriniz</li>
+      <li>Hesap bilgileriniz (ad, e-posta)</li>
+    </ul>
+    <p style="margin-bottom:0">
+      Kayıtlar "silindi" olarak işaretlenmez, gerçekten kaldırılır.
+      Silme sonrası verileriniz yalnızca 30 günlük şifreli felaket-kurtarma
+      yedeklerinde bir süre daha bulunabilir; o yedekler de süresi dolduğunda
+      otomatik silinir.
+    </p>
+  </div>
+
+  <p>
+    Uygulamaya erişebiliyorsanız aynı işlemi
+    <em>Profil &rsaquo; Hesabı Sil</em> yolundan da yapabilirsiniz.
+  </p>
+
+  <h2>Silme formu</h2>
+  <p>Kimliğinizi doğrulamak için hesap bilgilerinizi girin.</p>
+
+  <form id="form" autocomplete="off">
+    <label for="email">E-posta adresiniz</label>
+    <input type="email" id="email" name="email" required autocomplete="username" placeholder="ornek@eposta.com">
+
+    <label for="password">Şifreniz</label>
+    <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••">
+
+    <div class="check">
+      <input type="checkbox" id="onay" required>
+      <label for="onay">
+        Hesabımın ve tüm verilerimin kalıcı olarak silineceğini, bu işlemin
+        geri alınamayacağını anladım.
+      </label>
+    </div>
+
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+
+    <button type="submit" class="danger" id="btn">Hesabımı Kalıcı Olarak Sil</button>
+  </form>
+
+  <h2>Sorun mu yaşıyorsunuz?</h2>
+  <p>
+    Şifrenizi hatırlamıyorsanız veya form çalışmıyorsa
+    <a href="mailto:destek@walletmark.com.tr">destek@walletmark.com.tr</a>
+    adresine hesabınızın e-posta adresinden yazın; talebiniz en geç 30 gün
+    içinde işleme alınır.
+  </p>
+</main>
+
+<footer>
+  <div class="wrap">
+    Wallet Mark &middot;
+    <a href="/">Ana Sayfa</a> &middot;
+    <a href="/gizlilik">Gizlilik Politikası</a> &middot;
+    <a href="mailto:destek@walletmark.com.tr">destek@walletmark.com.tr</a>
+  </div>
+</footer>
+
+<script>
+// Silme, uygulamanin kullandigi API'nin aynisi uzerinden yapiliyor: once giris
+// yapilip kimlik dogrulaniyor, sonra hesap siliniyor. Boylece web tarafinda
+// ayri bir kimlik dogrulama yolu (ve ayri bir saldiri yuzeyi) acilmiyor.
+//
+// Token hicbir yerde saklanmiyor — yalnizca bu iki istek arasinda bellekte
+// tutuluyor. Kaba kuvvet denemeleri sunucudaki hiz siniriyla (IP basina
+// dakikada 5 istek) karsilaniyor.
+(function () {
+  var API = 'https://api.walletmark.com.tr/api';
+  var form = document.getElementById('form');
+  var btn = document.getElementById('btn');
+  var msg = document.getElementById('msg');
+
+  function show(text, ok) {
+    msg.textContent = text;
+    msg.className = 'msg ' + (ok ? 'ok' : 'err');
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+
+    btn.disabled = true;
+    btn.textContent = 'Siliniyor...';
+    msg.className = 'msg';
+    var basarili = false;
+
+    try {
+      var loginRes = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+
+      if (loginRes.status === 429) {
+        show('Çok fazla deneme yapıldı. Lütfen bir dakika sonra tekrar deneyin.', false);
+        return;
+      }
+      if (!loginRes.ok) {
+        show('E-posta veya şifre hatalı.', false);
+        return;
+      }
+
+      var token = (await loginRes.json()).token;
+
+      var delRes = await fetch(API + '/auth/account', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ password: password })
+      });
+
+      if (delRes.ok) {
+        basarili = true;
+        form.querySelectorAll('input, button').forEach(function (el) { el.disabled = true; });
+        show('Hesabınız ve tüm verileriniz kalıcı olarak silindi. Bizi tercih ettiğiniz için teşekkür ederiz.', true);
+        return;
+      }
+
+      var hata = 'Hesap silinemedi. Lütfen tekrar deneyin.';
+      try { hata = (await delRes.json()).message || hata; } catch (_) {}
+      show(hata, false);
+    } catch (err) {
+      show('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.', false);
+    } finally {
+      // Basarili silmede form kapali kalir; diger tum durumlarda kullanici
+      // tekrar deneyebilmeli.
+      if (!basarili) {
+        btn.disabled = false;
+        btn.textContent = 'Hesabımı Kalıcı Olarak Sil';
+      }
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

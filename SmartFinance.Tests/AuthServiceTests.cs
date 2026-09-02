@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using SmartFinance.Application.DTOs.Auth;
@@ -27,7 +28,8 @@ public class AuthServiceTests
         }).Build();
 
         var httpContextAccessor = new HttpContextAccessor();
-        var service = new AuthService(context, config, new CurrentUserService(httpContextAccessor));
+        var service = new AuthService(context, config, new CurrentUserService(httpContextAccessor),
+            new FakeEmailSender(), NullLogger<AuthService>.Instance);
         return(service,context,httpContextAccessor);
     }
 

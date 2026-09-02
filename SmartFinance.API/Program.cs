@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SmartFinance.API.Infrastructure;
 using SmartFinance.API.Middleware;
+using SmartFinance.Infrastructure.Email;
 using SmartFinance.Infrastructure.MarketData;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -74,6 +75,10 @@ builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 
 // Premium hakki ve ucretsiz katman sinirlari. Sinirlarin uygulandigi TEK yer
 // sunucu: istemcinin "ben premium'um" demesine guvenilmez.
+// E-posta gonderimi (sifre sifirlama). SMTP uzerinden: saglayici degistiginde
+// yalnizca yapilandirma degisiyor, kod ayni kaliyor.
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 

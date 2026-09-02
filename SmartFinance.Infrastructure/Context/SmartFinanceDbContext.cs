@@ -20,6 +20,8 @@ public class SmartFinanceDbContext : DbContext
     public DbSet<Subscription> Subscriptions {get;set;}
     // Ucretsiz katmanda aylik ice aktarma sinirini sayabilmek icin.
     public DbSet<ImportLog> ImportLogs {get;set;}
+    // Sifre sifirlama baglantilari (token'in kendisi degil, ozeti saklanir).
+    public DbSet<PasswordResetToken> PasswordResetTokens {get;set;}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

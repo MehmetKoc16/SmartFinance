@@ -189,6 +189,86 @@ public class AuthService : IAuthService{
         await _context.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Hesabı ve kullanıcıya ait TÜM veriyi kalıcı olarak siler.
+    ///
+    /// Google Play, hesap oluşturmaya izin veren uygulamalarda hem uygulama
+    /// içinden hem web üzerinden hesap silme yolu zorunlu tutuyor. KVKK'nın
+    /// "silme" hakkı da gerçek silme istiyor — bu yüzden diğer işlemlerdeki
+    /// gibi IsDeleted işaretlemek yeterli değil, satırlar tablodan kaldırılıyor.
+    /// </summary>
+    /// <summary>
+    /// Oturumdaki kullaniciyi doner.
+    ///
+    /// Neden veritabanina bakiyor: JWT durumsuz ve 60 dakika gecerli. Kullanici
+    /// hesabini sildikten sonra token teknik olarak hala imzali kaliyordu ve bu
+    /// uc sadece token icindeki adi/e-postayi geri yansittigi icin uygulama
+    /// "giris yapilmis" gorunmeye devam ediyordu. Kullanici artik yoksa 401
+    /// donuluyor; istemcideki mevcut oturum-sonlandi akisi devreye giriyor.
+    /// </summary>
+    public async Task<object> GetMeAsync()
+    {
+        var userId = _currentUserService.UserId;
+        var user = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new { id = u.Id, email = u.Email, fullName = u.FullName })
+            .FirstOrDefaultAsync()
+            ?? throw new UnauthorizedException("Oturum bilgisi geçersiz, lütfen tekrar giriş yapın.");
+
+        return user;
+    }
+
+    public async Task DeleteAccountAsync(DeleteAccountDto dto)
+    {
+        var userId = _currentUserService.UserId;
+        var user = await _context.Users.FindAsync(userId)
+            ?? throw new NotFoundException("Kullanıcı bulunamadı!");
+
+        // Silme geri alinamaz; telefonu acik unutulmus bir kullanicinin
+        // hesabinin baskasinca silinmesini engellemek icin sifre yeniden isteniyor.
+        if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+            throw new BadRequestException("Şifre hatalı!");
+
+        // Tek islem: yarida kalirsa hicbiri uygulanmasin. Aksi halde kullanici
+        // verisinin bir kismi silinip bir kismi kalabilirdi.
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        // IgnoreQueryFilters ZORUNLU: varliklarda "!IsDeleted" global filtresi var.
+        // Filtre acikken daha once soft-delete edilmis satirlar gorunmez, ama
+        // veritabaninda durmaya ve kategorilere yabanci anahtarla baglanmaya
+        // devam ederler — Categories silinirken FK hatasi verirlerdi.
+        //
+        // Silme sirasi yabanci anahtar kisitlarina gore belirlendi:
+        // Transactions hem User'a hem Category'ye Restrict ile bagli, bu yuzden
+        // ikisinden de once gitmeli. Budgets ve CategoryMappings de Category'ye
+        // bagli oldugu icin Categories'ten once siliniyor.
+        _context.Transactions.RemoveRange(
+            await _context.Transactions.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        _context.Budgets.RemoveRange(
+            await _context.Budgets.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        _context.CategoryMappings.RemoveRange(
+            await _context.CategoryMappings.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        _context.Investments.RemoveRange(
+            await _context.Investments.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        _context.RefreshTokens.RemoveRange(
+            await _context.RefreshTokens.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        await _context.SaveChangesAsync();
+
+        _context.Categories.RemoveRange(
+            await _context.Categories.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        await _context.SaveChangesAsync();
+
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        // Not: PriceHistories kasten dokunulmuyor. O tablo kullaniciya degil
+        // piyasaya ait paylasilan veri; silinmesi diger kullanicilarin
+        // grafiklerini bozardi ve kisisel veri icermiyor.
+    }
+
     public async Task<object> UpdateProfileAsync(UpdateProfileDto dto)
     {
         var userId = _currentUserService.UserId;

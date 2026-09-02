@@ -1,3 +1,4 @@
+using SmartFinance.Application.Common;
 using SmartFinance.Application.DTOs.Budget;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Application.Exceptions;
@@ -13,12 +14,15 @@ public class BudgetService : IBudgetService
     private readonly IGenericRepository<Budget> _repository;
     private readonly SmartFinanceDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IEntitlementService _entitlementService;
 
-    public BudgetService(IGenericRepository<Budget> repository, SmartFinanceDbContext context, ICurrentUserService currentUserService)
+    public BudgetService(IGenericRepository<Budget> repository, SmartFinanceDbContext context,
+        ICurrentUserService currentUserService, IEntitlementService entitlementService)
     {
         _repository = repository;
         _context = context;
         _currentUserService = currentUserService;
+        _entitlementService = entitlementService;
     }
 
     private int GetUserId() =>
@@ -51,6 +55,17 @@ public class BudgetService : IBudgetService
 
         var existing = await _repository.Query()
             .FirstOrDefaultAsync(b => b.UserId == userId && b.CategoryId == dto.CategoryId);
+
+        // Sinir yalnizca YENI butce eklerken. Mevcut butcenin limitini
+        // guncellemek (asagidaki dal) sayiyi artirmadigi icin serbest.
+        if (existing == null)
+        {
+            var mevcutSayi = await _repository.Query().CountAsync(b => b.UserId == userId);
+            await _entitlementService.EnsureWithinFreeLimitAsync(
+                mevcutSayi, FreeTierLimits.Budgets,
+                $"Ücretsiz planda en fazla {FreeTierLimits.Budgets} bütçe tanımlayabilirsiniz. " +
+                "Sınırsız bütçe için Premium'a geçin.");
+        }
 
         if (existing != null)
         {

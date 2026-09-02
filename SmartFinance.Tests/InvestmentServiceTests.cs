@@ -32,7 +32,11 @@ public class InvestmentServiceTests
 
         var marketData = new Mock<IMarketDataService>();
         var repository = new GenericRepository<Investment>(context);
-        var service = new InvestmentService(repository, context, new CurrentUserService(httpContextAccessor), marketData.Object);
+        var currentUser = new CurrentUserService(httpContextAccessor);
+        // Sahte nesne yerine gercek servis: ucretsiz katman sinirlari da
+        // testlerin gectigi yoldan gecsin.
+        var entitlement = new EntitlementService(context, currentUser);
+        var service = new InvestmentService(repository, context, currentUser, marketData.Object, entitlement);
         return (service, context, user.Id, marketData);
     }
 

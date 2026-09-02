@@ -40,6 +40,8 @@ public class ExceptionMiddleware
             BadRequestException => (int)HttpStatusCode.BadRequest,       // 400
             NotFoundException => (int)HttpStatusCode.NotFound,           // 404
             UnauthorizedException => (int)HttpStatusCode.Unauthorized,   // 401
+            // 402: istemci bunu gorunce hata mesaji degil paywall ekrani aciyor.
+            PremiumRequiredException => (int)HttpStatusCode.PaymentRequired, // 402
             ExternalServiceException => (int)HttpStatusCode.BadGateway,  // 502
             _ => (int)HttpStatusCode.InternalServerError                 // 500 (bilinmeyen)
         };

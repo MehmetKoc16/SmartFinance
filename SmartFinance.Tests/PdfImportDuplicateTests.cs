@@ -30,8 +30,10 @@ public class PdfImportDuplicateTests
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
         };
 
+        var currentUser = new CurrentUserService(accessor);
         var service = new PdfImportService(
-            context, new CurrentUserService(accessor), NullLogger<PdfImportService>.Instance);
+            context, currentUser, NullLogger<PdfImportService>.Instance,
+            new EntitlementService(context, currentUser));
         return (service, context, user.Id);
     }
 

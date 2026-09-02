@@ -10,6 +10,7 @@ using SmartFinance.Domain.Entities;
 using SmartFinance.Domain.Enums;
 using SmartFinance.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SmartFinance.Application.Exceptions;
 
 namespace SmartFinance.Infrastructure.Services;
@@ -19,11 +20,21 @@ public class AuthService : IAuthService{
     private readonly IConfiguration _configuration;
     private readonly ICurrentUserService _currentUserService;
 
-    public AuthService(SmartFinanceDbContext context, IConfiguration configuration, ICurrentUserService currentUserService)
+    // Sifirlama baglantisinin gecerlilik suresi. Kisa tutuluyor: e-posta
+    // kutusuna sonradan erisen birinin eski baglantiyi kullanabilmesi riski.
+    private static readonly TimeSpan ResetTokenLifetime = TimeSpan.FromMinutes(60);
+
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<AuthService> _logger;
+
+    public AuthService(SmartFinanceDbContext context, IConfiguration configuration,
+        ICurrentUserService currentUserService, IEmailSender emailSender, ILogger<AuthService> logger)
     {
         _context=context;
         _configuration=configuration;
         _currentUserService = currentUserService;
+        _emailSender = emailSender;
+        _logger = logger;
     }
     
     public async Task<TokenDto> RegisterAsync(RegisterDto dto)
@@ -188,6 +199,112 @@ public class AuthService : IAuthService{
         user.UpdatedDate = DateTime.UtcNow;
         await _context.SaveChangesAsync();
     }
+
+    /// <summary>
+    /// Şifre sıfırlama bağlantısı gönderir.
+    ///
+    /// E-posta kayıtlı OLMASA BİLE aynı yanıt dönüyor ve hata fırlatılmıyor.
+    /// Aksi halde bu uç bir "hesap var mı" sorgulama aracına dönüşürdü:
+    /// saldırgan e-posta listesini tek tek deneyip hangilerinin kayıtlı
+    /// olduğunu öğrenebilirdi.
+    /// </summary>
+    public async Task ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken ct = default)
+    {
+        var email = dto.Email.Trim();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
+
+        if (user == null)
+        {
+            _logger.LogInformation(
+                "Şifre sıfırlama isteği kayıtlı olmayan bir adres için geldi; sessizce yok sayıldı.");
+            return;
+        }
+
+        // Onceki bekleyen baglantilari gecersiz kil: kullanici arka arkaya
+        // istek atarsa yalnizca sonuncusu calissin.
+        var bekleyenler = await _context.PasswordResetTokens
+            .Where(t => t.UserId == user.Id && t.UsedAt == null && t.ExpiresAt > DateTime.UtcNow)
+            .ToListAsync(ct);
+        foreach (var eski in bekleyenler) eski.UsedAt = DateTime.UtcNow;
+
+        // 32 baytlik kriptografik rastgele deger. URL'de tasinacagi icin
+        // base64url (+ ve / yerine - ve _, dolgu yok).
+        var tokenBytes = RandomNumberGenerator.GetBytes(32);
+        var token = Convert.ToBase64String(tokenBytes)
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+
+        _context.PasswordResetTokens.Add(new PasswordResetToken
+        {
+            UserId = user.Id,
+            TokenHash = HashToken(token),
+            ExpiresAt = DateTime.UtcNow.Add(ResetTokenLifetime),
+        });
+        await _context.SaveChangesAsync(ct);
+
+        var link = $"{_configuration["App:WebBaseUrl"] ?? "https://walletmark.com.tr"}/sifre-sifirla?token={token}";
+        await _emailSender.SendAsync(user.Email, "Wallet Mark — Şifre Sıfırlama",
+            BuildResetEmail(user.FullName, link), ct);
+
+        _logger.LogInformation("Şifre sıfırlama bağlantısı gönderildi. UserId: {UserId}", user.Id);
+    }
+
+    /// <summary>
+    /// Sıfırlama bağlantısındaki token ile yeni şifreyi belirler.
+    /// </summary>
+    public async Task ResetPasswordAsync(ResetPasswordDto dto, CancellationToken ct = default)
+    {
+        var hash = HashToken(dto.Token.Trim());
+
+        var kayit = await _context.PasswordResetTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
+
+        // Gecersiz, kullanilmis ve suresi dolmus icin AYNI mesaj: hangisinin
+        // oldugunu soylemek saldirgana bilgi verir.
+        if (kayit == null || kayit.UsedAt != null || kayit.ExpiresAt <= DateTime.UtcNow)
+            throw new BadRequestException(
+                "Bu sıfırlama bağlantısı geçersiz veya süresi dolmuş. Lütfen yeniden talep edin.");
+
+        kayit.UsedAt = DateTime.UtcNow;
+        kayit.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        kayit.User.UpdatedDate = DateTime.UtcNow;
+
+        // Sifre degistiyse mevcut oturumlar da dusmeli: hesabi ele geciren
+        // biri varsa yenileme token'iyla erisimini surdurememeli.
+        var oturumlar = await _context.RefreshTokens
+            .Where(r => r.UserId == kayit.UserId && r.RevokedAt == null)
+            .ToListAsync(ct);
+        foreach (var oturum in oturumlar) oturum.RevokedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("Şifre sıfırlandı. UserId: {UserId}", kayit.UserId);
+    }
+
+    private static string HashToken(string token) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    private static string BuildResetEmail(string fullName, string link) => $@"
+<div style=""font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a"">
+  <h2 style=""margin:0 0 16px"">Şifre Sıfırlama</h2>
+  <p>Merhaba {System.Net.WebUtility.HtmlEncode(fullName)},</p>
+  <p>Wallet Mark hesabınız için şifre sıfırlama talebinde bulundunuz.
+     Aşağıdaki bağlantıya tıklayarak yeni şifrenizi belirleyebilirsiniz.</p>
+  <p style=""margin:24px 0"">
+    <a href=""{link}"" style=""background:#3b82f6;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;display:inline-block;font-weight:600"">
+      Yeni şifre belirle
+    </a>
+  </p>
+  <p style=""color:#475569;font-size:14px"">
+    Bu bağlantı <strong>60 dakika</strong> geçerlidir ve yalnızca bir kez kullanılabilir.
+  </p>
+  <p style=""color:#475569;font-size:14px"">
+    Bu talebi siz yapmadıysanız bu e-postayı yok sayabilirsiniz; şifreniz değişmez.
+  </p>
+  <hr style=""border:0;border-top:1px solid #e2e8f0;margin:24px 0"">
+  <p style=""color:#94a3b8;font-size:12px"">
+    Bağlantı çalışmıyorsa bu adresi tarayıcınıza yapıştırın:<br>{link}
+  </p>
+</div>";
 
     /// <summary>
     /// Hesabı ve kullanıcıya ait TÜM veriyi kalıcı olarak siler.

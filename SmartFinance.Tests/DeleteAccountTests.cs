@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.InMemory.Infrastructure.Internal;
 using Microsoft.Extensions.Configuration;
@@ -38,7 +39,8 @@ public class DeleteAccountTests
         }).Build();
 
         var accessor = new HttpContextAccessor();
-        return (new AuthService(context, config, new CurrentUserService(accessor)), context, accessor);
+        return (new AuthService(context, config, new CurrentUserService(accessor),
+            new FakeEmailSender(), NullLogger<AuthService>.Instance), context, accessor);
     }
 
     private static void SetCurrentUser(HttpContextAccessor accessor, int userId)

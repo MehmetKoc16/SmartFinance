@@ -66,6 +66,32 @@ public class AuthController : ControllerBase
     /// [Authorize] degil — cagrilma amaci zaten suresi gecmis olabilecek bir
     /// erisim token'ini yenilemek.</summary>
     /// <summary>
+    /// Sifre sifirlama baglantisi gonderir.
+    ///
+    /// E-posta kayitli olmasa bile 200 doner. Aksi halde bu uc bir "hesap var
+    /// mi" sorgulama aracina donusurdu: saldirgan e-posta listesini deneyip
+    /// hangilerinin kayitli oldugunu ogrenebilirdi.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken ct)
+    {
+        await _authService.ForgotPasswordAsync(dto, ct);
+        return Ok(new { message = "Bu adres kayıtlıysa şifre sıfırlama bağlantısı gönderildi. Lütfen e-postanızı kontrol edin." });
+    }
+
+    /// <summary>
+    /// Sifirlama baglantisindaki token ile yeni sifreyi belirler.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken ct)
+    {
+        await _authService.ResetPasswordAsync(dto, ct);
+        return Ok(new { message = "Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz." });
+    }
+
+    /// <summary>
     /// Hesabi ve kullaniciya ait tum veriyi kalici olarak siler.
     /// Google Play, hesap olusturan uygulamalarda bu ucu zorunlu tutuyor.
     /// </summary>

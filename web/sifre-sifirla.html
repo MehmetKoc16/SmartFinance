@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Şifre Sıfırlama — Wallet Mark</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo">W</div>
+    <div class="brand">Wallet Mark</div>
+    <nav>
+      <a href="/">Ana Sayfa</a>
+      <a href="/gizlilik">Gizlilik Politikası</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Yeni şifrenizi belirleyin</h1>
+
+  <div id="gecersiz" class="card warn" style="display:none">
+    <h3>Bağlantı geçersiz</h3>
+    <p style="margin-bottom:0">
+      Bu sayfaya geçerli bir sıfırlama bağlantısıyla gelmeniz gerekiyor.
+      Uygulamadaki <em>Şifremi unuttum</em> adımından yeni bir bağlantı
+      talep edebilirsiniz.
+    </p>
+  </div>
+
+  <form id="form" autocomplete="off">
+    <p class="lead">Hesabınız için yeni bir şifre belirleyin.</p>
+
+    <label for="sifre">Yeni şifre</label>
+    <input type="password" id="sifre" required autocomplete="new-password"
+           minlength="6" placeholder="En az 6 karakter">
+
+    <label for="tekrar">Yeni şifre (tekrar)</label>
+    <input type="password" id="tekrar" required autocomplete="new-password"
+           placeholder="Şifrenizi tekrar girin">
+
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+
+    <button type="submit" id="btn">Şifremi Değiştir</button>
+  </form>
+
+  <h2>Sorun mu yaşıyorsunuz?</h2>
+  <p>
+    Bağlantı 60 dakika geçerlidir ve yalnızca bir kez kullanılabilir.
+    Süresi dolduysa uygulamadan yeni bir bağlantı isteyin.
+    Yardım için <a href="mailto:destek@walletmark.com.tr">destek@walletmark.com.tr</a>.
+  </p>
+</main>
+
+<footer>
+  <div class="wrap">
+    Wallet Mark &middot;
+    <a href="/">Ana Sayfa</a> &middot;
+    <a href="/gizlilik">Gizlilik Politikası</a> &middot;
+    <a href="mailto:destek@walletmark.com.tr">destek@walletmark.com.tr</a>
+  </div>
+</footer>
+
+<script>
+// Token URL'den okunuyor ve hicbir yere kaydedilmiyor — yalnizca istegin
+// govdesinde sunucuya gidiyor.
+(function () {
+  var API = 'https://api.walletmark.com.tr/api';
+  var form = document.getElementById('form');
+  var btn = document.getElementById('btn');
+  var msg = document.getElementById('msg');
+  var gecersiz = document.getElementById('gecersiz');
+
+  var token = new URLSearchParams(window.location.search).get('token');
+  if (!token) {
+    form.style.display = 'none';
+    gecersiz.style.display = 'block';
+    return;
+  }
+
+  function show(text, ok) {
+    msg.textContent = text;
+    msg.className = 'msg ' + (ok ? 'ok' : 'err');
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var sifre = document.getElementById('sifre').value;
+    var tekrar = document.getElementById('tekrar').value;
+
+    if (sifre.length < 6) { show('Şifre en az 6 karakter olmalıdır.', false); return; }
+    if (sifre !== tekrar) { show('Şifreler eşleşmiyor.', false); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Kaydediliyor...';
+    msg.className = 'msg';
+    var basarili = false;
+
+    try {
+      var res = await fetch(API + '/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, newPassword: sifre })
+      });
+
+      if (res.status === 429) {
+        show('Çok fazla deneme yapıldı. Lütfen bir dakika sonra tekrar deneyin.', false);
+        return;
+      }
+
+      if (res.ok) {
+        basarili = true;
+        form.querySelectorAll('input, button').forEach(function (el) { el.disabled = true; });
+        show('Şifreniz güncellendi. Artık uygulamadan yeni şifrenizle giriş yapabilirsiniz.', true);
+        return;
+      }
+
+      var hata = 'Şifre güncellenemedi. Lütfen tekrar deneyin.';
+      try { hata = (await res.json()).message || hata; } catch (_) {}
+      show(hata, false);
+    } catch (err) {
+      show('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.', false);
+    } finally {
+      if (!basarili) {
+        btn.disabled = false;
+        btn.textContent = 'Şifremi Değiştir';
+      }
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

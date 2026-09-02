@@ -1,0 +1,83 @@
+#!/bin/sh
+# Wallet Mark — commit oncesi gizlilik bariyeri
+#
+# Bu depo HERKESE ACIK. Public bir depoda sir bir kez push'landiginda yanmis
+# sayilir: gecmisten silmek (filter-repo) dali temizler ama GitHub erisilemez
+# nesneleri bir sure SHA ile servis etmeye devam eder ve depoyu klonlamis
+# olan herkeste kopyasi kalir. Yani "sonra temizleriz" bir plan degil.
+#
+# .gitignore ilk savunma hatti. Bu kanca ikincisi: `git add -f`, yanlis
+# klasore konmus bir dosya veya gitignore'a hic girmemis yeni bir sir turu
+# gitignore'i atlayabiliyor.
+#
+# Acil durumda atlatmak icin: git commit --no-verify
+# (Atlatmadan once gercekten ne commit'ledigine bak.)
+
+hata=0
+bildir() {
+    if [ $hata -eq 0 ]; then
+        echo ""
+        echo "COMMIT DURDURULDU — hassas veri tespit edildi"
+        echo "-------------------------------------------------"
+    fi
+    hata=1
+    echo "$1"
+}
+
+# Yalnizca bu commit'e giren dosyalara bakiliyor (silinenler haric).
+dosyalar=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$dosyalar" ] && exit 0
+
+# --- 1) Dosya adina gore yasakli olanlar ---------------------------------
+# Banka ekstresi, imzalama anahtari, ortam dosyasi, ozel anahtar.
+yasakli=$(echo "$dosyalar" | grep -iE '(\.(pdf|xlsx|xls|jks|p12|keystore|pem|env)$)|(^|/)key\.properties$|(^|/)\.env|(^|/)secrets\.json$|appsettings\.Development\.json$|(^|/)id_(rsa|ed25519)$')
+if [ -n "$yasakli" ]; then
+    bildir "Bu dosya turleri depoya giremez:"
+    echo "$yasakli" | sed 's/^/    /'
+    echo "    -> Banka ekstresi, imzalama anahtari ve ortam dosyalari depo"
+    echo "       DISINDA durmali (ornegin bir ust klasordeki Notlar\\)."
+fi
+
+# --- 2) Icerik: ozel anahtar blogu ---------------------------------------
+if git diff --cached -U0 | grep -qE '^\+.*-----BEGIN [A-Z ]*PRIVATE KEY-----'; then
+    bildir "Icerikte OZEL ANAHTAR blogu var (-----BEGIN ... PRIVATE KEY-----)."
+fi
+
+# --- 3) Icerik: taninmis saglayici anahtarlari ----------------------------
+# Bu onekler yalnizca gercek anahtarlarda bulunur; yanlis alarm riski yok.
+bulunan=$(git diff --cached -U0 | grep -oE '^\+.*(xkeysib-[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AIza[A-Za-z0-9_-]{30,})' | head -3)
+if [ -n "$bulunan" ]; then
+    bildir "Icerikte saglayici API anahtari gorunuyor (Brevo/OpenAI/GitHub/Google)."
+    echo "    -> Bu anahtari ARTIK GECERSIZ SAY: once saglayicidan iptal edip"
+    echo "       yenisini uret, sonra api.env'e koy."
+fi
+
+# --- 4) Icerik: gercek IBAN ----------------------------------------------
+# Bu bir finans uygulamasi; test icin gercek ekstre kullanildi. TR IBAN'i
+# kod icine yapistirmak kolay ve geri donusu yok.
+if git diff --cached -U0 | grep -qE '^\+.*\bTR[0-9]{24}\b'; then
+    bildir "Icerikte gercek gorunumlu bir IBAN (TR + 24 hane) var."
+fi
+
+# --- 5) Icerik: yapilandirma dosyalarinda uzun sir degerleri --------------
+# Yalnizca yapilandirma dosyalarina bakiliyor. Kaynak kodda ayni desen test
+# verilerine takiliyordu ("Password=gizli123" gibi) — yanlis alarm, kancanin
+# ciddiye alinmamasina yol acar.
+yapilandirma=$(echo "$dosyalar" | grep -iE '\.(json|ya?ml|properties|conf|config|ini)$' | grep -viE 'package(-lock)?\.json|pubspec\.lock')
+for f in $yapilandirma; do
+    [ -f "$f" ] || continue
+    if git diff --cached -U0 -- "$f" | grep -qiE '^\+.*"(key|apikey|password|secret|smtppassword|clientsecret|connectionstring)"[[:space:]]*:[[:space:]]*"[^"]{20,}"'; then
+        bildir "Yapilandirma dosyasinda uzun bir sir degeri var: $f"
+        echo "    -> Gercek deger yerine yer tutucu birakip degeri sunucudaki"
+        echo "       /etc/smartfinance/api.env dosyasina koy."
+    fi
+done
+
+if [ $hata -ne 0 ]; then
+    echo "-------------------------------------------------"
+    echo "Yanlis alarm oldugundan EMINSEN: git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+exit 0

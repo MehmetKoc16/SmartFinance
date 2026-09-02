@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gizlilik Politikası — Wallet Mark</title>
+<meta name="description" content="Wallet Mark gizlilik politikası ve KVKK aydınlatma metni.">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo">W</div>
+    <div class="brand">Wallet Mark</div>
+    <nav>
+      <a href="/">Ana Sayfa</a>
+      <a href="/hesap-silme">Hesap Silme</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Gizlilik Politikası</h1>
+  <p class="meta">Son güncelleme: 2 Eylül 2026</p>
+
+  <p>
+    Bu metin, Wallet Mark mobil uygulamasının hangi verileri işlediğini,
+    bu verileri neden ve nerede sakladığını açıklar. Aynı zamanda 6698 sayılı
+    Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında aydınlatma metni
+    yerine geçer.
+  </p>
+
+  <h2>1. Veri sorumlusu</h2>
+  <p>
+    Wallet Mark uygulamasının geliştiricisi ve veri sorumlusu Mehmet Koç'tur.
+    İletişim: <a href="mailto:destek@walletmark.com.tr">destek@walletmark.com.tr</a>
+  </p>
+
+  <h2>2. İşlenen veriler</h2>
+  <table>
+    <tr><th>Veri</th><th>Neden</th></tr>
+    <tr>
+      <td><strong>Ad soyad, e-posta adresi</strong></td>
+      <td>Hesabınızı oluşturmak ve girişinizi doğrulamak için.</td>
+    </tr>
+    <tr>
+      <td><strong>Parola</strong></td>
+      <td>Yalnızca <em>bcrypt</em> ile üretilmiş geri döndürülemez özeti saklanır. Parolanızın kendisi hiçbir zaman kaydedilmez; biz de göremeyiz.</td>
+    </tr>
+    <tr>
+      <td><strong>Finansal işlemleriniz</strong><br>(tutar, açıklama, işyeri adı, tarih, kategori)</td>
+      <td>Gelir–gider takibi, bütçe ve raporları oluşturmak için. Elle girdiğiniz veya banka ekstrenizden içe aktardığınız kayıtlardır.</td>
+    </tr>
+    <tr>
+      <td><strong>Yatırım portföyünüz</strong><br>(sembol, adet, alış fiyatı)</td>
+      <td>Portföy değerini ve kâr/zararı hesaplamak için.</td>
+    </tr>
+    <tr>
+      <td><strong>Bütçeleriniz ve kategorileriniz</strong></td>
+      <td>Harcama limitlerini takip etmek için.</td>
+    </tr>
+    <tr>
+      <td><strong>IP adresiniz</strong></td>
+      <td>Güvenlik ve kötüye kullanım önleme (istek hızı sınırlaması). Sunucu erişim kayıtlarında tutulur.</td>
+    </tr>
+  </table>
+
+  <h2>3. İşlemediğimiz veriler</h2>
+  <ul>
+    <li><strong>Banka giriş bilgileriniz.</strong> Uygulama bankanıza hiçbir şekilde bağlanmaz; banka kullanıcı adı, şifre veya kart bilgisi istemez ve saklamaz.</li>
+    <li><strong>Yüklediğiniz ekstre dosyası.</strong> PDF veya Excel dosyanız sunucuda yalnızca bellekte ayrıştırılır; <strong>diske hiçbir zaman yazılmaz ve saklanmaz.</strong> Yalnızca dosyadan çıkarılan işlem kayıtları hesabınıza eklenir.</li>
+    <li><strong>Biyometrik verileriniz.</strong> Parmak izi veya yüz tanıma doğrulaması tamamen cihazınızda, işletim sisteminin kendi sistemi üzerinden yapılır. Bu veriler bize hiçbir zaman ulaşmaz.</li>
+    <li><strong>Konum, rehber, kamera, galeri.</strong> Uygulama bu izinlerin hiçbirini istemez. Yalnızca <em>İnternet</em> ve <em>Biyometrik doğrulama</em> izinleri kullanılır.</li>
+  </ul>
+
+  <h2>4. Reklam ve analitik</h2>
+  <p>
+    Wallet Mark şu anda <strong>hiçbir reklam ağı, analitik aracı veya çökme
+    raporlama servisi kullanmamaktadır.</strong> Uygulamada üçüncü taraf takip
+    kodu bulunmaz. Bu durum ileride değişirse bu metin güncellenecek ve
+    değişiklik uygulama içinde duyurulacaktır.
+  </p>
+
+  <h2>5. Verilerin saklandığı yer</h2>
+  <p>
+    Verileriniz <strong>Finlandiya'nın Helsinki şehrinde</strong> bulunan
+    Hetzner Online GmbH sunucularında, erişimi kısıtlı bir veritabanında
+    tutulur. Finlandiya Avrupa Birliği üyesidir ve GDPR kapsamındadır. Uygulama ile sunucu arasındaki tüm trafik
+    <strong>HTTPS</strong> ile şifrelenir. Oturum bilgileriniz cihazınızda
+    işletim sisteminin güvenli deposunda (Android Keystore / iOS Keychain)
+    şifreli olarak saklanır.
+  </p>
+  <p>
+    Veri kaybına karşı veritabanının günlük yedeği alınır. Yedekler
+    <strong>AES-256 ile şifrelenerek</strong> sunucu dışında ikinci bir konumda
+    (Google Drive) saklanır; şifre çözme anahtarı yalnızca veri sorumlusundadır.
+    Şifrelenmiş yedeğin içeriği depolama sağlayıcısı tarafından okunamaz.
+  </p>
+
+  <h2>6. Üçüncü taraflarla paylaşım</h2>
+  <p>Kişisel verileriniz <strong>satılmaz, kiralanmaz ve pazarlama amacıyla paylaşılmaz.</strong> Hizmetin çalışması için kullanılan sağlayıcılar:</p>
+  <table>
+    <tr><th>Sağlayıcı</th><th>Amaç</th><th>Aktarılan veri</th></tr>
+    <tr><td>Hetzner Online GmbH (sunucu: Helsinki, Finlandiya)</td><td>Sunucu barındırma</td><td>Tüm hesap verisi (barındırma amacıyla)</td></tr>
+    <tr><td>Google Drive</td><td>Şifreli yedek saklama</td><td>Yalnızca şifrelenmiş yedek dosyası (okunamaz)</td></tr>
+    <tr><td>Yahoo Finance, TEFAS, Binance, TCMB, CoinGecko</td><td>Piyasa fiyatı sorgulama</td><td><strong>Hiçbir kişisel veri gönderilmez</strong> — yalnızca "THYAO", "BTC" gibi sembol adları sorgulanır. Bu sağlayıcılar sizin kim olduğunuzu, ne kadar tuttuğunuzu veya portföyünüzü göremez.</td></tr>
+  </table>
+  <p>
+    Ayrıca yasal bir zorunluluk hâlinde (mahkeme kararı, resmî talep) verileriniz
+    yetkili mercilerle paylaşılabilir.
+  </p>
+
+  <h2>7. Verilerin yurt dışına aktarılması</h2>
+  <p>
+    Sunucularımız Finlandiya'da bulunduğu için kişisel verileriniz Türkiye
+    dışında, Avrupa Birliği içinde işlenmektedir. Yedekler de yine yurt dışında
+    (Google Drive) şifrelenmiş olarak saklanır. Uygulamaya kayıt olarak
+    verilerinizin bu şekilde yurt dışında işlenmesine açık rıza vermiş
+    olursunuz. Bu rızayı hesabınızı silerek her zaman geri çekebilirsiniz.
+  </p>
+
+  <h2>8. Saklama süresi</h2>
+  <p>
+    Verileriniz hesabınız aktif olduğu sürece saklanır. Hesabınızı sildiğinizde
+    tüm işlem, portföy, bütçe ve kategori kayıtlarınız veritabanından
+    <strong>kalıcı olarak</strong> silinir — "silindi" olarak işaretlenmez,
+    gerçekten kaldırılır. Silme işleminden sonraki 30 gün içinde alınmış şifreli
+    yedeklerde veriniz teknik olarak bir süre daha bulunabilir; bu yedekler
+    saklama süresi dolduğunda otomatik olarak silinir ve yalnızca felaket
+    kurtarma amacıyla kullanılır.
+  </p>
+
+  <h2>9. Haklarınız</h2>
+  <p>KVKK'nın 11. maddesi uyarınca şu haklara sahipsiniz:</p>
+  <ul>
+    <li>Kişisel verilerinizin işlenip işlenmediğini öğrenme,</li>
+    <li>İşlenmişse buna ilişkin bilgi talep etme,</li>
+    <li>Verilerinizin düzeltilmesini isteme,</li>
+    <li>Verilerinizin silinmesini isteme,</li>
+    <li>Verilerinizin bir kopyasını talep etme.</li>
+  </ul>
+  <p>
+    Silme hakkınızı beklemeden, kendiniz kullanabilirsiniz: uygulama içinde
+    <em>Profil &rsaquo; Hesabı Sil</em> ya da <a href="/hesap-silme">hesap silme sayfası</a>.
+    Diğer talepleriniz için <a href="mailto:destek@walletmark.com.tr">destek@walletmark.com.tr</a>
+    adresine yazabilirsiniz; talepleriniz en geç 30 gün içinde yanıtlanır.
+  </p>
+
+  <h2>10. Çocukların gizliliği</h2>
+  <p>
+    Wallet Mark 18 yaş altındaki kullanıcılara yönelik değildir ve bilerek
+    çocuklardan veri toplamaz.
+  </p>
+
+  <h2>11. Değişiklikler</h2>
+  <p>
+    Bu politika güncellenebilir. Önemli değişikliklerde bu sayfadaki
+    "son güncelleme" tarihi değiştirilir ve değişiklik uygulama içinde duyurulur.
+  </p>
+</main>
+
+<footer>
+  <div class="wrap">
+    Wallet Mark &middot;
+    <a href="/">Ana Sayfa</a> &middot;
+    <a href="/hesap-silme">Hesap Silme</a> &middot;
+    <a href="mailto:destek@walletmark.com.tr">destek@walletmark.com.tr</a>
+  </div>
+</footer>
+
+</body>
+</html>

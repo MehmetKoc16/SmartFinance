@@ -16,5 +16,7 @@ public class ResetPasswordDto
 
     [Required(ErrorMessage = "Yeni şifre zorunludur!")]
     [MinLength(6, ErrorMessage = "Yeni şifre en az 6 karakter olmalıdır!")]
+    // bcrypt 72 bayttan sonrasini sessizce yok sayar; sinir orada cizildi.
+    [MaxLength(72, ErrorMessage = "Yeni şifre en fazla 72 karakter olabilir!")]
     public string NewPassword { get; set; } = string.Empty;
 }

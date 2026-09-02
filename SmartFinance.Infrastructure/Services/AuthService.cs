@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -210,8 +211,24 @@ public class AuthService : IAuthService{
     /// Aksi halde bu uç bir "hesap var mı" sorgulama aracına dönüşürdü:
     /// saldırgan e-posta listesini tek tek deneyip hangilerinin kayıtlı
     /// olduğunu öğrenebilirdi.
+    ///
+    /// Aynı gerekçeyle yanıt SÜRESİ de tabanlanıyor: mesaj gizlediği şeyi
+    /// zamanlamayla ele vermesin. Bkz. <see cref="SabitSureyeTamamlaAsync"/>.
     /// </summary>
     public async Task ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken ct = default)
+    {
+        var kronometre = Stopwatch.StartNew();
+        try
+        {
+            await ForgotPasswordCoreAsync(dto, ct);
+        }
+        finally
+        {
+            await SabitSureyeTamamlaAsync(kronometre);
+        }
+    }
+
+    private async Task ForgotPasswordCoreAsync(ForgotPasswordDto dto, CancellationToken ct)
     {
         var email = dto.Email.Trim();
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
@@ -222,6 +239,18 @@ public class AuthService : IAuthService{
                 "Şifre sıfırlama isteği kayıtlı olmayan bir adres için geldi; sessizce yok sayıldı.");
             return;
         }
+
+        // Suresi dolmus eski kayitlari temizle. Ayri bir zamanlanmis is
+        // yazmak yerine burada yapiliyor: tablo yalnizca bu uc uzerinden
+        // buyuyor, dolayisiyla buyudugu her seferde ayni anda kirpiliyor.
+        // Take(500) siniri, uzun sure bakimsiz kalmis bir tabloda tek
+        // seferde her seyi bellege almayi engelliyor.
+        var esik = DateTime.UtcNow.AddDays(-7);
+        var cop = await _context.PasswordResetTokens
+            .Where(t => t.ExpiresAt < esik)
+            .Take(500)
+            .ToListAsync(ct);
+        if (cop.Count > 0) _context.PasswordResetTokens.RemoveRange(cop);
 
         // Onceki bekleyen baglantilari gecersiz kil: kullanici arka arkaya
         // istek atarsa yalnizca sonuncusu calissin.
@@ -236,19 +265,61 @@ public class AuthService : IAuthService{
         var token = Convert.ToBase64String(tokenBytes)
             .Replace('+', '-').Replace('/', '_').TrimEnd('=');
 
-        _context.PasswordResetTokens.Add(new PasswordResetToken
+        var kayit = new PasswordResetToken
         {
             UserId = user.Id,
             TokenHash = HashToken(token),
             ExpiresAt = DateTime.UtcNow.Add(ResetTokenLifetime),
-        });
+        };
+        _context.PasswordResetTokens.Add(kayit);
         await _context.SaveChangesAsync(ct);
 
         var link = $"{_configuration["App:WebBaseUrl"] ?? "https://walletmark.com.tr"}/sifre-sifirla?token={token}";
-        await _emailSender.SendAsync(user.Email, "Wallet Mark — Şifre Sıfırlama",
-            BuildResetEmail(user.FullName, link), ct);
+
+        try
+        {
+            await _emailSender.SendAsync(user.Email, "Wallet Mark — Şifre Sıfırlama",
+                BuildResetEmail(user.FullName, link), ct);
+        }
+        catch (Exception ex)
+        {
+            // Gonderim hatasi CAGIRANA yansitilmiyor. Yansisaydi kayitli adres
+            // 500, kayitsiz adres 200 donerdi; yukaridaki hesap-sizdirmama
+            // korumasi SMTP'nin ilk kesintisinde tamamen bosa cikardi.
+            //
+            // Token da hemen iptal ediliyor: kullaniciya HIC ulasmamis bir
+            // baglantinin 60 dakika acik kalmasi gereksiz risk.
+            kayit.UsedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(CancellationToken.None);
+
+            _logger.LogError(ex,
+                "Şifre sıfırlama e-postası gönderilemedi, token iptal edildi. UserId: {UserId}",
+                user.Id);
+            return;
+        }
 
         _logger.LogInformation("Şifre sıfırlama bağlantısı gönderildi. UserId: {UserId}", user.Id);
+    }
+
+    /// <summary>
+    /// İsteği sabit bir alt süreye tamamlar.
+    ///
+    /// Kayıtsız adreste yapılacak iş yok, anında dönülüyor; kayıtlı adreste
+    /// veritabanı yazımı + SMTP gidiş dönüşü var. Aradaki fark dışarıdan
+    /// ölçülebildiği için, yanıt METNİ aynı olsa bile SÜRE "bu adres kayıtlı"
+    /// bilgisini sızdırıyordu.
+    /// </summary>
+    private async Task SabitSureyeTamamlaAsync(Stopwatch kronometre)
+    {
+        var taban = int.TryParse(_configuration["Auth:ForgotPasswordMinResponseMs"], out var ms)
+            ? ms
+            : 1200;   // olculen SMTP gidis donusunun (~300-800ms) uzerinde
+
+        var kalan = TimeSpan.FromMilliseconds(taban) - kronometre.Elapsed;
+        if (kalan > TimeSpan.Zero)
+            // Bilerek ct verilmiyor: istek iptal edilse bile beklenmeli,
+            // erken biten istek yine bir sinyal olurdu.
+            await Task.Delay(kalan, CancellationToken.None);
     }
 
     /// <summary>

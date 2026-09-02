@@ -43,7 +43,7 @@ public class SmtpEmailSender : IEmailSender
             // ama konu ve alici loglaniyor ki akis test edilebilsin.
             _logger.LogWarning(
                 "E-posta yapılandırması eksik, gönderim ATLANDI. Alıcı: {To} — Konu: {Subject}",
-                toEmail, subject);
+                Maskele(toEmail), subject);
             return;
         }
 
@@ -65,6 +65,21 @@ public class SmtpEmailSender : IEmailSender
         await client.SendAsync(message, ct);
         await client.DisconnectAsync(true, ct);
 
-        _logger.LogInformation("E-posta gönderildi. Alıcı: {To} — Konu: {Subject}", toEmail, subject);
+        _logger.LogInformation("E-posta gönderildi. Alıcı: {To} — Konu: {Subject}", Maskele(toEmail), subject);
+    }
+
+    /// <summary>
+    /// E-posta adresini loga yazılabilir hale getirir: a***@ornek.com
+    ///
+    /// Adres kişisel veri; sunucu logları KVKK kapsamında ve journald'ı
+    /// okuyabilen herkese açık. Tam adres yerine maskesi yazılıyor —
+    /// sorun ayıklamak için hangi hesap olduğu yine ayırt edilebiliyor.
+    /// </summary>
+    private static string Maskele(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0) return "***";
+        var bas = email[0];
+        return $"{bas}***{email[at..]}";
     }
 }

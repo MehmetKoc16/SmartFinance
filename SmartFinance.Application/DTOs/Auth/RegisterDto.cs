@@ -13,5 +13,6 @@ public class RegisterDto
     public string Email{get;set;}=string.Empty;
     [Required(ErrorMessage = "Şifre zorunludur!")]
     [MinLength(6,ErrorMessage = "Şifre en az 6 karakter olmalıdır!")]
+    [MaxLength(72, ErrorMessage = "Şifre en fazla 72 karakter olabilir!")]
     public string Password{get;set;}=string.Empty;
 }

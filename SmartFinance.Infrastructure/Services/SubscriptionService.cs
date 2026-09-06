@@ -31,15 +31,24 @@ public class SubscriptionService : ISubscriptionService
         var userId = _currentUserService.UserId;
         var now = DateTime.UtcNow;
 
-        // Birden fazla abonelik satiri olabilir (yenilemeler, gecmis kayitlar);
-        // gecerli olan en ilerideki bitis tarihine sahip olandir.
+        // Bitis tarihi ve otomatik yenileme bilgisi icin gercek abonelik
+        // satiri gerekiyor. Birden fazla satir olabilir (yenilemeler, gecmis
+        // kayitlar); gecerli olan en ilerideki bitis tarihine sahip olandir.
+        // Odeme disi tanimli hesaplarda bu satir YOK, o yuzden premium
+        // karari asagida ayrica soruluyor.
         var aktif = await _context.Subscriptions
             .AsNoTracking()
             .Where(s => s.UserId == userId && s.ExpiresAt > now)
             .OrderByDescending(s => s.ExpiresAt)
             .FirstOrDefaultAsync(ct);
 
-        var isPremium = aktif is not null;
+        // Premium karari TEK yerden gelmeli. Burasi tabloyu dogrudan
+        // sorguluyordu ve EntitlementService'in tanidigi odeme disi
+        // hesaplari (Play inceleme hesabi) gormuyordu: sunucu sinirsiz
+        // davranirken uygulama "Ucretsiz plan, 4/5 yatirim" gosteriyordu.
+        // Ayni soruya iki ayri yerde cevap veren kod, er ya da gec iki
+        // farkli cevap verir.
+        var isPremium = await _entitlementService.IsPremiumAsync(ct);
 
         var ayBasi = new DateTime(now.Year, now.Month, 1);
 

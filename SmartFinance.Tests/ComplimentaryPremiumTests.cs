@@ -82,6 +82,28 @@ public class ComplimentaryPremiumTests
         Assert.True(await servis.IsPremiumAsync(u.Id));
     }
 
+    /// Durum ucu premium'u AYRI bir yerden okuyordu ve odeme disi tanimli
+    /// hesaplari gormuyordu: sunucu sinirsiz davranirken uygulama
+    /// "Ucretsiz plan" gosteriyordu. Iki kaynagin ayrismadigi burada
+    /// dogrulaniyor.
+    [Fact]
+    public async Task DurumUcu_OdemeDisiHesabiPremiumGosterir()
+    {
+        var c = Baglam();
+        var u = KullaniciEkle(c, "play-inceleme@walletmark.com.tr");
+        var kullanici = new SabitKullanici(u.Id);
+        var yapilandirma = Yapilandirma("play-inceleme@walletmark.com.tr");
+        var servis = new SubscriptionService(c, kullanici,
+            new EntitlementService(c, kullanici, yapilandirma));
+
+        var durum = await servis.GetStatusAsync();
+
+        Assert.True(durum.IsPremium);
+        Assert.True(durum.IndicatorsIncluded);
+        // Premium'da sayac gosterilmiyor: limit null olmali.
+        Assert.Null(durum.Investments.Limit);
+    }
+
     private sealed class SabitKullanici : Application.Interfaces.ICurrentUserService
     {
         public SabitKullanici(int id) => UserId = id;

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +34,7 @@ public class PdfImportDuplicateTests
         var currentUser = new CurrentUserService(accessor);
         var service = new PdfImportService(
             context, currentUser, NullLogger<PdfImportService>.Instance,
-            new EntitlementService(context, currentUser));
+            new EntitlementService(context, currentUser, BosYapilandirma()));
         return (service, context, user.Id);
     }
 
@@ -181,4 +182,10 @@ public class PdfImportDuplicateTests
         Assert.Equal(0, sonuc.SkippedCount);
         Assert.Equal(1, context.Transactions.Count(t => t.UserId == userId));
     }
+
+    /// EntitlementService yapilandirmadan "odeme olmadan premium" listesini
+    /// okuyor. Testlerde bu liste BOS olmali: dolu olsaydi limit testleri
+    /// sessizce premium yolundan gecip hicbir sey dogrulamaz hale gelirdi.
+    private static IConfiguration BosYapilandirma() =>
+        new ConfigurationBuilder().Build();
 }

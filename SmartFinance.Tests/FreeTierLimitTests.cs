@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,7 @@ public class FreeTierLimitTests
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
         };
         var currentUser = new CurrentUserService(accessor);
-        var entitlement = new EntitlementService(context, currentUser);
+        var entitlement = new EntitlementService(context, currentUser, BosYapilandirma());
 
         var marketData = new Mock<IMarketDataService>();
         marketData.Setup(m => m.GetCurrentPriceAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -306,4 +307,10 @@ public class FreeTierLimitTests
         Assert.NotNull(durum.ExpiresAt);
         Assert.True(durum.AutoRenewing);
     }
+
+    /// EntitlementService yapilandirmadan "odeme olmadan premium" listesini
+    /// okuyor. Testlerde bu liste BOS olmali: dolu olsaydi limit testleri
+    /// sessizce premium yolundan gecip hicbir sey dogrulamaz hale gelirdi.
+    private static IConfiguration BosYapilandirma() =>
+        new ConfigurationBuilder().Build();
 }

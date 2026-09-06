@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -35,7 +36,7 @@ public class InvestmentServiceTests
         var currentUser = new CurrentUserService(httpContextAccessor);
         // Sahte nesne yerine gercek servis: ucretsiz katman sinirlari da
         // testlerin gectigi yoldan gecsin.
-        var entitlement = new EntitlementService(context, currentUser);
+        var entitlement = new EntitlementService(context, currentUser, BosYapilandirma());
         var service = new InvestmentService(repository, context, currentUser, marketData.Object, entitlement);
         return (service, context, user.Id, marketData);
     }
@@ -243,4 +244,10 @@ public class InvestmentServiceTests
 
         await Assert.ThrowsAsync<NotFoundException>(() => service.DeleteInvestmentAsync(baskasininYatirimi.Id));
     }
+
+    /// EntitlementService yapilandirmadan "odeme olmadan premium" listesini
+    /// okuyor. Testlerde bu liste BOS olmali: dolu olsaydi limit testleri
+    /// sessizce premium yolundan gecip hicbir sey dogrulamaz hale gelirdi.
+    private static IConfiguration BosYapilandirma() =>
+        new ConfigurationBuilder().Build();
 }

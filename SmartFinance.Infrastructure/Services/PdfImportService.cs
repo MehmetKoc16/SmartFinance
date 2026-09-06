@@ -198,8 +198,10 @@ public class PdfImportService : IPdfImportService
             var transaction = new Transaction
             {
                 Amount = item.Amount,
-                Description = item.Description,
-                MerchantName = item.MerchantName,
+                // Ekstredeki havale satirlari karsi tarafin IBAN'ini iceriyor;
+                // o kisi bizim kullanicimiz degil ve saklamak icin gerekcemiz yok.
+                Description = HassasVeriMaskeleyici.Maskele(item.Description),
+                MerchantName = HassasVeriMaskeleyici.Maskele(item.MerchantName),
                 TransactionDate = item.TransactionDate,
                 Type = item.Type == 1 ? TransactionType.Income : TransactionType.Expense,
                 CategoryId = categoryId,

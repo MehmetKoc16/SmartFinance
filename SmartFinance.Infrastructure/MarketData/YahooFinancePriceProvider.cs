@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using SmartFinance.Application.DTOs.MarketData;
 using SmartFinance.Application.Exceptions;
@@ -52,7 +53,19 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
         var yahooSymbol = ToYahooSymbol(symbol);
         var response = await _httpClient.GetAsync($"v8/finance/chart/{yahooSymbol}?range=5d&interval=1d", ct);
         if (!response.IsSuccessStatusCode)
-            throw new ExternalServiceException($"Yahoo Finance fiyat sorgusu başarısız oldu: {symbol}");
+        {
+            // Yahoo, olmayan bir sembol icin cogunlukla 200 + bos sonuc degil,
+            // dogrudan 404 donuyor (orn. "THY" -> "THY.IS" gecerli degil).
+            // Bu, GetFirstResultOrThrow'un yakaladigi "200 ama chart.error dolu"
+            // durumundan farkli bir yol ama ayni anlama geliyor: yanlis sembol.
+            // Baska bir HTTP hatasi (429, 5xx) ise gercekten saglayici sorunu.
+            var kind = response.StatusCode == HttpStatusCode.NotFound
+                ? ExternalServiceFailureKind.SymbolNotFound
+                : ExternalServiceFailureKind.ProviderUnavailable;
+            throw new ExternalServiceException(
+                $"Yahoo Finance fiyat sorgusu başarısız oldu ({(int)response.StatusCode}): {symbol}",
+                kind, symbol);
+        }
 
         using var stream = await response.Content.ReadAsStreamAsync(ct);
         var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);

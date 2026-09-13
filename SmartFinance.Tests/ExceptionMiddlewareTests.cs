@@ -122,4 +122,89 @@ public class ExceptionMiddlewareTests
         Assert.True(doc.RootElement.TryGetProperty("traceId", out var traceId));
         Assert.False(string.IsNullOrWhiteSpace(traceId.GetString()));
     }
+
+    // ─── ExternalServiceException: UserMessage istemciye, .Message loga ─────
+    //
+    // Fiyat sağlayıcıları (Yahoo, Binance, TEFAS, TCMB EVDS, CoinGecko) hata
+    // mesajlarında kendi adlarını geçiriyor — bu teknik detay, log için doğru
+    // ama kullanıcı hisse sembolünü yanlış yazdığında "Yahoo Finance'da
+    // bulunamadı" görmemeli. Middleware bu iki mesajı ayırmak zorunda.
+
+    /// En kritik test: sağlayıcı adı hiçbir şekilde istemciye ulaşmamalı.
+    [Fact]
+    public async Task DisServisHatasi_SaglayiciAdiIstemciyeSizmaz()
+    {
+        var teknikMesaj = "Yahoo Finance'da 'XXYZ' sembolü bulunamadı.";
+        var hata = new ExternalServiceException(teknikMesaj,
+            ExternalServiceFailureKind.SymbolNotFound, symbol: "XXYZ");
+
+        var (_, body, _) = await RunAsync(hata);
+
+        Assert.DoesNotContain("Yahoo Finance", body);
+        Assert.DoesNotContain("Yahoo", body);
+    }
+
+    [Fact]
+    public async Task SembolBulunamadi_MesajSemboluIcerirAmaSaglayiciyiIcermez()
+    {
+        var hata = new ExternalServiceException("CoinGecko'da 'XCOIN' sembolü bulunamadı.",
+            ExternalServiceFailureKind.SymbolNotFound, symbol: "XCOIN");
+
+        var (_, body, _) = await RunAsync(hata);
+        var mesaj = MesajiOku(body);
+
+        Assert.Contains("XCOIN", mesaj);
+        Assert.DoesNotContain("CoinGecko", mesaj);
+    }
+
+    [Fact]
+    public async Task SaglayiciKullanilamiyor_JenerikMesajDoner()
+    {
+        var hata = new ExternalServiceException("TEFAS istek sınırına takıldı: ABC");
+
+        var (_, body, _) = await RunAsync(hata);
+
+        Assert.DoesNotContain("TEFAS", body);
+        Assert.Contains("tekrar deneyin", MesajiOku(body), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AralikVerisiYok_KendineOzguMesajDoner()
+    {
+        var hata = new ExternalServiceException("'THYAO' için geçmiş fiyat verisi bulunamadı.",
+            ExternalServiceFailureKind.NoDataForRange);
+
+        var (_, body, _) = await RunAsync(hata);
+
+        Assert.Contains("aralık", MesajiOku(body), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// Gram altın/gümüş kendi mesajını zaten kullanıcı diline yazmıştı
+    /// ("Kullanılabilir: GRAM ALTIN") — override edildiğinde bu ayrıntı
+    /// jenerik şablonla ezilmemeli.
+    [Fact]
+    public async Task OverrideVerilmisse_OzelMesajKullanilir()
+    {
+        var hata = new ExternalServiceException(
+            "'ALTIN2' tanımlı bir altın sembolü değil. Kullanılabilir: GRAM ALTIN.",
+            ExternalServiceFailureKind.SymbolNotFound, symbol: "ALTIN2",
+            userMessage: "'ALTIN2' tanımlı bir altın sembolü değil. Kullanılabilir: GRAM ALTIN.");
+
+        var (_, body, _) = await RunAsync(hata);
+
+        Assert.Equal("'ALTIN2' tanımlı bir altın sembolü değil. Kullanılabilir: GRAM ALTIN.", MesajiOku(body));
+    }
+
+    /// Teknik mesaj (sağlayıcı adı dahil) loglamada kaybolmamalı — sorun
+    /// ayıklarken "hangi sağlayıcı, hangi sembol" bilgisi loglardan okunabilmeli.
+    [Fact]
+    public async Task DisServisHatasi_TeknikMesajYineDeUyariSeviyesindeLoglanir()
+    {
+        var hata = new ExternalServiceException("Yahoo Finance'da 'XXYZ' sembolü bulunamadı.",
+            ExternalServiceFailureKind.SymbolNotFound, symbol: "XXYZ");
+
+        var (_, _, logger) = await RunAsync(hata);
+
+        VerifyLogged(logger, LogLevel.Warning, Times.Once());
+    }
 }

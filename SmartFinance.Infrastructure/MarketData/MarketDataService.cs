@@ -92,7 +92,12 @@ public class MarketDataService : IMarketDataService
         {
             bars = await provider.GetHistoricalPricesAsync(symbol, investmentType, from, to, ct);
             if (bars.Count == 0)
-                throw new ExternalServiceException($"'{symbol}' için geçmiş fiyat verisi bulunamadı.");
+                // Buraya gelindiginde yatirim zaten kayitli — sembol daha once
+                // dogrulanmis demektir. 0 bar donmesi genelde secilen araligin
+                // (orn. 5 yillik) varligin gecmisinden daha eski olmasindandir,
+                // sembolun yanlis olmasindan degil.
+                throw new ExternalServiceException($"'{symbol}' için geçmiş fiyat verisi bulunamadı.",
+                    ExternalServiceFailureKind.NoDataForRange);
 
             _cache.Set(historyKey, bars, HistoryTtl(investmentType, range));
         }

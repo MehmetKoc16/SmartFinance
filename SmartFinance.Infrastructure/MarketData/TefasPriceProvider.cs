@@ -62,7 +62,11 @@ public class TefasPriceProvider : IPriceProvider, IHistorySource
         var bars = await GetHistoricalPricesAsync(symbol, investmentType, from, to, ct);
 
         if (bars.Count == 0)
-            throw new ExternalServiceException($"TEFAS'ta '{symbol}' fon kodu için fiyat bulunamadı.");
+            // TEFAS'ta binlerce fon kodu var, onceden bilinen bir liste ile
+            // dogrulanamiyor — yeni eklenen bir kod icin 0 bar donmesi,
+            // pratikte neredeyse hep yanlis yazilmis fon kodu anlamina gelir.
+            throw new ExternalServiceException($"TEFAS'ta '{symbol}' fon kodu için fiyat bulunamadı.",
+                ExternalServiceFailureKind.SymbolNotFound, symbol);
 
         var last = bars[^1];
         return new PriceQuoteDto

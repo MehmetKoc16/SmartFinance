@@ -370,13 +370,17 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
 
     private static JsonElement GetFirstResultOrThrow(JsonDocument doc, string symbol)
     {
+        // Kullanicinin gordugu tek sey "sembol bulunamadi" olmali — Yahoo'nun
+        // hangi ucta, hangi sekilde hata dondurdugu yalnizca .Message'da (log).
         var chart = doc.RootElement.GetProperty("chart");
         if (chart.TryGetProperty("error", out var errorElement) && errorElement.ValueKind != JsonValueKind.Null)
-            throw new ExternalServiceException($"Yahoo Finance'da '{symbol}' sembolü bulunamadı.");
+            throw new ExternalServiceException($"Yahoo Finance'da '{symbol}' sembolü bulunamadı.",
+                ExternalServiceFailureKind.SymbolNotFound, symbol);
 
         var results = chart.GetProperty("result");
         if (results.ValueKind != JsonValueKind.Array || results.GetArrayLength() == 0)
-            throw new ExternalServiceException($"Yahoo Finance'da '{symbol}' sembolü bulunamadı.");
+            throw new ExternalServiceException($"Yahoo Finance'da '{symbol}' sembolü bulunamadı.",
+                ExternalServiceFailureKind.SymbolNotFound, symbol);
 
         return results[0];
     }

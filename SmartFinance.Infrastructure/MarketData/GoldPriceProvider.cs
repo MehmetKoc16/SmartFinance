@@ -68,8 +68,12 @@ public class GoldPriceProvider : IPriceProvider, IBatchPriceProvider, IBatchBarP
     private static void EnsureKnownSymbol(string symbol)
     {
         if (!KnownSymbols.Contains(symbol.Trim()))
+            // Mesaj zaten kullanici dostu (saglayici adi gecmiyor, ne yazmasi
+            // gerektigini soyluyor) — userMessage ile oldugu gibi korunuyor.
             throw new ExternalServiceException(
-                $"'{symbol}' tanımlı bir altın sembolü değil. Kullanılabilir: GRAM ALTIN.");
+                $"'{symbol}' tanımlı bir altın sembolü değil. Kullanılabilir: GRAM ALTIN.",
+                ExternalServiceFailureKind.SymbolNotFound, symbol,
+                userMessage: $"'{symbol}' tanımlı bir altın sembolü değil. Kullanılabilir: GRAM ALTIN.");
     }
 
     public async Task<PriceQuoteDto> GetCurrentPriceAsync(

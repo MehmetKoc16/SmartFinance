@@ -178,7 +178,10 @@ public class CoinGeckoPriceProvider : IPriceProvider, IBatchPriceProvider
         var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
         if (!doc.RootElement.TryGetProperty("coins", out var coinsElement) || coinsElement.GetArrayLength() == 0)
-            throw new ExternalServiceException($"CoinGecko'da '{symbol}' sembolü bulunamadı.");
+            // Bu, kripto icin gercek "yanlis sembol" durumu: Binance de tanimadigi
+            // icin buraya dustu, CoinGecko'nun genis kataloginde de yok.
+            throw new ExternalServiceException($"CoinGecko'da '{symbol}' sembolü bulunamadı.",
+                ExternalServiceFailureKind.SymbolNotFound, symbol);
 
         var firstMatch = coinsElement.EnumerateArray()
             .FirstOrDefault(c => string.Equals(c.GetProperty("symbol").GetString(), symbol, StringComparison.OrdinalIgnoreCase));

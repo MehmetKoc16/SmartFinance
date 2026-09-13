@@ -124,10 +124,15 @@ public class GoldPriceProviderTests
     {
         var (provider, handler, _) = Create();
 
-        await Assert.ThrowsAsync<ExternalServiceException>(
+        var hata = await Assert.ThrowsAsync<ExternalServiceException>(
             () => provider.GetCurrentPriceAsync("GUMUS", "gold"));
 
         Assert.Empty(handler.Urls);
+        // Kullaniciya donecek mesaj sembolu kontrol etmesini soylemeli, ne
+        // Binance ne de baska bir dis sistem adi gecmemeli.
+        Assert.Equal(ExternalServiceFailureKind.SymbolNotFound, hata.Kind);
+        Assert.DoesNotContain("Binance", hata.UserMessage);
+        Assert.Contains("GUMUS", hata.UserMessage);
     }
 
     [Theory]

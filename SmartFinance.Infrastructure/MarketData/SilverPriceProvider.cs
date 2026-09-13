@@ -62,8 +62,12 @@ public class SilverPriceProvider : IPriceProvider, IHistorySource
     private static void EnsureKnownSymbol(string symbol)
     {
         if (!KnownSymbols.Contains(symbol.Trim()))
+            // Mesaj zaten kullanici dostu (saglayici adi gecmiyor, ne yazmasi
+            // gerektigini soyluyor) — userMessage ile oldugu gibi korunuyor.
             throw new ExternalServiceException(
-                $"'{symbol}' tanımlı bir gümüş sembolü değil. Kullanılabilir: GRAM GÜMÜŞ.");
+                $"'{symbol}' tanımlı bir gümüş sembolü değil. Kullanılabilir: GRAM GÜMÜŞ.",
+                ExternalServiceFailureKind.SymbolNotFound, symbol,
+                userMessage: $"'{symbol}' tanımlı bir gümüş sembolü değil. Kullanılabilir: GRAM GÜMÜŞ.");
     }
 
     public async Task<PriceQuoteDto> GetCurrentPriceAsync(

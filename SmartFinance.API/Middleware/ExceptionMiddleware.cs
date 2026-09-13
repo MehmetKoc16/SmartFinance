@@ -72,9 +72,16 @@ public class ExceptionMiddleware
             // Bilinen hatalarin mesaji kullaniciya gosterilmek uzere yazildi.
             // Bilinmeyen hatalarda ic detay sizdirmamak icin genel mesaj doner;
             // destek icin traceId ile log kaydina ulasilabilir.
+            //
+            // ExternalServiceException ayri ele alinir: .Message dis servisin
+            // adini/uc noktasini icerebilir (log icin dogru olan budur — yukarida
+            // LogWarning'e o gidiyor), ama istemciye UserMessage gidiyor —
+            // "Yahoo Finance'da bulunamadi" degil "sembolu kontrol edin" gibi.
             message = statusCode == (int)HttpStatusCode.InternalServerError
                 ? GenericErrorMessage
-                : exception.Message,
+                : exception is ExternalServiceException external
+                    ? external.UserMessage
+                    : exception.Message,
             traceId = context.TraceIdentifier
         };
 

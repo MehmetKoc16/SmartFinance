@@ -25,8 +25,11 @@ public class TcmbPriceProvider : IPriceProvider
 
     private static string ResolveSeriesCode(string symbol)
     {
+        // Kullanicinin "Doviz" tipinde yazdigi kod (USD, EUR vb.) desteklenen
+        // listede degil — duzeltilebilir bir kullanici hatasi.
         if (!TcmbSeriesMap.CurrencySeriesCodes.TryGetValue(symbol, out var seriesCode))
-            throw new ExternalServiceException($"TCMB EVDS'de '{symbol}' için tanımlı bir seri kodu yok.");
+            throw new ExternalServiceException($"TCMB EVDS'de '{symbol}' için tanımlı bir seri kodu yok.",
+                ExternalServiceFailureKind.SymbolNotFound, symbol);
 
         return seriesCode;
     }

@@ -32,8 +32,10 @@ public class TransactionFilterOrderingTests
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
         };
 
+        var currentUserService = new CurrentUserService(accessor);
         var service = new TransactionService(
-            new GenericRepository<Transaction>(context), context, new CurrentUserService(accessor));
+            new GenericRepository<Transaction>(context), context, currentUserService,
+            new NotificationService(context, currentUserService));
         return (service, context, user.Id);
     }
 

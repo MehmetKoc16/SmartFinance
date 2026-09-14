@@ -14,12 +14,15 @@ public class TransactionService : ITransactionService
     private readonly IGenericRepository<Transaction> _repository;
     private readonly SmartFinanceDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly INotificationService _notificationService;
 
-    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context, ICurrentUserService currentUserService)
+    public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context,
+        ICurrentUserService currentUserService, INotificationService notificationService)
     {
         _repository = repository;
         _context = context;
         _currentUserService = currentUserService;
+        _notificationService = notificationService;
     }
     public async Task<object> GetFilteredTransactionsAsync(TransactionFilterDto filter)
     {
@@ -151,6 +154,9 @@ public class TransactionService : ITransactionService
         await _repository.AddAsync(transaction);
         await _context.SaveChangesAsync();
 
+        if (transaction.Type == TransactionType.Expense)
+            await _notificationService.EvaluateBudgetForTransactionAsync(userId, transaction.CategoryId, transaction.TransactionDate);
+
         return new TransactionDto
         {
             Id = transaction.Id,
@@ -185,6 +191,9 @@ public class TransactionService : ITransactionService
         transaction.UpdatedDate = DateTime.UtcNow;
         _repository.Update(transaction);
         await _context.SaveChangesAsync();
+
+        if (transaction.Type == TransactionType.Expense)
+            await _notificationService.EvaluateBudgetForTransactionAsync(userId, transaction.CategoryId, transaction.TransactionDate);
     }
 
     public async Task DeleteTransactionAsync(int id)

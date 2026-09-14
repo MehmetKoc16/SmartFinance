@@ -22,6 +22,9 @@ public class SmartFinanceDbContext : DbContext
     public DbSet<ImportLog> ImportLogs {get;set;}
     // Sifre sifirlama baglantilari (token'in kendisi degil, ozeti saklanir).
     public DbSet<PasswordResetToken> PasswordResetTokens {get;set;}
+    // Uygulama ici bildirimler (orn. butce asimi uyarisi) — push degil, sadece
+    // bildirim ekraninda listelenir.
+    public DbSet<Notification> Notifications {get;set;}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

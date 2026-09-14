@@ -53,6 +53,9 @@ public class MarketDataService : IMarketDataService
     private static string StatisticsKey(string symbol) =>
         $"stats:{symbol.ToUpperInvariant()}";
 
+    private static string SearchKey(string investmentType, string query) =>
+        $"search:{investmentType.ToLowerInvariant()}:{query.Trim().ToLowerInvariant()}";
+
     public async Task<PriceQuoteDto> GetCurrentPriceAsync(string symbol, string investmentType, CancellationToken ct = default)
     {
         // Normal isleyiste bu onbellegi arka plandaki PriceRefreshService toplu
@@ -130,5 +133,23 @@ public class MarketDataService : IMarketDataService
             Indicators = TechnicalIndicatorCalculator.Calculate(bars, keys),
             Statistics = statistics,
         };
+    }
+
+    public async Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(
+        string investmentType, string query, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+            return Array.Empty<SymbolSearchResultDto>();
+
+        var key = SearchKey(investmentType, query);
+        if (_cache.TryGetValue(key, out IReadOnlyList<SymbolSearchResultDto>? cached) && cached != null)
+            return cached;
+
+        var results = await ResolveProvider(investmentType).SearchSymbolsAsync(query, ct);
+        // Kullanici yazdikca istek atiyor; ayni ön-ek kisa surede tekrar tekrar
+        // sorulur (orn. "TH" -> "THY" -> "THYA"), o yuzden onbellek suresi kisa
+        // ama sifir degil.
+        _cache.Set(key, results, TimeSpan.FromMinutes(10));
+        return results;
     }
 }

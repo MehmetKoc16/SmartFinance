@@ -17,4 +17,10 @@ public interface IPriceProvider
     // yazmasina gerek kalmiyor.
     Task<StockStatisticsDto?> GetStatisticsAsync(string symbol, CancellationToken ct = default) =>
         Task.FromResult<StockStatisticsDto?>(null);
+
+    // Simdilik sadece hisse saglayicisi (Yahoo) gercek sonuc donuyor — arama
+    // sadece kullanicinin BIST sembolu ararken yazdikca eslesme gormesi icin,
+    // diger tiplerde (kripto/fon/altin/gumus) istenmedi.
+    Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(string query, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<SymbolSearchResultDto>>(Array.Empty<SymbolSearchResultDto>());
 }

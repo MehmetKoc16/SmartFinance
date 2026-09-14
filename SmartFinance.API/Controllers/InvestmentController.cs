@@ -13,10 +13,12 @@ namespace SmartFinance.API.Controllers;
 public class InvestmentController : ControllerBase
 {
     private readonly IInvestmentService _investmentService;
+    private readonly IMarketDataService _marketDataService;
 
-    public InvestmentController(IInvestmentService investmentService)
+    public InvestmentController(IInvestmentService investmentService, IMarketDataService marketDataService)
     {
         _investmentService=investmentService;
+        _marketDataService = marketDataService;
     }
 
     [HttpGet]
@@ -31,6 +33,16 @@ public class InvestmentController : ControllerBase
     {
         var summary = await _investmentService.GetPortfolioSummaryAsync();
         return Ok(summary);
+    }
+
+    // Kullanici yazdikca cagriliyor — {id} route'uyla catismiyor cunku o int
+    // tipiyle kisitli, "search-symbols" ona hic eslesmiyor.
+    [HttpGet("search-symbols")]
+    [EnableRateLimiting("market")]
+    public async Task<IActionResult> SearchSymbols([FromQuery] string q, [FromQuery] string type = "stock")
+    {
+        var results = await _marketDataService.SearchSymbolsAsync(type, q ?? string.Empty);
+        return Ok(results);
     }
 
     [HttpGet("{id}")]

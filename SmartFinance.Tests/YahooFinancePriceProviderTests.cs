@@ -111,4 +111,77 @@ public class YahooFinancePriceProviderTests
 
         Assert.Equal(296.0m, quote.Price);
     }
+
+    // ─── GetStatisticsAsync: F/K yedek hesabi ────────────────────────────
+    //
+    // Yahoo, BIST hisselerinde summaryDetail.trailingPE'yi cogu zaman BOS
+    // birakiyor — kar eden bir sirket (THYAO) icin bile. trailingEps genelde
+    // doluyor; fiyat/EPS ile kendimiz hesapliyoruz.
+
+    [Fact]
+    public async Task Istatistik_TrailingPEBossaEpsVeFiyattanHesaplanir()
+    {
+        var provider = Create(HttpStatusCode.OK, """
+            {"quoteSummary":{"result":[{
+                "summaryDetail":{"previousClose":{"raw":296.0}},
+                "defaultKeyStatistics":{"trailingEps":{"raw":15.5}},
+                "financialData":{"currentPrice":{"raw":296.0}}
+            }]}}
+            """);
+
+        var istatistik = await provider.GetStatisticsAsync("THYAO");
+
+        Assert.NotNull(istatistik!.TrailingPE);
+        Assert.Equal(296.0m / 15.5m, istatistik.TrailingPE!.Value, precision: 4);
+    }
+
+    /// summaryDetail.trailingPE zaten doluysa, hesaplanan degere BAKILMAMALI —
+    /// Yahoo'nun kendi verdigi deger her zaman oncelikli.
+    [Fact]
+    public async Task Istatistik_TrailingPEDoluysaHesaplamaYapilmaz()
+    {
+        var provider = Create(HttpStatusCode.OK, """
+            {"quoteSummary":{"result":[{
+                "summaryDetail":{"trailingPE":{"raw":12.5},"previousClose":{"raw":296.0}},
+                "defaultKeyStatistics":{"trailingEps":{"raw":15.5}},
+                "financialData":{"currentPrice":{"raw":296.0}}
+            }]}}
+            """);
+
+        var istatistik = await provider.GetStatisticsAsync("THYAO");
+
+        Assert.Equal(12.5m, istatistik!.TrailingPE);
+    }
+
+    /// Negatif EPS = sirket zarar ediyor. F/K matematiksel olarak anlamsiz,
+    /// null kalmali — uydurma bir "negatif F/K" gosterilmemeli.
+    [Fact]
+    public async Task Istatistik_NegatifEpsdeTrailingPENullKalir()
+    {
+        var provider = Create(HttpStatusCode.OK, """
+            {"quoteSummary":{"result":[{
+                "summaryDetail":{"previousClose":{"raw":296.0}},
+                "defaultKeyStatistics":{"trailingEps":{"raw":-3.2}},
+                "financialData":{"currentPrice":{"raw":296.0}}
+            }]}}
+            """);
+
+        var istatistik = await provider.GetStatisticsAsync("THYAO");
+
+        Assert.Null(istatistik!.TrailingPE);
+    }
+
+    [Fact]
+    public async Task Istatistik_HicVeriYoksaTrailingPENullKalir()
+    {
+        var provider = Create(HttpStatusCode.OK, """
+            {"quoteSummary":{"result":[{
+                "summaryDetail":{"previousClose":{"raw":296.0}}
+            }]}}
+            """);
+
+        var istatistik = await provider.GetStatisticsAsync("THYAO");
+
+        Assert.Null(istatistik!.TrailingPE);
+    }
 }

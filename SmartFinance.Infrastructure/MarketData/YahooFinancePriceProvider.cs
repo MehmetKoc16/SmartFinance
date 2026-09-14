@@ -211,6 +211,22 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
             var marketCap = TryGetRaw(summaryDetail, "marketCap");
             var priceToBook = TryGetRaw(keyStats, "priceToBook");
 
+            // Yahoo BIST hisselerinde summaryDetail.trailingPE'yi cogu zaman
+            // BOS birakiyor (THYAO dahil, kar eden bir sirket olmasina ragmen —
+            // bu bizim hesaplama hatamiz degil, saglayicinin veri eksikligi).
+            // trailingEps genelde doluyor; F/K = fiyat / hisse basi kazanc
+            // formuluyle kendimiz hesaplayip yedek olarak kullaniyoruz.
+            // Negatif EPS'de (sirket zarar ediyor) F/K matematiksel olarak
+            // anlamsizdir, o durumda hic gostermiyoruz.
+            var trailingPE = TryGetRaw(summaryDetail, "trailingPE");
+            if (trailingPE is null)
+            {
+                var eps = TryGetRaw(keyStats, "trailingEps");
+                var price = TryGetRaw(financialData, "currentPrice") ?? TryGetRaw(summaryDetail, "previousClose");
+                if (eps is > 0 && price is > 0)
+                    trailingPE = price / eps;
+            }
+
             return new StockStatisticsDto
             {
                 Open = TryGetRaw(summaryDetail, "open"),
@@ -221,7 +237,7 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
                 FiftyTwoWeekLow = TryGetRaw(summaryDetail, "fiftyTwoWeekLow"),
                 AverageVolume = TryGetRaw(summaryDetail, "averageVolume"),
                 MarketCap = marketCap,
-                TrailingPE = TryGetRaw(summaryDetail, "trailingPE"),
+                TrailingPE = trailingPE,
                 PriceToBook = priceToBook,
                 EquityValue = (marketCap.HasValue && priceToBook is > 0) ? marketCap / priceToBook : null,
                 ReturnOnEquity = TryGetRaw(financialData, "returnOnEquity"),

@@ -133,6 +133,7 @@ public class YahooFinancePriceProviderTests
 
         Assert.NotNull(istatistik!.TrailingPE);
         Assert.Equal(296.0m / 15.5m, istatistik.TrailingPE!.Value, precision: 4);
+        Assert.False(istatistik.IsLossMaking);
     }
 
     /// summaryDetail.trailingPE zaten doluysa, hesaplanan degere BAKILMAMALI —
@@ -153,10 +154,12 @@ public class YahooFinancePriceProviderTests
         Assert.Equal(12.5m, istatistik!.TrailingPE);
     }
 
-    /// Negatif EPS = sirket zarar ediyor. F/K matematiksel olarak anlamsiz,
-    /// null kalmali — uydurma bir "negatif F/K" gosterilmemeli.
+    /// Negatif EPS = sirket zarar ediyor (gercek THYAO verisiyle keşfedildi:
+    /// trailingEps -6.73). F/K matematiksel olarak anlamsiz, null kalmali —
+    /// uydurma bir "negatif F/K" gosterilmemeli. IsLossMaking=true olmali ki
+    /// istemci "veri yok" yerine "Zararda" gosterebilsin.
     [Fact]
-    public async Task Istatistik_NegatifEpsdeTrailingPENullKalir()
+    public async Task Istatistik_NegatifEpsdeTrailingPENullKalirVeZarardaIsaretlenir()
     {
         var provider = Create(HttpStatusCode.OK, """
             {"quoteSummary":{"result":[{
@@ -169,10 +172,14 @@ public class YahooFinancePriceProviderTests
         var istatistik = await provider.GetStatisticsAsync("THYAO");
 
         Assert.Null(istatistik!.TrailingPE);
+        Assert.True(istatistik.IsLossMaking);
     }
 
+    /// EPS verisi hic yoksa (zarar degil, bilinmiyor) IsLossMaking false
+    /// kalmali — istemci yanlislikla "Zararda" demeameli, "veri yok" gibi
+    /// davranmali (satiri gizlemeli).
     [Fact]
-    public async Task Istatistik_HicVeriYoksaTrailingPENullKalir()
+    public async Task Istatistik_HicVeriYoksaTrailingPENullKalirVeZarardaIsaretlenmez()
     {
         var provider = Create(HttpStatusCode.OK, """
             {"quoteSummary":{"result":[{
@@ -183,5 +190,6 @@ public class YahooFinancePriceProviderTests
         var istatistik = await provider.GetStatisticsAsync("THYAO");
 
         Assert.Null(istatistik!.TrailingPE);
+        Assert.False(istatistik.IsLossMaking);
     }
 }

@@ -14,6 +14,14 @@ public class StockStatisticsDto
     public decimal? AverageVolume { get; set; }
     public decimal? MarketCap { get; set; }
     public decimal? TrailingPE { get; set; }
+
+    // TrailingPE null VE bu true ise, sebep "veri eksik" degil "sirket son
+    // 12 ayda zarar etti" — F/K matematiksel olarak tanimsiz. Istemci bu
+    // ikisini ayirt edip "Zararda" gibi anlamli bir metin gosterebilsin diye
+    // ayri bir alan: aksi halde kullanici "neden F/K yok" diye sormaya devam
+    // eder, sanki eksik/bozuk bir veri gibi gorunur.
+    public bool IsLossMaking { get; set; }
+
     public decimal? PriceToBook { get; set; }
     public decimal? EquityValue { get; set; }
     public decimal? ReturnOnEquity { get; set; }

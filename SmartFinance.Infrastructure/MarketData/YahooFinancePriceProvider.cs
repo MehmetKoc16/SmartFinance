@@ -212,16 +212,21 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
             var priceToBook = TryGetRaw(keyStats, "priceToBook");
 
             // Yahoo BIST hisselerinde summaryDetail.trailingPE'yi cogu zaman
-            // BOS birakiyor (THYAO dahil, kar eden bir sirket olmasina ragmen —
-            // bu bizim hesaplama hatamiz degil, saglayicinin veri eksikligi).
-            // trailingEps genelde doluyor; F/K = fiyat / hisse basi kazanc
-            // formuluyle kendimiz hesaplayip yedek olarak kullaniyoruz.
-            // Negatif EPS'de (sirket zarar ediyor) F/K matematiksel olarak
-            // anlamsizdir, o durumda hic gostermiyoruz.
+            // BOS birakiyor. trailingEps genelde doluyor; F/K = fiyat / hisse
+            // basi kazanc formuluyle kendimiz hesaplayip yedek olarak
+            // kullaniyoruz.
+            //
+            // ONEMLI (THYAO test kullanicisi geri bildirimiyle bulundu):
+            // trailingPE'nin bos olmasinin en sik sebebi "veri eksikligi"
+            // degil, sirketin son 12 ayda (trailing donem) ZARAR etmis
+            // olmasi — F/K negatif kazancla matematiksel olarak tanimsiz.
+            // Istemcinin bu ikisini ayirt edip "veri yok" yerine "Zararda"
+            // gosterebilmesi icin IsLossMaking ayrica isaretleniyor.
             var trailingPE = TryGetRaw(summaryDetail, "trailingPE");
+            var eps = TryGetRaw(keyStats, "trailingEps");
+            var isLossMaking = eps is <= 0;
             if (trailingPE is null)
             {
-                var eps = TryGetRaw(keyStats, "trailingEps");
                 var price = TryGetRaw(financialData, "currentPrice") ?? TryGetRaw(summaryDetail, "previousClose");
                 if (eps is > 0 && price is > 0)
                     trailingPE = price / eps;
@@ -238,6 +243,7 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
                 AverageVolume = TryGetRaw(summaryDetail, "averageVolume"),
                 MarketCap = marketCap,
                 TrailingPE = trailingPE,
+                IsLossMaking = isLossMaking,
                 PriceToBook = priceToBook,
                 EquityValue = (marketCap.HasValue && priceToBook is > 0) ? marketCap / priceToBook : null,
                 ReturnOnEquity = TryGetRaw(financialData, "returnOnEquity"),

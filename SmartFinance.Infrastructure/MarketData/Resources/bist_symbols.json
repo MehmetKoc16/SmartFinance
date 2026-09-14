@@ -1,0 +1,2514 @@
+[
+  {
+    "symbol": "A1CAP",
+    "name": "A1 CAPITAL YATIRIM"
+  },
+  {
+    "symbol": "A1YEN",
+    "name": "A1 YENILENEBILIR ENERJI"
+  },
+  {
+    "symbol": "AAGYO",
+    "name": "AGAOGLU GMYO"
+  },
+  {
+    "symbol": "ACSEL",
+    "name": "ACIPAYAM SELULOZ"
+  },
+  {
+    "symbol": "ADEL",
+    "name": "ADEL KALEMCILIK"
+  },
+  {
+    "symbol": "ADESE",
+    "name": "ADESE GAYRIMENKUL"
+  },
+  {
+    "symbol": "ADGYO",
+    "name": "ADRA GMYO"
+  },
+  {
+    "symbol": "AEFES",
+    "name": "ANADOLU EFES"
+  },
+  {
+    "symbol": "AFYON",
+    "name": "AFYON CIMENTO"
+  },
+  {
+    "symbol": "AGESA",
+    "name": "AGESA HAYAT EMEKLILIK"
+  },
+  {
+    "symbol": "AGHOL",
+    "name": "ANADOLU GRUBU HOLDING"
+  },
+  {
+    "symbol": "AGROT",
+    "name": "AGROTECH TEKNOLOJI"
+  },
+  {
+    "symbol": "AGYO",
+    "name": "ATAKULE GMYO"
+  },
+  {
+    "symbol": "AHGAZ",
+    "name": "AHLATCI DOGALGAZ"
+  },
+  {
+    "symbol": "AHSGY",
+    "name": "AHES GMYO"
+  },
+  {
+    "symbol": "AKBNK",
+    "name": "AKBANK"
+  },
+  {
+    "symbol": "AKCNS",
+    "name": "AKCANSA"
+  },
+  {
+    "symbol": "AKENR",
+    "name": "AKENERJI"
+  },
+  {
+    "symbol": "AKFGY",
+    "name": "AKFEN GMYO"
+  },
+  {
+    "symbol": "AKFIS",
+    "name": "AKFEN INSAAT"
+  },
+  {
+    "symbol": "AKFYE",
+    "name": "AKFEN YEN. ENERJI"
+  },
+  {
+    "symbol": "AKGRT",
+    "name": "AKSIGORTA"
+  },
+  {
+    "symbol": "AKHAN",
+    "name": "AKHAN UN"
+  },
+  {
+    "symbol": "AKMGY",
+    "name": "AKMERKEZ GMYO"
+  },
+  {
+    "symbol": "AKSA",
+    "name": "AKSA"
+  },
+  {
+    "symbol": "AKSEN",
+    "name": "AKSA ENERJI"
+  },
+  {
+    "symbol": "AKSGY",
+    "name": "AKIS GMYO"
+  },
+  {
+    "symbol": "AKSUE",
+    "name": "AKSU ENERJI"
+  },
+  {
+    "symbol": "AKYHO",
+    "name": "AKDENIZ YATIRIM HOLDING"
+  },
+  {
+    "symbol": "ALARK",
+    "name": "ALARKO HOLDING"
+  },
+  {
+    "symbol": "ALBRK",
+    "name": "ALBARAKA TURK"
+  },
+  {
+    "symbol": "ALBTN",
+    "name": "ALBAYRAK BETON SANAYI"
+  },
+  {
+    "symbol": "ALCAR",
+    "name": "ALARKO CARRIER"
+  },
+  {
+    "symbol": "ALCTL",
+    "name": "ALCATEL LUCENT TELETAS"
+  },
+  {
+    "symbol": "ALFAS",
+    "name": "ALFA SOLAR ENERJI"
+  },
+  {
+    "symbol": "ALGYO",
+    "name": "ALARKO GMYO"
+  },
+  {
+    "symbol": "ALKA",
+    "name": "ALKIM KAGIT"
+  },
+  {
+    "symbol": "ALKIM",
+    "name": "ALKIM KIMYA"
+  },
+  {
+    "symbol": "ALKLC",
+    "name": "ALTINKILIC GIDA VE SUT"
+  },
+  {
+    "symbol": "ALTNY",
+    "name": "ALTINAY SAVUNMA"
+  },
+  {
+    "symbol": "ALVES",
+    "name": "ALVES KABLO"
+  },
+  {
+    "symbol": "ANELE",
+    "name": "ANEL ELEKTRIK"
+  },
+  {
+    "symbol": "ANGEN",
+    "name": "ANATOLIA TANI VE BIYOTEKNOLOJI"
+  },
+  {
+    "symbol": "ANHYT",
+    "name": "ANADOLU HAYAT EMEK."
+  },
+  {
+    "symbol": "ANSGR",
+    "name": "ANADOLU SIGORTA"
+  },
+  {
+    "symbol": "ARASE",
+    "name": "DOGU ARAS ENERJI"
+  },
+  {
+    "symbol": "ARCLK",
+    "name": "ARCELIK"
+  },
+  {
+    "symbol": "ARDYZ",
+    "name": "ARD BILISIM TEKNOLOJILERI"
+  },
+  {
+    "symbol": "ARENA",
+    "name": "ARENA BILGISAYAR"
+  },
+  {
+    "symbol": "ARFYE",
+    "name": "ARF BIO YENILENEBILIR ENERJI"
+  },
+  {
+    "symbol": "ARMGD",
+    "name": "ARMADA GIDA"
+  },
+  {
+    "symbol": "ARSAN",
+    "name": "ARSAN HOLDING"
+  },
+  {
+    "symbol": "ARTMS",
+    "name": "ARTEMIS HALI"
+  },
+  {
+    "symbol": "ARZUM",
+    "name": "ARZUM EV ALETLERI"
+  },
+  {
+    "symbol": "ASELS",
+    "name": "ASELSAN"
+  },
+  {
+    "symbol": "ASGYO",
+    "name": "ASCE GMYO"
+  },
+  {
+    "symbol": "ASTOR",
+    "name": "ASTOR ENERJI"
+  },
+  {
+    "symbol": "ASUZU",
+    "name": "ANADOLU ISUZU"
+  },
+  {
+    "symbol": "ATAGY",
+    "name": "ATA GMYO"
+  },
+  {
+    "symbol": "ATAKP",
+    "name": "ATAKEY PATATES"
+  },
+  {
+    "symbol": "ATATP",
+    "name": "ATP YAZILIM"
+  },
+  {
+    "symbol": "ATATR",
+    "name": "ATA TURIZM"
+  },
+  {
+    "symbol": "ATEKS",
+    "name": "AKIN TEKSTIL"
+  },
+  {
+    "symbol": "ATLAS",
+    "name": "ATLAS YAT. ORT."
+  },
+  {
+    "symbol": "ATSYH",
+    "name": "ATLANTIS YATIRIM HOLDING"
+  },
+  {
+    "symbol": "AVGYO",
+    "name": "AVRASYA GMYO"
+  },
+  {
+    "symbol": "AVHOL",
+    "name": "AVRUPA YATIRIM HOLDING"
+  },
+  {
+    "symbol": "AVOD",
+    "name": "A.V.O.D GIDA VE TARIM"
+  },
+  {
+    "symbol": "AVPGY",
+    "name": "AVRUPAKENT GMYO"
+  },
+  {
+    "symbol": "AVTUR",
+    "name": "AVRASYA PETROL VE TUR."
+  },
+  {
+    "symbol": "AYCES",
+    "name": "ALTINYUNUS CESME"
+  },
+  {
+    "symbol": "AYDEM",
+    "name": "AYDEM ENERJI"
+  },
+  {
+    "symbol": "AYEN",
+    "name": "AYEN ENERJI"
+  },
+  {
+    "symbol": "AYES",
+    "name": "AYES CELIK HASIR VE CIT"
+  },
+  {
+    "symbol": "AYGAZ",
+    "name": "AYGAZ"
+  },
+  {
+    "symbol": "AZTEK",
+    "name": "AZTEK TEKNOLOJI"
+  },
+  {
+    "symbol": "BAGFS",
+    "name": "BAGFAS"
+  },
+  {
+    "symbol": "BAHKM",
+    "name": "BAHADIR KIMYA"
+  },
+  {
+    "symbol": "BAKAB",
+    "name": "BAK AMBALAJ"
+  },
+  {
+    "symbol": "BALAT",
+    "name": "BALATACILAR BALATACILIK"
+  },
+  {
+    "symbol": "BALSU",
+    "name": "BALSU GIDA"
+  },
+  {
+    "symbol": "BANVT",
+    "name": "BANVIT"
+  },
+  {
+    "symbol": "BARMA",
+    "name": "BAREM AMBALAJ"
+  },
+  {
+    "symbol": "BASCM",
+    "name": "BASTAS BASKENT CIMENTO"
+  },
+  {
+    "symbol": "BASGZ",
+    "name": "BASKENT DOGALGAZ GMYO"
+  },
+  {
+    "symbol": "BAYRK",
+    "name": "BAYRAK TABAN SANAYI"
+  },
+  {
+    "symbol": "BEGYO",
+    "name": "BATI EGE GMYO"
+  },
+  {
+    "symbol": "BERA",
+    "name": "BERA HOLDING"
+  },
+  {
+    "symbol": "BESLR",
+    "name": "BESLER GIDA"
+  },
+  {
+    "symbol": "BESTE",
+    "name": "BEST BRANDS ENERJI"
+  },
+  {
+    "symbol": "BETAE",
+    "name": "BETA ENERJI VE TEKNOLOJI"
+  },
+  {
+    "symbol": "BEYAZ",
+    "name": "BEYAZ FILO"
+  },
+  {
+    "symbol": "BFREN",
+    "name": "BOSCH FREN SISTEMLERI"
+  },
+  {
+    "symbol": "BIENY",
+    "name": "BIEN YAPI URUNLERI"
+  },
+  {
+    "symbol": "BIGCH",
+    "name": "BUYUK SEFLER BIGCHEFS"
+  },
+  {
+    "symbol": "BIGEN",
+    "name": "BIRLESIM GRUP ENERJI"
+  },
+  {
+    "symbol": "BIGTK",
+    "name": "BIG MEDYA TEKNOLOJI"
+  },
+  {
+    "symbol": "BIMAS",
+    "name": "BIM MAGAZALAR"
+  },
+  {
+    "symbol": "BINBN",
+    "name": "BIN ULASIM TEKNOLOJILERI"
+  },
+  {
+    "symbol": "BINHO",
+    "name": "1000 YATIRIMLAR HOL."
+  },
+  {
+    "symbol": "BIOEN",
+    "name": "BIOTREND CEVRE VE ENERJI"
+  },
+  {
+    "symbol": "BIZIM",
+    "name": "BIZIM MAGAZALARI"
+  },
+  {
+    "symbol": "BJKAS",
+    "name": "BESIKTAS FUTBOL YAT."
+  },
+  {
+    "symbol": "BKRGY",
+    "name": "BAKIRCI GMYO"
+  },
+  {
+    "symbol": "BLCYT",
+    "name": "BILICI YATIRIM"
+  },
+  {
+    "symbol": "BLUME",
+    "name": "BLUME METAL KIMYA"
+  },
+  {
+    "symbol": "BMSCH",
+    "name": "BMS CELIK HASIR"
+  },
+  {
+    "symbol": "BMSTL",
+    "name": "BMS BIRLESIK METAL"
+  },
+  {
+    "symbol": "BNTAS",
+    "name": "BANTAS AMBALAJ"
+  },
+  {
+    "symbol": "BOBET",
+    "name": "BOGAZICI BETON SANAYI"
+  },
+  {
+    "symbol": "BORLS",
+    "name": "BORLEASE OTOMOTIV"
+  },
+  {
+    "symbol": "BORSK",
+    "name": "BOR SEKER"
+  },
+  {
+    "symbol": "BOSSA",
+    "name": "BOSSA"
+  },
+  {
+    "symbol": "BRISA",
+    "name": "BRISA"
+  },
+  {
+    "symbol": "BRKO",
+    "name": "BIRKO MENSUCAT"
+  },
+  {
+    "symbol": "BRKSN",
+    "name": "BERKOSAN YALITIM"
+  },
+  {
+    "symbol": "BRKVY",
+    "name": "BIRIKIM VARLIK YONETIM"
+  },
+  {
+    "symbol": "BRLSM",
+    "name": "BIRLESIM MUHENDISLIK"
+  },
+  {
+    "symbol": "BRMEN",
+    "name": "BIRLIK MENSUCAT"
+  },
+  {
+    "symbol": "BRSAN",
+    "name": "BORUSAN BORU SANAYI"
+  },
+  {
+    "symbol": "BRYAT",
+    "name": "BORUSAN YAT. PAZ."
+  },
+  {
+    "symbol": "BSOKE",
+    "name": "BATICIM CIMENTO"
+  },
+  {
+    "symbol": "BTCIM",
+    "name": "BATICIM BATI ANADOLU"
+  },
+  {
+    "symbol": "BUCIM",
+    "name": "BURSA CIMENTO"
+  },
+  {
+    "symbol": "BULGS",
+    "name": "BULLS GSYO"
+  },
+  {
+    "symbol": "BURCE",
+    "name": "BURCELIK"
+  },
+  {
+    "symbol": "BURVA",
+    "name": "BURCELIK VANA"
+  },
+  {
+    "symbol": "BVSAN",
+    "name": "BULBULOGLU VINC"
+  },
+  {
+    "symbol": "BYDNR",
+    "name": "BAYDONER RESTORANLARI"
+  },
+  {
+    "symbol": "CANTE",
+    "name": "CAN2 TERMIK"
+  },
+  {
+    "symbol": "CASA",
+    "name": "CASA EMTIA PETROL"
+  },
+  {
+    "symbol": "CATES",
+    "name": "CATES ELEKTRIK"
+  },
+  {
+    "symbol": "CCOLA",
+    "name": "COCA COLA ICECEK"
+  },
+  {
+    "symbol": "CELHA",
+    "name": "CELIK HALAT"
+  },
+  {
+    "symbol": "CEMAS",
+    "name": "CEMAS DOKUM"
+  },
+  {
+    "symbol": "CEMTS",
+    "name": "CEMTAS"
+  },
+  {
+    "symbol": "CEMZY",
+    "name": "CEM ZEYTIN"
+  },
+  {
+    "symbol": "CEOEM",
+    "name": "CEO EVENT MEDYA"
+  },
+  {
+    "symbol": "CGCAM",
+    "name": "CAGDAS CAM"
+  },
+  {
+    "symbol": "CIMSA",
+    "name": "CIMSA"
+  },
+  {
+    "symbol": "CITAS",
+    "name": "CITLEKCI MAGAZACILIK GIDA"
+  },
+  {
+    "symbol": "CLEBI",
+    "name": "CELEBI"
+  },
+  {
+    "symbol": "CMBTN",
+    "name": "CIMBETON"
+  },
+  {
+    "symbol": "CMENT",
+    "name": "CIMENTAS"
+  },
+  {
+    "symbol": "CONSE",
+    "name": "CONSUS ENERJI"
+  },
+  {
+    "symbol": "COSMO",
+    "name": "COSMOS YAT. HOLDING"
+  },
+  {
+    "symbol": "CRDFA",
+    "name": "CREDITWEST FAKTORING"
+  },
+  {
+    "symbol": "CRFSA",
+    "name": "CARREFOURSA"
+  },
+  {
+    "symbol": "CUSAN",
+    "name": "CUHADAROGLU METAL"
+  },
+  {
+    "symbol": "CVKMD",
+    "name": "CVK MADEN"
+  },
+  {
+    "symbol": "CWENE",
+    "name": "CW ENERJI"
+  },
+  {
+    "symbol": "DAGI",
+    "name": "DAGI GIYIM"
+  },
+  {
+    "symbol": "DAPGM",
+    "name": "DAP GAYRIMENKUL"
+  },
+  {
+    "symbol": "DARDL",
+    "name": "DARDANEL"
+  },
+  {
+    "symbol": "DCTTR",
+    "name": "DCT TRADING DIS TICARET"
+  },
+  {
+    "symbol": "DENGE",
+    "name": "DENGE HOLDING"
+  },
+  {
+    "symbol": "DERHL",
+    "name": "DERLUKS YATIRIM HOLDING"
+  },
+  {
+    "symbol": "DERIM",
+    "name": "DERIMOD"
+  },
+  {
+    "symbol": "DESA",
+    "name": "DESA DERI"
+  },
+  {
+    "symbol": "DESPC",
+    "name": "DESPEC BILGISAYAR"
+  },
+  {
+    "symbol": "DEVA",
+    "name": "DEVA HOLDING"
+  },
+  {
+    "symbol": "DGATE",
+    "name": "DATAGATE BILGISAYAR"
+  },
+  {
+    "symbol": "DGGYO",
+    "name": "DOGUS GMYO"
+  },
+  {
+    "symbol": "DGNMO",
+    "name": "DOGANLAR MOBILYA"
+  },
+  {
+    "symbol": "DIRIT",
+    "name": "DIRITEKS DIRILIS TEKSTIL"
+  },
+  {
+    "symbol": "DITAS",
+    "name": "DITAS BDY"
+  },
+  {
+    "symbol": "DMRGD",
+    "name": "DMR UNLU MAMULLER"
+  },
+  {
+    "symbol": "DMSAS",
+    "name": "DEMISAS DOKUM"
+  },
+  {
+    "symbol": "DNISI",
+    "name": "DINAMIK ISI MAKINA YALITIM"
+  },
+  {
+    "symbol": "DOAS",
+    "name": "DOGUS OTOMOTIV"
+  },
+  {
+    "symbol": "DOCO",
+    "name": "DO-CO"
+  },
+  {
+    "symbol": "DOFER",
+    "name": "DOFER YAPI MALZEMELERI"
+  },
+  {
+    "symbol": "DOFRB",
+    "name": "DOF ROBOTIK"
+  },
+  {
+    "symbol": "DOGUB",
+    "name": "DOGUSAN"
+  },
+  {
+    "symbol": "DOHOL",
+    "name": "DOGAN HOLDING"
+  },
+  {
+    "symbol": "DOKTA",
+    "name": "DOKTAS DOKUMCULUK"
+  },
+  {
+    "symbol": "DSTKF",
+    "name": "DESTEK FINANS FAKTORING"
+  },
+  {
+    "symbol": "DUNYH",
+    "name": "DUNYA HOLDING"
+  },
+  {
+    "symbol": "DURDO",
+    "name": "DURAN DOGAN BASIM"
+  },
+  {
+    "symbol": "DURKN",
+    "name": "DURUKAN SEKERLEME"
+  },
+  {
+    "symbol": "DYOBY",
+    "name": "DYO BOYA"
+  },
+  {
+    "symbol": "DZGYO",
+    "name": "DENIZ GMYO"
+  },
+  {
+    "symbol": "EBEBK",
+    "name": "EBEBEK MAGAZACILIK"
+  },
+  {
+    "symbol": "ECILC",
+    "name": "ECZACIBASI ILAC"
+  },
+  {
+    "symbol": "ECOGR",
+    "name": "ECOGREEN ENERJI"
+  },
+  {
+    "symbol": "ECZYT",
+    "name": "ECZACIBASI YATIRIM"
+  },
+  {
+    "symbol": "EDATA",
+    "name": "E-DATA TEKNOLOJI"
+  },
+  {
+    "symbol": "EDIP",
+    "name": "EDIP GAYRIMENKUL"
+  },
+  {
+    "symbol": "EFOR",
+    "name": "EFOR YATIRIM"
+  },
+  {
+    "symbol": "EGEEN",
+    "name": "EGE ENDUSTRI"
+  },
+  {
+    "symbol": "EGEGY",
+    "name": "EGEYAPI AVRUPA GMYO"
+  },
+  {
+    "symbol": "EGEPO",
+    "name": "NASMED EGEPOL"
+  },
+  {
+    "symbol": "EGGUB",
+    "name": "EGE GUBRE"
+  },
+  {
+    "symbol": "EGPRO",
+    "name": "EGE PROFIL"
+  },
+  {
+    "symbol": "EGSER",
+    "name": "EGE SERAMIK"
+  },
+  {
+    "symbol": "EKDMR",
+    "name": "EKINCILER DEMIR CELIK"
+  },
+  {
+    "symbol": "EKGYO",
+    "name": "EMLAK KONUT GMYO"
+  },
+  {
+    "symbol": "EKIM",
+    "name": "EKIM TURIZM"
+  },
+  {
+    "symbol": "EKIZ",
+    "name": "EKIZ KIMYA"
+  },
+  {
+    "symbol": "EKOS",
+    "name": "EKOS TEKNOLOJI"
+  },
+  {
+    "symbol": "EKSUN",
+    "name": "EKSUN GIDA"
+  },
+  {
+    "symbol": "ELITE",
+    "name": "ELITE NATUREL ORGANIK GIDA"
+  },
+  {
+    "symbol": "EMKEL",
+    "name": "EMEK ELEKTRIK"
+  },
+  {
+    "symbol": "EMNIS",
+    "name": "EMINIS AMBALAJ"
+  },
+  {
+    "symbol": "EMPAE",
+    "name": "EMPA ELEKTRONIK"
+  },
+  {
+    "symbol": "ENDAE",
+    "name": "ENDA ENERJI HOLDING"
+  },
+  {
+    "symbol": "ENERY",
+    "name": "ENERYA ENERJI"
+  },
+  {
+    "symbol": "ENJSA",
+    "name": "ENERJISA ENERJI"
+  },
+  {
+    "symbol": "ENKAI",
+    "name": "ENKA INSAAT"
+  },
+  {
+    "symbol": "ENPRA",
+    "name": "ENPARA BANK"
+  },
+  {
+    "symbol": "ENSRI",
+    "name": "ENSARI SINAI YATIRIMLAR"
+  },
+  {
+    "symbol": "ENTRA",
+    "name": "IC ENTERRA YEN. ENERJI"
+  },
+  {
+    "symbol": "EPLAS",
+    "name": "EGEPLAST"
+  },
+  {
+    "symbol": "ERBOS",
+    "name": "ERBOSAN"
+  },
+  {
+    "symbol": "ERCB",
+    "name": "ERCIYAS CELIK BORU"
+  },
+  {
+    "symbol": "EREGL",
+    "name": "EREGLI DEMIR CELIK"
+  },
+  {
+    "symbol": "ERSU",
+    "name": "ERSU GIDA"
+  },
+  {
+    "symbol": "ESCAR",
+    "name": "ESCAR FILO"
+  },
+  {
+    "symbol": "ESCOM",
+    "name": "ESCORT TEKNOLOJI"
+  },
+  {
+    "symbol": "ESEN",
+    "name": "ESENBOGA ELEKTRIK"
+  },
+  {
+    "symbol": "ETILR",
+    "name": "ETILER GIDA"
+  },
+  {
+    "symbol": "ETYAT",
+    "name": "EURO TREND YAT. ORT."
+  },
+  {
+    "symbol": "EUHOL",
+    "name": "EURO YATIRIM HOLDING"
+  },
+  {
+    "symbol": "EUKYO",
+    "name": "EURO KAPITAL YAT. ORT."
+  },
+  {
+    "symbol": "EUPWR",
+    "name": "EUROPOWER ENERJI"
+  },
+  {
+    "symbol": "EUREN",
+    "name": "EUROPEN ENDUSTRI"
+  },
+  {
+    "symbol": "EUYO",
+    "name": "EURO YAT. ORT."
+  },
+  {
+    "symbol": "EYGYO",
+    "name": "EYG GMYO"
+  },
+  {
+    "symbol": "FADE",
+    "name": "FADE GIDA"
+  },
+  {
+    "symbol": "FENER",
+    "name": "FENERBAHCE FUTBOL"
+  },
+  {
+    "symbol": "FLAP",
+    "name": "FLAP KONGRE TOPLANTI HIZ."
+  },
+  {
+    "symbol": "FMIZP",
+    "name": "F-M IZMIT PISTON"
+  },
+  {
+    "symbol": "FONET",
+    "name": "FONET BILGI TEKNOLOJILERI"
+  },
+  {
+    "symbol": "FORMT",
+    "name": "FORMET METAL VE CAM"
+  },
+  {
+    "symbol": "FORTE",
+    "name": "FORTE BILGI ILETISIM"
+  },
+  {
+    "symbol": "FRIGO",
+    "name": "FRIGO PAK GIDA"
+  },
+  {
+    "symbol": "FRMPL",
+    "name": "FORMUL PLASTIK VE METAL"
+  },
+  {
+    "symbol": "FROTO",
+    "name": "FORD OTOSAN"
+  },
+  {
+    "symbol": "FZLGY",
+    "name": "FUZUL GMYO"
+  },
+  {
+    "symbol": "GARAN",
+    "name": "GARANTI BANKASI"
+  },
+  {
+    "symbol": "GARFA",
+    "name": "GARANTI FAKTORING"
+  },
+  {
+    "symbol": "GATEG",
+    "name": "GATE GROUP TEKNOLOJI"
+  },
+  {
+    "symbol": "GEDIK",
+    "name": "GEDIK Y. MEN. DEG."
+  },
+  {
+    "symbol": "GEDZA",
+    "name": "GEDIZ AMBALAJ"
+  },
+  {
+    "symbol": "GENIL",
+    "name": "GEN ILAC"
+  },
+  {
+    "symbol": "GENKM",
+    "name": "GENTAS KIMYA"
+  },
+  {
+    "symbol": "GENTS",
+    "name": "GENTAS"
+  },
+  {
+    "symbol": "GEREL",
+    "name": "GERSAN ELEKTRIK"
+  },
+  {
+    "symbol": "GESAN",
+    "name": "GIRISIM ELEKTRIK SANAYI"
+  },
+  {
+    "symbol": "GIPTA",
+    "name": "GIPTA OFIS KIRTASIYE"
+  },
+  {
+    "symbol": "GLBMD",
+    "name": "GLOBAL MEN. DEG."
+  },
+  {
+    "symbol": "GLCVY",
+    "name": "GELECEK VARLIK YONETIMI"
+  },
+  {
+    "symbol": "GLRMK",
+    "name": "GULERMAK AGIR SANAYI"
+  },
+  {
+    "symbol": "GLRYH",
+    "name": "GULER YAT. HOLDING"
+  },
+  {
+    "symbol": "GLYHO",
+    "name": "GLOBAL YAT. HOLDING"
+  },
+  {
+    "symbol": "GMTAS",
+    "name": "GIMAT MAGAZACILIK"
+  },
+  {
+    "symbol": "GOKNR",
+    "name": "GOKNUR GIDA"
+  },
+  {
+    "symbol": "GOLDA",
+    "name": "GOLDA GIDA"
+  },
+  {
+    "symbol": "GOLTS",
+    "name": "GOLTAS CIMENTO"
+  },
+  {
+    "symbol": "GOODY",
+    "name": "GOOD-YEAR"
+  },
+  {
+    "symbol": "GOZDE",
+    "name": "GOZDE GIRISIM"
+  },
+  {
+    "symbol": "GRNYO",
+    "name": "GARANTI YAT. ORT."
+  },
+  {
+    "symbol": "GRSEL",
+    "name": "GUR-SEL TURIZM TASIMACILIK"
+  },
+  {
+    "symbol": "GRTHO",
+    "name": "GRAINTURK HOLDING"
+  },
+  {
+    "symbol": "GSDDE",
+    "name": "GSD DENIZCILIK"
+  },
+  {
+    "symbol": "GSDHO",
+    "name": "GSD HOLDING"
+  },
+  {
+    "symbol": "GSRAY",
+    "name": "GALATASARAY SPORTIF"
+  },
+  {
+    "symbol": "GUBRF",
+    "name": "GUBRE FABRIK."
+  },
+  {
+    "symbol": "GUNDG",
+    "name": "GUNDOGDU GIDA"
+  },
+  {
+    "symbol": "GWIND",
+    "name": "GALATA WIND ENERJI"
+  },
+  {
+    "symbol": "GZNMI",
+    "name": "GEZINOMI SEYAHAT"
+  },
+  {
+    "symbol": "HALKB",
+    "name": "T. HALK BANKASI"
+  },
+  {
+    "symbol": "HATEK",
+    "name": "HATAY TEKSTIL"
+  },
+  {
+    "symbol": "HATSN",
+    "name": "HATSAN GEMI"
+  },
+  {
+    "symbol": "HDFGS",
+    "name": "HEDEF GIRISIM"
+  },
+  {
+    "symbol": "HEDEF",
+    "name": "HEDEF HOLDING"
+  },
+  {
+    "symbol": "HEKTS",
+    "name": "HEKTAS"
+  },
+  {
+    "symbol": "HKTM",
+    "name": "HIDROPAR HAREKET KONTROL"
+  },
+  {
+    "symbol": "HLGYO",
+    "name": "HALK GMYO"
+  },
+  {
+    "symbol": "HOROZ",
+    "name": "HOROZ LOJISTIK"
+  },
+  {
+    "symbol": "HRKET",
+    "name": "HAREKET PROJE TASIMACILIGI"
+  },
+  {
+    "symbol": "HTTBT",
+    "name": "HITIT BILGISAYAR"
+  },
+  {
+    "symbol": "HUBVC",
+    "name": "HUB GIRISIM"
+  },
+  {
+    "symbol": "HUNER",
+    "name": "HUN YENILENEBILIR ENERJI"
+  },
+  {
+    "symbol": "HURGZ",
+    "name": "HURRIYET GZT."
+  },
+  {
+    "symbol": "ICBCT",
+    "name": "ICBC TURKEY BANK"
+  },
+  {
+    "symbol": "ICUGS",
+    "name": "ICU GIRISIM"
+  },
+  {
+    "symbol": "IDGYO",
+    "name": "IDEALIST GMYO"
+  },
+  {
+    "symbol": "IEYHO",
+    "name": "ISIKLAR ENERJI YAPI HOL."
+  },
+  {
+    "symbol": "IHAAS",
+    "name": "IHLAS HABER AJANSI"
+  },
+  {
+    "symbol": "IHEVA",
+    "name": "IHLAS EV ALETLERI"
+  },
+  {
+    "symbol": "IHGZT",
+    "name": "IHLAS GAZETECILIK"
+  },
+  {
+    "symbol": "IHLAS",
+    "name": "IHLAS HOLDING"
+  },
+  {
+    "symbol": "IHLGM",
+    "name": "IHLAS GAYRIMENKUL"
+  },
+  {
+    "symbol": "IHYAY",
+    "name": "IHLAS YAYIN HOLDING"
+  },
+  {
+    "symbol": "IMASM",
+    "name": "IMAS MAKINA"
+  },
+  {
+    "symbol": "INDES",
+    "name": "INDEKS BILGISAYAR"
+  },
+  {
+    "symbol": "INFO",
+    "name": "INFO YATIRIM"
+  },
+  {
+    "symbol": "INGRM",
+    "name": "INGRAM BILISIM"
+  },
+  {
+    "symbol": "INTEK",
+    "name": "INNOSA TEKNOLOJI"
+  },
+  {
+    "symbol": "INTEM",
+    "name": "INTEMA"
+  },
+  {
+    "symbol": "INTET",
+    "name": "INTETRA TEKNOLOJI"
+  },
+  {
+    "symbol": "INVEO",
+    "name": "INVEO YATIRIM HOLDING"
+  },
+  {
+    "symbol": "INVES",
+    "name": "INVESTCO HOLDING"
+  },
+  {
+    "symbol": "ISBIR",
+    "name": "ISBIR HOLDING"
+  },
+  {
+    "symbol": "ISBTR",
+    "name": "IS BANKASI (B)"
+  },
+  {
+    "symbol": "ISCTR",
+    "name": "IS BANKASI (C)"
+  },
+  {
+    "symbol": "ISDMR",
+    "name": "ISKENDERUN DEMIR CELIK"
+  },
+  {
+    "symbol": "ISFIN",
+    "name": "IS FIN.KIR."
+  },
+  {
+    "symbol": "ISGSY",
+    "name": "IS GIRISIM"
+  },
+  {
+    "symbol": "ISGYO",
+    "name": "IS GMYO"
+  },
+  {
+    "symbol": "ISKPL",
+    "name": "ISIK PLASTIK"
+  },
+  {
+    "symbol": "ISMEN",
+    "name": "IS Y. MEN. DEG."
+  },
+  {
+    "symbol": "ISSEN",
+    "name": "ISBIR SENTETIK DOKUMA"
+  },
+  {
+    "symbol": "ISVEA",
+    "name": "ISVEA SERAMIK VE BANYO"
+  },
+  {
+    "symbol": "ISX30",
+    "name": "Is Portfoy Bist 30 Endeksi Hisse Senedi Yogun Borsa Yatirim Fonu"
+  },
+  {
+    "symbol": "ISYAT",
+    "name": "IS YAT. ORT."
+  },
+  {
+    "symbol": "IZENR",
+    "name": "IZDEMIR ENERJI"
+  },
+  {
+    "symbol": "IZFAS",
+    "name": "IZMIR FIRCA"
+  },
+  {
+    "symbol": "IZINV",
+    "name": "IZ YATIRIM HOLDING"
+  },
+  {
+    "symbol": "IZMDC",
+    "name": "IZMIR DEMIR CELIK"
+  },
+  {
+    "symbol": "JANTS",
+    "name": "JANTSA JANT SANAYI"
+  },
+  {
+    "symbol": "KAPLM",
+    "name": "KAPLAMIN"
+  },
+  {
+    "symbol": "KARCL",
+    "name": "KARDEMIR CELIK"
+  },
+  {
+    "symbol": "KAREL",
+    "name": "KAREL ELEKTRONIK"
+  },
+  {
+    "symbol": "KARSN",
+    "name": "KARSAN OTOMOTIV"
+  },
+  {
+    "symbol": "KARTN",
+    "name": "KARTONSAN"
+  },
+  {
+    "symbol": "KATMR",
+    "name": "KATMERCILER EKIPMAN"
+  },
+  {
+    "symbol": "KAYSE",
+    "name": "KAYSERI SEKER FABRIKASI"
+  },
+  {
+    "symbol": "KBORU",
+    "name": "KUZEY BORU"
+  },
+  {
+    "symbol": "KCAER",
+    "name": "KOCAER CELIK"
+  },
+  {
+    "symbol": "KCHOL",
+    "name": "KOC HOLDING"
+  },
+  {
+    "symbol": "KENT",
+    "name": "KENT GIDA"
+  },
+  {
+    "symbol": "KERVN",
+    "name": "KERVANSARAY YAT. HOLDING"
+  },
+  {
+    "symbol": "KFEIN",
+    "name": "KAFEIN YAZILIM"
+  },
+  {
+    "symbol": "KGYO",
+    "name": "KORAY GMYO"
+  },
+  {
+    "symbol": "KIMMR",
+    "name": "KIM MARKET-ERSAN ALISVERIS"
+  },
+  {
+    "symbol": "KLGYO",
+    "name": "KILER GMYO"
+  },
+  {
+    "symbol": "KLKIM",
+    "name": "KALEKIM KIMYEVI MADDELER"
+  },
+  {
+    "symbol": "KLMSN",
+    "name": "KLIMASAN KLIMA"
+  },
+  {
+    "symbol": "KLNMA",
+    "name": "T. KALKINMA BANK."
+  },
+  {
+    "symbol": "KLRHO",
+    "name": "KILER HOLDING"
+  },
+  {
+    "symbol": "KLSER",
+    "name": "KALESERAMIK"
+  },
+  {
+    "symbol": "KLSYN",
+    "name": "KOLEKSIYON MOBILYA"
+  },
+  {
+    "symbol": "KLYPV",
+    "name": "KALYON GUNES TEKNOLOJILERI"
+  },
+  {
+    "symbol": "KMPUR",
+    "name": "KIMTEKS POLIURETAN"
+  },
+  {
+    "symbol": "KNFRT",
+    "name": "KONFRUT TARIM"
+  },
+  {
+    "symbol": "KOCMT",
+    "name": "KOC METALURJI"
+  },
+  {
+    "symbol": "KONKA",
+    "name": "KONYA KAGIT"
+  },
+  {
+    "symbol": "KONTR",
+    "name": "KONTROLMATIK TEKNOLOJI"
+  },
+  {
+    "symbol": "KONYA",
+    "name": "KONYA CIMENTO"
+  },
+  {
+    "symbol": "KOPOL",
+    "name": "KOZA POLYESTER"
+  },
+  {
+    "symbol": "KORDS",
+    "name": "KORDSA TEKNIK TEKSTIL"
+  },
+  {
+    "symbol": "KOTON",
+    "name": "KOTON MAGAZACILIK"
+  },
+  {
+    "symbol": "KPEKS",
+    "name": "KAPEKS KIMYA"
+  },
+  {
+    "symbol": "KRDMA",
+    "name": "KARDEMIR (A)"
+  },
+  {
+    "symbol": "KRDMB",
+    "name": "KARDEMIR (B)"
+  },
+  {
+    "symbol": "KRDMD",
+    "name": "KARDEMIR (D)"
+  },
+  {
+    "symbol": "KRGYO",
+    "name": "KORFEZ GMYO"
+  },
+  {
+    "symbol": "KRONT",
+    "name": "KRON TEKNOLOJI"
+  },
+  {
+    "symbol": "KRPLS",
+    "name": "KOROPLAST TEMIZLIK AMBALAJ"
+  },
+  {
+    "symbol": "KRSTL",
+    "name": "KRISTAL KOLA"
+  },
+  {
+    "symbol": "KRTEK",
+    "name": "KARSU TEKSTIL"
+  },
+  {
+    "symbol": "KRVGD",
+    "name": "KERVAN GIDA"
+  },
+  {
+    "symbol": "KSTUR",
+    "name": "KUSTUR KUSADASI TURIZM"
+  },
+  {
+    "symbol": "KTLEV",
+    "name": "KATILIMEVIM TAS. FIN."
+  },
+  {
+    "symbol": "KTSKR",
+    "name": "KUTAHYA SEKER FABRIKASI"
+  },
+  {
+    "symbol": "KUTPO",
+    "name": "KUTAHYA PORSELEN"
+  },
+  {
+    "symbol": "KUVVA",
+    "name": "KUVVA GIDA"
+  },
+  {
+    "symbol": "KUYAS",
+    "name": "KUYAS YATIRIM"
+  },
+  {
+    "symbol": "KZBGY",
+    "name": "KIZILBUK GYO"
+  },
+  {
+    "symbol": "KZGYO",
+    "name": "KUZUGRUP GMYO"
+  },
+  {
+    "symbol": "LIDER",
+    "name": "LDR TURIZM"
+  },
+  {
+    "symbol": "LIDFA",
+    "name": "LIDER FAKTORING"
+  },
+  {
+    "symbol": "LILAK",
+    "name": "LILA KAGIT"
+  },
+  {
+    "symbol": "LINK",
+    "name": "LINK BILGISAYAR"
+  },
+  {
+    "symbol": "LKMNH",
+    "name": "LOKMAN HEKIM SAGLIK"
+  },
+  {
+    "symbol": "LMKDC",
+    "name": "LIMAK DOGU ANADOLU"
+  },
+  {
+    "symbol": "LOGO",
+    "name": "LOGO YAZILIM"
+  },
+  {
+    "symbol": "LRSHO",
+    "name": "LORAS HOLDING"
+  },
+  {
+    "symbol": "LUKSK",
+    "name": "LUKS KADIFE"
+  },
+  {
+    "symbol": "LXGYO",
+    "name": "LUXERA GMYO"
+  },
+  {
+    "symbol": "LYDHO",
+    "name": "LYDIA HOLDING"
+  },
+  {
+    "symbol": "LYDYE",
+    "name": "LYDIA YESIL ENERJI"
+  },
+  {
+    "symbol": "MAALT",
+    "name": "MARMARIS ALTINYUNUS"
+  },
+  {
+    "symbol": "MACKO",
+    "name": "MACKOLIK INTERNET HIZMETLERI"
+  },
+  {
+    "symbol": "MAGEN",
+    "name": "MARGUN ENERJI"
+  },
+  {
+    "symbol": "MAKIM",
+    "name": "MAKIM MAKINE"
+  },
+  {
+    "symbol": "MAKTK",
+    "name": "MAKINA TAKIM"
+  },
+  {
+    "symbol": "MANAS",
+    "name": "MANAS ENERJI YONETIMI"
+  },
+  {
+    "symbol": "MARBL",
+    "name": "TUREKS TURUNC MADENCILIK"
+  },
+  {
+    "symbol": "MARMR",
+    "name": "MARMARA HOLDING"
+  },
+  {
+    "symbol": "MARTI",
+    "name": "MARTI OTEL"
+  },
+  {
+    "symbol": "MASFN",
+    "name": "MASFEN ENERJI"
+  },
+  {
+    "symbol": "MAVI",
+    "name": "MAVI GIYIM"
+  },
+  {
+    "symbol": "MCARD",
+    "name": "METROPAL KURUMSAL HIZMETLER"
+  },
+  {
+    "symbol": "MEDTR",
+    "name": "MEDITERA TIBBI MALZEME"
+  },
+  {
+    "symbol": "MEGAP",
+    "name": "MEGA POLIETILEN"
+  },
+  {
+    "symbol": "MEGMT",
+    "name": "MEGA METAL"
+  },
+  {
+    "symbol": "MEKAG",
+    "name": "MEKA GLOBAL MAKINE"
+  },
+  {
+    "symbol": "MEPET",
+    "name": "METRO PETROL VE TESISLERI"
+  },
+  {
+    "symbol": "MERCN",
+    "name": "MERCAN KIMYA"
+  },
+  {
+    "symbol": "MERIT",
+    "name": "MERIT TURIZM"
+  },
+  {
+    "symbol": "MERKO",
+    "name": "MERKO GIDA"
+  },
+  {
+    "symbol": "METEN",
+    "name": "METGUN ENERJI"
+  },
+  {
+    "symbol": "METRO",
+    "name": "METRO HOLDING"
+  },
+  {
+    "symbol": "MEYSU",
+    "name": "MEYSU GIDA"
+  },
+  {
+    "symbol": "MGROS",
+    "name": "MIGROS TICARET"
+  },
+  {
+    "symbol": "MHRGY",
+    "name": "MHR GMYO"
+  },
+  {
+    "symbol": "MIATK",
+    "name": "MIA TEKNOLOJI"
+  },
+  {
+    "symbol": "MMCAS",
+    "name": "MMC SAN. VE TIC. YAT."
+  },
+  {
+    "symbol": "MNDRS",
+    "name": "MENDERES TEKSTIL"
+  },
+  {
+    "symbol": "MNDTR",
+    "name": "MONDI TURKEY"
+  },
+  {
+    "symbol": "MOBTL",
+    "name": "MOBILTEL ILETISIM"
+  },
+  {
+    "symbol": "MOGAN",
+    "name": "MOGAN ENERJI"
+  },
+  {
+    "symbol": "MOPAS",
+    "name": "MOPAS MARKETCILIK"
+  },
+  {
+    "symbol": "MPARK",
+    "name": "MLP SAGLIK"
+  },
+  {
+    "symbol": "MRGYO",
+    "name": "MARTI GMYO"
+  },
+  {
+    "symbol": "MRSHL",
+    "name": "MARSHALL"
+  },
+  {
+    "symbol": "MSGYO",
+    "name": "MISTRAL GMYO"
+  },
+  {
+    "symbol": "MTRKS",
+    "name": "MATRIKS FINANSAL TEKNOLOJILER"
+  },
+  {
+    "symbol": "MTRYO",
+    "name": "METRO YAT. ORT."
+  },
+  {
+    "symbol": "MZHLD",
+    "name": "MAZHAR ZORLU HOLDING"
+  },
+  {
+    "symbol": "NATEN",
+    "name": "NATUREL ENERJI"
+  },
+  {
+    "symbol": "NETAS",
+    "name": "NETAS TELEKOM."
+  },
+  {
+    "symbol": "NETCD",
+    "name": "NETCAD YAZILIM"
+  },
+  {
+    "symbol": "NIBAS",
+    "name": "NIGBAS NIGDE BETON"
+  },
+  {
+    "symbol": "NTGAZ",
+    "name": "NATURELGAZ"
+  },
+  {
+    "symbol": "NTHOL",
+    "name": "NET HOLDING"
+  },
+  {
+    "symbol": "NUGYO",
+    "name": "NUROL GMYO"
+  },
+  {
+    "symbol": "NUHCM",
+    "name": "NUH CIMENTO"
+  },
+  {
+    "symbol": "OBAMS",
+    "name": "OBA MAKARNACILIK"
+  },
+  {
+    "symbol": "OBASE",
+    "name": "OBASE BILGISAYAR"
+  },
+  {
+    "symbol": "ODAS",
+    "name": "ODAS ELEKTRIK"
+  },
+  {
+    "symbol": "ODINE",
+    "name": "ODINE TEKNOLOJI"
+  },
+  {
+    "symbol": "OFSYM",
+    "name": "OFIS YEM GIDA"
+  },
+  {
+    "symbol": "ONCSM",
+    "name": "ONCOSEM ONKOLOJIK SISTEMLER"
+  },
+  {
+    "symbol": "ONRYT",
+    "name": "ONUR TEKNOLOJI"
+  },
+  {
+    "symbol": "ORCAY",
+    "name": "ORCAY ORTAKOY CAY SANAYI"
+  },
+  {
+    "symbol": "ORGE",
+    "name": "ORGE ENERJI ELEKTRIK"
+  },
+  {
+    "symbol": "ORMA",
+    "name": "ORMA ORMAN MAHSULLERI"
+  },
+  {
+    "symbol": "ORZAX",
+    "name": "ORZAKS ILAC"
+  },
+  {
+    "symbol": "OSMEN",
+    "name": "OSMANLI MENKUL"
+  },
+  {
+    "symbol": "OSTIM",
+    "name": "OSTIM ENDUSTRIYEL YAT"
+  },
+  {
+    "symbol": "OTKAR",
+    "name": "OTOKAR"
+  },
+  {
+    "symbol": "OTTO",
+    "name": "OTTO HOLDING"
+  },
+  {
+    "symbol": "OYAKC",
+    "name": "OYAK CIMENTO"
+  },
+  {
+    "symbol": "OYAYO",
+    "name": "OYAK YAT. ORT."
+  },
+  {
+    "symbol": "OYLUM",
+    "name": "OYLUM SINAI YATIRIMLAR"
+  },
+  {
+    "symbol": "OYYAT",
+    "name": "OYAK YATIRIM MENKUL"
+  },
+  {
+    "symbol": "OZATD",
+    "name": "OZATA DENIZCILIK"
+  },
+  {
+    "symbol": "OZGYO",
+    "name": "OZDERICI GMYO"
+  },
+  {
+    "symbol": "OZKGY",
+    "name": "OZAK GMYO"
+  },
+  {
+    "symbol": "OZRDN",
+    "name": "OZERDEN AMBALAJ"
+  },
+  {
+    "symbol": "OZSUB",
+    "name": "OZSU BALIK"
+  },
+  {
+    "symbol": "OZYSR",
+    "name": "OZYASAR TEL"
+  },
+  {
+    "symbol": "PAGYO",
+    "name": "PANORA GMYO"
+  },
+  {
+    "symbol": "PAHOL",
+    "name": "PASIFIK HOLDING"
+  },
+  {
+    "symbol": "PAMEL",
+    "name": "PAMEL ELEKTRIK"
+  },
+  {
+    "symbol": "PAPIL",
+    "name": "PAPILON SAVUNMA"
+  },
+  {
+    "symbol": "PARSN",
+    "name": "PARSAN"
+  },
+  {
+    "symbol": "PASEU",
+    "name": "PASIFIK EURASIA LOJISTIK"
+  },
+  {
+    "symbol": "PATEK",
+    "name": "PASIFIK TEKNOLOJI"
+  },
+  {
+    "symbol": "PCILT",
+    "name": "PC ILETISIM MEDYA"
+  },
+  {
+    "symbol": "PEKGY",
+    "name": "PEKER GMYO"
+  },
+  {
+    "symbol": "PENGD",
+    "name": "PENGUEN GIDA"
+  },
+  {
+    "symbol": "PENTA",
+    "name": "PENTA TEKNOLOJI URUNLERI DAGITI"
+  },
+  {
+    "symbol": "PETKM",
+    "name": "PETKIM"
+  },
+  {
+    "symbol": "PETUN",
+    "name": "PINAR ET VE UN"
+  },
+  {
+    "symbol": "PGSUS",
+    "name": "PEGASUS"
+  },
+  {
+    "symbol": "PINSU",
+    "name": "PINAR SU"
+  },
+  {
+    "symbol": "PKART",
+    "name": "PLASTIKKART"
+  },
+  {
+    "symbol": "PKENT",
+    "name": "PETROKENT TURIZM"
+  },
+  {
+    "symbol": "PLTUR",
+    "name": "PLATFORM TURIZM"
+  },
+  {
+    "symbol": "PNLSN",
+    "name": "PANELSAN CATI CEPHE"
+  },
+  {
+    "symbol": "PNSUT",
+    "name": "PINAR SUT"
+  },
+  {
+    "symbol": "POLHO",
+    "name": "POLISAN HOLDING"
+  },
+  {
+    "symbol": "POLTK",
+    "name": "POLITEKNIK METAL"
+  },
+  {
+    "symbol": "PRDGS",
+    "name": "PARDUS GIRISIM"
+  },
+  {
+    "symbol": "PRKAB",
+    "name": "TURK PRYSMIAN KABLO"
+  },
+  {
+    "symbol": "PRKME",
+    "name": "PARK ELEK.MADENCILIK"
+  },
+  {
+    "symbol": "PRZMA",
+    "name": "PRIZMA PRESS MATBAACILIK"
+  },
+  {
+    "symbol": "PSDTC",
+    "name": "PERGAMON DIS TICARET"
+  },
+  {
+    "symbol": "PSGYO",
+    "name": "PASIFIK GMYO"
+  },
+  {
+    "symbol": "QNBFK",
+    "name": "QNB FINANSAL KIRALAMA"
+  },
+  {
+    "symbol": "QNBTR",
+    "name": "QNB BANK"
+  },
+  {
+    "symbol": "QUAGR",
+    "name": "QUA GRANITE HAYAL YAPI"
+  },
+  {
+    "symbol": "QUICK",
+    "name": "QUICK SIGORTA"
+  },
+  {
+    "symbol": "RALYH",
+    "name": "RAL YATIRIM HOLDING"
+  },
+  {
+    "symbol": "RAYSG",
+    "name": "RAY SIGORTA"
+  },
+  {
+    "symbol": "REEDR",
+    "name": "REEDER TEKNOLOJI"
+  },
+  {
+    "symbol": "RGYAS",
+    "name": "RONESANS GAYRIMENKUL YAT."
+  },
+  {
+    "symbol": "RNPOL",
+    "name": "RAINBOW POLIKARBONAT"
+  },
+  {
+    "symbol": "RODRG",
+    "name": "RODRIGO TEKSTIL"
+  },
+  {
+    "symbol": "RTALB",
+    "name": "RTA LABORATUVARLARI"
+  },
+  {
+    "symbol": "RUBNS",
+    "name": "RUBENIS TEKSTIL"
+  },
+  {
+    "symbol": "RUZYE",
+    "name": "RUZY MADENCILIK VE ENERJI"
+  },
+  {
+    "symbol": "RYGYO",
+    "name": "REYSAS GMYO"
+  },
+  {
+    "symbol": "RYSAS",
+    "name": "REYSAS LOJISTIK"
+  },
+  {
+    "symbol": "SAFKR",
+    "name": "SAFKAR EGE SOGUTMACILIK"
+  },
+  {
+    "symbol": "SAHOL",
+    "name": "SABANCI HOLDING"
+  },
+  {
+    "symbol": "SAMAT",
+    "name": "SARAY MATBAACILIK"
+  },
+  {
+    "symbol": "SANEL",
+    "name": "SANEL MUHENDISLIK"
+  },
+  {
+    "symbol": "SANFM",
+    "name": "SANIFOAM ENDUSTRI"
+  },
+  {
+    "symbol": "SANKO",
+    "name": "SANKO PAZARLAMA"
+  },
+  {
+    "symbol": "SARAE",
+    "name": "SA-RA ENERJI"
+  },
+  {
+    "symbol": "SARKY",
+    "name": "SARKUYSAN"
+  },
+  {
+    "symbol": "SASA",
+    "name": "SASA POLYESTER"
+  },
+  {
+    "symbol": "SAYAS",
+    "name": "SAY YENILENEBILIR ENERJI"
+  },
+  {
+    "symbol": "SDTTR",
+    "name": "SDT UZAY VE SAVUNMA"
+  },
+  {
+    "symbol": "SEGMN",
+    "name": "SEGMEN KARDESLER GIDA"
+  },
+  {
+    "symbol": "SEGYO",
+    "name": "SEKER GMYO"
+  },
+  {
+    "symbol": "SEKFK",
+    "name": "SEKER FIN. KIR."
+  },
+  {
+    "symbol": "SEKUR",
+    "name": "SEKURO PLASTIK"
+  },
+  {
+    "symbol": "SELEC",
+    "name": "SELCUK ECZA DEPOSU"
+  },
+  {
+    "symbol": "SELVA",
+    "name": "SELVA GIDA"
+  },
+  {
+    "symbol": "SERNT",
+    "name": "SERANIT GRANIT SERAMIK"
+  },
+  {
+    "symbol": "SEYKM",
+    "name": "SEYITLER KIMYA"
+  },
+  {
+    "symbol": "SILVR",
+    "name": "SILVERLINE ENDUSTRI"
+  },
+  {
+    "symbol": "SISE",
+    "name": "SISE CAM"
+  },
+  {
+    "symbol": "SKBNK",
+    "name": "SEKERBANK"
+  },
+  {
+    "symbol": "SKTAS",
+    "name": "SOKTAS"
+  },
+  {
+    "symbol": "SKYLP",
+    "name": "SKYALP FINANSAL TEKNOLOJILER"
+  },
+  {
+    "symbol": "SKYMD",
+    "name": "SEKER YATIRIM"
+  },
+  {
+    "symbol": "SMART",
+    "name": "SMARTIKS YAZILIM"
+  },
+  {
+    "symbol": "SMRTG",
+    "name": "SMART GUNES ENERJISI TEK."
+  },
+  {
+    "symbol": "SMRVA",
+    "name": "SUMER VARLIK YONETIM"
+  },
+  {
+    "symbol": "SNGYO",
+    "name": "SINPAS GMYO"
+  },
+  {
+    "symbol": "SNICA",
+    "name": "SANICA ISI SANAYI"
+  },
+  {
+    "symbol": "SNPAM",
+    "name": "SONMEZ PAMUKLU"
+  },
+  {
+    "symbol": "SODSN",
+    "name": "SODAS SODYUM SANAYII"
+  },
+  {
+    "symbol": "SOHOE",
+    "name": "SOHO GIYIM VE ENERJI"
+  },
+  {
+    "symbol": "SOKE",
+    "name": "SOKE DEGIRMENCILIK"
+  },
+  {
+    "symbol": "SOKM",
+    "name": "SOK MARKETLER TICARET"
+  },
+  {
+    "symbol": "SONME",
+    "name": "SONMEZ FILAMENT"
+  },
+  {
+    "symbol": "SRVGY",
+    "name": "SERVET GMYO"
+  },
+  {
+    "symbol": "SSAAT",
+    "name": "SAAT VE SAAT SANAYI"
+  },
+  {
+    "symbol": "SUMAS",
+    "name": "SUMAS SUNI TAHTA"
+  },
+  {
+    "symbol": "SUNTK",
+    "name": "SUN TEKSTIL"
+  },
+  {
+    "symbol": "SURGY",
+    "name": "SUR TATIL EVLERI GMYO"
+  },
+  {
+    "symbol": "SUWEN",
+    "name": "SUWEN TEKSTIL"
+  },
+  {
+    "symbol": "SVGYO",
+    "name": "SAVUR GMYO"
+  },
+  {
+    "symbol": "TABGD",
+    "name": "TAB GIDA"
+  },
+  {
+    "symbol": "TARKM",
+    "name": "TARKIM BITKI KORUMA"
+  },
+  {
+    "symbol": "TATEN",
+    "name": "TATLIPINAR ENERJI URETIM"
+  },
+  {
+    "symbol": "TATGD",
+    "name": "TAT GIDA"
+  },
+  {
+    "symbol": "TAVHL",
+    "name": "TAV HAVALIMANLARI"
+  },
+  {
+    "symbol": "TBORG",
+    "name": "T.TUBORG"
+  },
+  {
+    "symbol": "TCELL",
+    "name": "TURKCELL"
+  },
+  {
+    "symbol": "TCKRC",
+    "name": "KIRAC GALVANIZ"
+  },
+  {
+    "symbol": "TDGYO",
+    "name": "TREND GMYO"
+  },
+  {
+    "symbol": "TEHOL",
+    "name": "TERA YATIRIM TEK. HOL."
+  },
+  {
+    "symbol": "TEKTU",
+    "name": "TEK-ART TURIZM"
+  },
+  {
+    "symbol": "TERA",
+    "name": "TERA YATIRIM MENKUL DEGERLER"
+  },
+  {
+    "symbol": "TEZOL",
+    "name": "EUROPAP TEZOL KAGIT"
+  },
+  {
+    "symbol": "TGSAS",
+    "name": "TGS DIS TICARET"
+  },
+  {
+    "symbol": "THYAO",
+    "name": "TURK HAVA YOLLARI"
+  },
+  {
+    "symbol": "TKFEN",
+    "name": "TEKFEN HOLDING"
+  },
+  {
+    "symbol": "TKNKA",
+    "name": "TEKNIKA PLASTIK"
+  },
+  {
+    "symbol": "TKNSA",
+    "name": "TEKNOSA IC VE DIS TICARET"
+  },
+  {
+    "symbol": "TLMAN",
+    "name": "TRABZON LIMAN"
+  },
+  {
+    "symbol": "TMPOL",
+    "name": "TEMAPOL POLIMER PLASTIK"
+  },
+  {
+    "symbol": "TMSN",
+    "name": "TUMOSAN MOTOR VE TRAKTOR"
+  },
+  {
+    "symbol": "TNZTP",
+    "name": "TAPDI TINAZTEPE"
+  },
+  {
+    "symbol": "TOASO",
+    "name": "TOFAS OTO. FAB."
+  },
+  {
+    "symbol": "TRALT",
+    "name": "TURK ALTIN ISLETMELERI"
+  },
+  {
+    "symbol": "TRCAS",
+    "name": "TURCAS HOLDING"
+  },
+  {
+    "symbol": "TRENJ",
+    "name": "TR DOGAL ENERJI"
+  },
+  {
+    "symbol": "TRGYO",
+    "name": "TORUNLAR GMYO"
+  },
+  {
+    "symbol": "TRHOL",
+    "name": "TERA FINANSAL YAT. HOL."
+  },
+  {
+    "symbol": "TRILC",
+    "name": "TURK ILAC SERUM"
+  },
+  {
+    "symbol": "TRMET",
+    "name": "TR ANADOLU METAL MADENCILIK"
+  },
+  {
+    "symbol": "TSGYO",
+    "name": "TSKB GMYO"
+  },
+  {
+    "symbol": "TSKB",
+    "name": "T.S.K.B."
+  },
+  {
+    "symbol": "TSPOR",
+    "name": "TRABZONSPOR SPORTIF"
+  },
+  {
+    "symbol": "TTKOM",
+    "name": "TURK TELEKOM"
+  },
+  {
+    "symbol": "TTRAK",
+    "name": "TURK TRAKTOR"
+  },
+  {
+    "symbol": "TUCLK",
+    "name": "TUGCELIK"
+  },
+  {
+    "symbol": "TUKAS",
+    "name": "TUKAS"
+  },
+  {
+    "symbol": "TUPRS",
+    "name": "TUPRAS"
+  },
+  {
+    "symbol": "TUREX",
+    "name": "TUREKS TURIZM TASIMACILIK"
+  },
+  {
+    "symbol": "TURGG",
+    "name": "TURKER PROJE GAYRIMENKUL"
+  },
+  {
+    "symbol": "TURSG",
+    "name": "TURKIYE SIGORTA"
+  },
+  {
+    "symbol": "UCAYM",
+    "name": "UCAY MUHENDISLIK"
+  },
+  {
+    "symbol": "UFUK",
+    "name": "UFUK YATIRIM"
+  },
+  {
+    "symbol": "ULAS",
+    "name": "ULASLAR TURIZM YAT."
+  },
+  {
+    "symbol": "ULKER",
+    "name": "ULKER BISKUVI"
+  },
+  {
+    "symbol": "ULUFA",
+    "name": "ULUSAL FAKTORING"
+  },
+  {
+    "symbol": "ULUSE",
+    "name": "ULUSOY ELEKTRIK"
+  },
+  {
+    "symbol": "ULUUN",
+    "name": "ULUSOY UN SANAYI"
+  },
+  {
+    "symbol": "UNLU",
+    "name": "UNLU YATIRIM HOLDING"
+  },
+  {
+    "symbol": "USAK",
+    "name": "USAK SERAMIK"
+  },
+  {
+    "symbol": "USHOL",
+    "name": "US YATIRIM HOLDING"
+  },
+  {
+    "symbol": "VAKBN",
+    "name": "VAKIFLAR BANKASI"
+  },
+  {
+    "symbol": "VAKFA",
+    "name": "VAKIF FAKTORING"
+  },
+  {
+    "symbol": "VAKFN",
+    "name": "VAKIF FIN. KIR."
+  },
+  {
+    "symbol": "VAKKO",
+    "name": "VAKKO TEKSTIL"
+  },
+  {
+    "symbol": "VANGD",
+    "name": "VANET GIDA"
+  },
+  {
+    "symbol": "VBTYZ",
+    "name": "VBT YAZILIM"
+  },
+  {
+    "symbol": "VERTU",
+    "name": "VERUSATURK GIRISIM"
+  },
+  {
+    "symbol": "VERUS",
+    "name": "VERUSA HOLDING"
+  },
+  {
+    "symbol": "VESBE",
+    "name": "VESTEL BEYAZ ESYA"
+  },
+  {
+    "symbol": "VESTL",
+    "name": "VESTEL"
+  },
+  {
+    "symbol": "VEYAS",
+    "name": "TURKER VANGOLU ENERJI"
+  },
+  {
+    "symbol": "VKFYO",
+    "name": "VAKIF YAT. ORT."
+  },
+  {
+    "symbol": "VKGYO",
+    "name": "VAKIF GMYO"
+  },
+  {
+    "symbol": "VKING",
+    "name": "VIKING KAGIT"
+  },
+  {
+    "symbol": "VRGYO",
+    "name": "VERA KONSEPT GMYO"
+  },
+  {
+    "symbol": "VSNMD",
+    "name": "VISNE MADENCILIK"
+  },
+  {
+    "symbol": "YAPRK",
+    "name": "YAPRAK SUT VE BESI CIFT."
+  },
+  {
+    "symbol": "YATAS",
+    "name": "YATAS"
+  },
+  {
+    "symbol": "YAYLA",
+    "name": "YAYLA EN. UR. TUR. VE INS"
+  },
+  {
+    "symbol": "YBTAS",
+    "name": "YIBITAS INSAAT MALZEME"
+  },
+  {
+    "symbol": "YEOTK",
+    "name": "YEO TEKNOLOJI ENERJI"
+  },
+  {
+    "symbol": "YESIL",
+    "name": "YESIL YATIRIM HOLDING"
+  },
+  {
+    "symbol": "YGGYO",
+    "name": "YENI GIMAT GMYO"
+  },
+  {
+    "symbol": "YIGIT",
+    "name": "YIGIT AKU"
+  },
+  {
+    "symbol": "YKBNK",
+    "name": "YAPI VE KREDI BANK."
+  },
+  {
+    "symbol": "YKSLN",
+    "name": "YUKSELEN CELIK"
+  },
+  {
+    "symbol": "YONGA",
+    "name": "YONGA MOBILYA"
+  },
+  {
+    "symbol": "YUNSA",
+    "name": "YUNSA"
+  },
+  {
+    "symbol": "YYAPI",
+    "name": "YESIL YAPI"
+  },
+  {
+    "symbol": "YYLGD",
+    "name": "YAYLA GIDA"
+  },
+  {
+    "symbol": "ZEDUR",
+    "name": "ZEDUR ENERJI"
+  },
+  {
+    "symbol": "ZERGY",
+    "name": "ZERAY GMYO"
+  },
+  {
+    "symbol": "ZGYO",
+    "name": "Z GMYO"
+  },
+  {
+    "symbol": "ZOREN",
+    "name": "ZORLU ENERJI"
+  },
+  {
+    "symbol": "ZRGYO",
+    "name": "ZIRAAT GMYO"
+  }
+]

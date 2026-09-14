@@ -138,7 +138,7 @@ public class MarketDataService : IMarketDataService
     public async Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(
         string investmentType, string query, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+        if (string.IsNullOrWhiteSpace(query))
             return Array.Empty<SymbolSearchResultDto>();
 
         var key = SearchKey(investmentType, query);

@@ -183,48 +183,55 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
     // Fiyat geçmişinin aksine istatistikler tamamlayıcı bilgi — sorgu başarısız olursa
     // (sembolde eksik veri, Yahoo'nun bu modülü döndürmemesi vb.) tüm teknik analiz
     // yanıtını düşürmek yerine null dönüp devam ediyoruz.
-    // quoteSummary'nin aksine crumb/cerez istemiyor — sadece User-Agent yeterli
-    // (canli dogrulandi). Uygulama sadece BIST hissesi destekliyor (bkz.
-    // ToYahooSymbol, her zaman ".IS" ekliyor), o yuzden sonuclar borsaya gore
-    // sunucu tarafinda filtreleniyor; aksi halde kullanici ABD hissesi secip
-    // kaydedebilir, sonra fiyat sorgusu hep 404 donerdi.
-    public async Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(string query, CancellationToken ct = default)
+    // Yahoo'nun canli arama ucu (v1/finance/search) kisa sorgularda (1-2
+    // karakter) global oncelikli calisiyor: "mi" sorgusu icin BIST'te
+    // MIATK varken sadece MU/AMD/MSFT gibi ABD hisseleri donuyor, BIST hic
+    // gorunmuyor bile quotesCount=50'de. Bu yuzden arama disariya hic
+    // gitmiyor — 628 BIST hissesinin sembol+ad listesi derleme zamaninda
+    // gomulu kaynak olarak paketleniyor (Yahoo'nun screener ucundan tek
+    // seferlik cekildi), aranan metin buradan yerel olarak filtreleniyor.
+    private static readonly Lazy<List<(SymbolSearchResultDto Dto, string UpperName)>> _bistSymbols = new(LoadBistSymbols);
+
+    private static List<(SymbolSearchResultDto Dto, string UpperName)> LoadBistSymbols()
+    {
+        var assembly = typeof(YahooFinancePriceProvider).Assembly;
+        using var stream = assembly.GetManifestResourceStream(
+            "SmartFinance.Infrastructure.MarketData.Resources.bist_symbols.json");
+        if (stream == null) return new List<(SymbolSearchResultDto, string)>();
+
+        using var doc = JsonDocument.Parse(stream);
+        var list = new List<(SymbolSearchResultDto, string)>();
+        foreach (var item in doc.RootElement.EnumerateArray())
+        {
+            var symbol = item.GetProperty("symbol").GetString();
+            var name = item.GetProperty("name").GetString();
+            if (string.IsNullOrEmpty(symbol) || string.IsNullOrEmpty(name)) continue;
+            list.Add((new SymbolSearchResultDto(symbol, name, "BIST"), name.ToUpperInvariant()));
+        }
+        return list;
+    }
+
+    public Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(string query, CancellationToken ct = default)
     {
         var trimmed = query.Trim();
-        if (trimmed.Length < 2) return Array.Empty<SymbolSearchResultDto>();
+        if (trimmed.Length < 1)
+            return Task.FromResult<IReadOnlyList<SymbolSearchResultDto>>(Array.Empty<SymbolSearchResultDto>());
 
-        var response = await _httpClient.GetAsync(
-            $"v1/finance/search?q={Uri.EscapeDataString(trimmed)}&quotesCount=15&newsCount=0", ct);
-        if (!response.IsSuccessStatusCode) return Array.Empty<SymbolSearchResultDto>();
-
-        using var stream = await response.Content.ReadAsStreamAsync(ct);
-        var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-
-        if (!doc.RootElement.TryGetProperty("quotes", out var quotes) || quotes.ValueKind != JsonValueKind.Array)
-            return Array.Empty<SymbolSearchResultDto>();
-
-        var results = new List<SymbolSearchResultDto>();
-        foreach (var q in quotes.EnumerateArray())
+        var upperQuery = trimmed.ToUpperInvariant();
+        // Sembol basiyla eslesenler (kullanicinin arayacagi en olasi durum:
+        // "THY" -> THYAO) adinda gecenlerden once gosterilir.
+        var symbolMatches = new List<SymbolSearchResultDto>();
+        var nameMatches = new List<SymbolSearchResultDto>();
+        foreach (var (dto, upperName) in _bistSymbols.Value)
         {
-            var exchange = TryGetString(q, "exchange");
-            var quoteType = TryGetString(q, "quoteType");
-            if (exchange != "IST" || quoteType != "EQUITY") continue;
-
-            var symbol = TryGetString(q, "symbol");
-            if (string.IsNullOrEmpty(symbol)) continue;
-
-            // Kullanici sembolu bare (".IS" olmadan) girer, ToYahooSymbol
-            // yatirim kaydedilirken zaten kendisi ekliyor.
-            var bareSymbol = symbol.EndsWith(".IS", StringComparison.OrdinalIgnoreCase)
-                ? symbol[..^3]
-                : symbol;
-
-            var name = TryGetString(q, "shortname") ?? TryGetString(q, "longname") ?? bareSymbol;
-
-            results.Add(new SymbolSearchResultDto(bareSymbol, name, "BIST"));
+            if (dto.Symbol.StartsWith(upperQuery, StringComparison.Ordinal))
+                symbolMatches.Add(dto);
+            else if (upperName.Contains(upperQuery, StringComparison.Ordinal))
+                nameMatches.Add(dto);
         }
 
-        return results;
+        var results = symbolMatches.Concat(nameMatches).Take(20).ToList();
+        return Task.FromResult<IReadOnlyList<SymbolSearchResultDto>>(results);
     }
 
     public async Task<StockStatisticsDto?> GetStatisticsAsync(string symbol, CancellationToken ct = default)

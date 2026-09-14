@@ -6,6 +6,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- BIST sembol/ad listesi (628 hisse, Yahoo'nun screener ucundan tek
+         seferlik cekildi). Yahoo'nun canli arama ucu kisa sorgularda (1-2
+         karakter) global hisseleri BIST'in onune geciriyordu, bu yuzden
+         arama artik disariya gitmeden bu statik liste uzerinde yapiliyor. -->
+    <EmbeddedResource Include="MarketData\Resources\bist_symbols.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="MailKit" Version="4.17.0" />

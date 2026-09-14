@@ -8,4 +8,7 @@ public interface IMarketDataService
 
     Task<TechnicalAnalysisDto> GetTechnicalAnalysisAsync(
         string symbol, string investmentType, string range, IEnumerable<string> indicatorKeys, CancellationToken ct = default);
+
+    Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(
+        string investmentType, string query, CancellationToken ct = default);
 }

@@ -183,6 +183,50 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
     // Fiyat geçmişinin aksine istatistikler tamamlayıcı bilgi — sorgu başarısız olursa
     // (sembolde eksik veri, Yahoo'nun bu modülü döndürmemesi vb.) tüm teknik analiz
     // yanıtını düşürmek yerine null dönüp devam ediyoruz.
+    // quoteSummary'nin aksine crumb/cerez istemiyor — sadece User-Agent yeterli
+    // (canli dogrulandi). Uygulama sadece BIST hissesi destekliyor (bkz.
+    // ToYahooSymbol, her zaman ".IS" ekliyor), o yuzden sonuclar borsaya gore
+    // sunucu tarafinda filtreleniyor; aksi halde kullanici ABD hissesi secip
+    // kaydedebilir, sonra fiyat sorgusu hep 404 donerdi.
+    public async Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(string query, CancellationToken ct = default)
+    {
+        var trimmed = query.Trim();
+        if (trimmed.Length < 2) return Array.Empty<SymbolSearchResultDto>();
+
+        var response = await _httpClient.GetAsync(
+            $"v1/finance/search?q={Uri.EscapeDataString(trimmed)}&quotesCount=15&newsCount=0", ct);
+        if (!response.IsSuccessStatusCode) return Array.Empty<SymbolSearchResultDto>();
+
+        using var stream = await response.Content.ReadAsStreamAsync(ct);
+        var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+        if (!doc.RootElement.TryGetProperty("quotes", out var quotes) || quotes.ValueKind != JsonValueKind.Array)
+            return Array.Empty<SymbolSearchResultDto>();
+
+        var results = new List<SymbolSearchResultDto>();
+        foreach (var q in quotes.EnumerateArray())
+        {
+            var exchange = TryGetString(q, "exchange");
+            var quoteType = TryGetString(q, "quoteType");
+            if (exchange != "IST" || quoteType != "EQUITY") continue;
+
+            var symbol = TryGetString(q, "symbol");
+            if (string.IsNullOrEmpty(symbol)) continue;
+
+            // Kullanici sembolu bare (".IS" olmadan) girer, ToYahooSymbol
+            // yatirim kaydedilirken zaten kendisi ekliyor.
+            var bareSymbol = symbol.EndsWith(".IS", StringComparison.OrdinalIgnoreCase)
+                ? symbol[..^3]
+                : symbol;
+
+            var name = TryGetString(q, "shortname") ?? TryGetString(q, "longname") ?? bareSymbol;
+
+            results.Add(new SymbolSearchResultDto(bareSymbol, name, "BIST"));
+        }
+
+        return results;
+    }
+
     public async Task<StockStatisticsDto?> GetStatisticsAsync(string symbol, CancellationToken ct = default)
     {
         try

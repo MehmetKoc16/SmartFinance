@@ -30,7 +30,8 @@ public class TransactionServiceTests
 
         var repository = new GenericRepository<Transaction>(context);
         var currentUserService= new CurrentUserService(httpContextAccessor);
-        var service = new TransactionService(repository, context, currentUserService);
+        var notificationService = new NotificationService(context, currentUserService);
+        var service = new TransactionService(repository, context, currentUserService, notificationService);
         return (service, context, user.Id);
     }
 

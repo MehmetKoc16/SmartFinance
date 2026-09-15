@@ -120,3 +120,16 @@ footer {
   color: var(--text-tert); font-size: 13.5px;
 }
 footer a { color: var(--text-sec); }
+
+/* Sunucu CSP'si (style-src 'self') HTML'deki style="" niteliklerini engelliyor;
+   gizleme/bosluk ayarlari bu yuzden satir icinde degil burada. */
+[hidden] { display: none !important; }
+.card > :first-child { margin-top: 0; }
+.card > :last-child { margin-bottom: 0; }
+.msg + button { margin-top: 18px; }
+
+@media (max-width: 480px) {
+  /* Menu sagda sikisip ikinci satira kaymasin: kendi tam genislik satiri. */
+  nav { margin-left: 0; flex-basis: 100%; }
+  h1 { font-size: 26px; }
+}

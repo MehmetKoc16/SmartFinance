@@ -21,14 +21,15 @@
 </header>
 
 <main class="wrap">
-  <h1>Yeni şifrenizi belirleyin</h1>
+  <h1 id="baslik">Yeni şifrenizi belirleyin</h1>
 
-  <div id="gecersiz" class="card warn" style="display:none">
-    <h3>Bağlantı geçersiz</h3>
-    <p style="margin-bottom:0">
-      Bu sayfaya geçerli bir sıfırlama bağlantısıyla gelmeniz gerekiyor.
-      Uygulamadaki <em>Şifremi unuttum</em> adımından yeni bir bağlantı
-      talep edebilirsiniz.
+  <!-- hidden niteligi kullaniliyor: style="display:none" sunucu CSP'si
+       tarafindan engelleniyordu ve bu kart gecerli bağlantıda da gorunuyordu. -->
+  <div id="gecersiz" class="card warn" hidden>
+    <p>
+      Bu sayfa yalnızca e-postanıza gönderilen sıfırlama bağlantısıyla açılır.
+      Uygulamada giriş ekranındaki <em>Şifremi unuttum</em> adımından yeni bir
+      bağlantı isteyebilirsiniz.
     </p>
   </div>
 
@@ -77,8 +78,9 @@
 
   var token = new URLSearchParams(window.location.search).get('token');
   if (!token) {
-    form.style.display = 'none';
-    gecersiz.style.display = 'block';
+    form.hidden = true;
+    gecersiz.hidden = false;
+    document.getElementById('baslik').textContent = 'Bağlantı geçersiz';
     return;
   }
 

@@ -60,7 +60,14 @@ public class AuthService : IAuthService{
         // Yeni kullanıcıya varsayılan kategoriler oluştur (isim, tip, ikon, renk)
         var defaultCategories = new (string Name, TransactionType Type, string Icon, string Color)[]
         {
+            // Gelir tarafi uzun sure tek kategoriydi ("Maaş"); test kullanicilari
+            // gelir islemi eklerken listede tek secenek gorunce secimi bozuk
+            // sandi. Ucretsiz katmanda kategori sayisi sinirli degil.
             ("Maaş", TransactionType.Income, "banknote", "#159A5B"),
+            ("Ek Gelir", TransactionType.Income, "briefcase", "#14B8A6"),
+            ("Kira Geliri", TransactionType.Income, "home", "#F97316"),
+            ("Yatırım Geliri", TransactionType.Income, "trending-up", "#159A5B"),
+            ("Hediye", TransactionType.Income, "gift", "#EC4899"),
             ("Yeme-İçme", TransactionType.Expense, "utensils", "#F43F5E"),
             ("Ulaşım", TransactionType.Expense, "car", "#14B8A6"),
             ("Fatura", TransactionType.Expense, "receipt", "#06B6D4"),

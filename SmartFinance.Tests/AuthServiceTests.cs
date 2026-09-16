@@ -61,6 +61,33 @@ public class AuthServiceTests
         Assert.Equal("bosluklu@test.com", user.Email);
     }
 
+    /// Test kullanicisi geri bildirimi (16.09.2026): gelir islemi eklerken
+    /// kategori listesinde yalnizca "Maaş" cikiyor, secim bozuk sanildi.
+    [Fact]
+    public async Task Register_BirdenFazlaGelirKategorisiOlusturur()
+    {
+        var (service, context, _) = CreateService();
+
+        await service.RegisterAsync(new RegisterDto
+        {
+            FullName = "Gelir Kategorisi",
+            Email = $"{Guid.NewGuid()}@test.com",
+            Password = "Sifre123!",
+        });
+
+        var user = context.Users.Single();
+        var gelirKategorileri = context.Categories
+            .Where(c => c.UserId == user.Id && c.Type == SmartFinance.Domain.Enums.TransactionType.Income)
+            .Select(c => c.Name)
+            .ToList();
+
+        Assert.Contains("Maaş", gelirKategorileri);
+        Assert.Contains("Ek Gelir", gelirKategorileri);
+        Assert.Contains("Kira Geliri", gelirKategorileri);
+        Assert.Contains("Yatırım Geliri", gelirKategorileri);
+        Assert.Contains("Hediye", gelirKategorileri);
+    }
+
     [Fact]
     public async Task Register_BasariliKayit_TokenDoner()
     {

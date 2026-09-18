@@ -125,8 +125,10 @@ public class MarketDataService : IMarketDataService
             _cache.Set(statisticsKey, statistics, StatisticsTtl);
         }
 
-        // Gun-ici barlar zaten 5 dk'lik onbellekte; yama yalnizca gunluk araliklar icin.
-        var series = range == "1d" ? bars : WithLatestQuote(bars, symbol, investmentType);
+        // Gun-ici barlar da yamaniyor: kendi onbellekleri ayri zamanda doldugu icin
+        // 1G ayni anda 285,25, diger araliklar 284,75 gosteriyordu. Fiyat hangi
+        // aralik secilirse secilsin tek kaynaktan (guncel fiyat onbellegi) gelir.
+        var series = WithLatestQuote(bars, symbol, investmentType);
 
         return new TechnicalAnalysisDto
         {

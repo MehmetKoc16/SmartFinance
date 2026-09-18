@@ -64,6 +64,20 @@ public class MarketDataServiceCacheTests
         Assert.Equal(10.5m, sonuc.PriceBars[^2].Close);
     }
 
+    /// Regresyon (18.09.2026, test kullanicisi): 1G ayni anda 285,25, diger
+    /// araliklar 284,75 gosteriyordu. Gun-ici barlar yamanin disinda
+    /// birakilmisti; fiyat hangi aralik secilirse secilsin tek kaynaktan gelmeli.
+    [Fact]
+    public async Task GunIciAralik_SonBarDaGuncelFiyatlaGuncellenir()
+    {
+        var (service, _, priceCache) = CreateServiceWithPriceCache();
+        priceCache.Set("THYAO", "stock", Fiyat(12.25m), TimeSpan.FromMinutes(20));
+
+        var sonuc = await service.GetTechnicalAnalysisAsync("THYAO", "stock", "1d", []);
+
+        Assert.Equal(12.25m, sonuc.PriceBars[^1].Close);
+    }
+
     /// Yama onbellekteki listeye yazilirsa bir sonraki istekte eski yamanin
     /// izi (yukselttigi High) kalir.
     [Fact]

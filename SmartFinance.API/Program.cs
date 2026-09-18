@@ -159,6 +159,20 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         }));
 
+    // Portfoy fiyat yenilemesi AYRI kotada. "market" kotasini paylasirken grafik
+    // araliklari arasinda gezinmek (dakikada 20 istek) onu da dolduruyordu ve
+    // yatirimlar ekrani "Fiyatlar guncellenemedi" gosteriyordu (18.09.2026, test
+    // kullanicisi). Fiyatlar arka planda toplu tazelendigi icin bu istek
+    // cogunlukla onbellekten doner. Politikalarin sayaclari birbirinden bagimsiz.
+    options.AddPolicy("prices", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: RateLimitPartitioner.Resolve(httpContext),
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
     // Genel emniyet agi: tum uc noktalar icin kullanici basina dakikada 100 istek.
     // Normal kullanimda asilmayacak kadar yuksek, kacak bir dongu veya kotu niyetli
     // istemcinin sunucuyu yormasini engelleyecek kadar dusuk.

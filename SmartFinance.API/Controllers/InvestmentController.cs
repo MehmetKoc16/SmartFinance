@@ -36,9 +36,10 @@ public class InvestmentController : ControllerBase
     }
 
     // Kullanici yazdikca cagriliyor — {id} route'uyla catismiyor cunku o int
-    // tipiyle kisitli, "search-symbols" ona hic eslesmiyor.
+    // tipiyle kisitli, "search-symbols" ona hic eslesmiyor. Arama yerel BIST
+    // listesinde, dis servise gitmiyor: "market" kotasina dahil degil (grafik
+    // gezinmesi onu doldurunca arama da 429 aliyordu); genel sinir yeterli.
     [HttpGet("search-symbols")]
-    [EnableRateLimiting("market")]
     public async Task<IActionResult> SearchSymbols([FromQuery] string q, [FromQuery] string type = "stock")
     {
         var results = await _marketDataService.SearchSymbolsAsync(type, q ?? string.Empty);
@@ -81,7 +82,7 @@ public class InvestmentController : ControllerBase
 
     // Portfoydeki her yatirim icin dis servise gider — tek istek N dis cagri demek.
     [HttpPost("refresh-prices")]
-    [EnableRateLimiting("market")]
+    [EnableRateLimiting("prices")]
     public async Task<IActionResult> RefreshPrices()
     {
         var result = await _investmentService.RefreshPricesAsync();

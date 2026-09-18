@@ -15,6 +15,7 @@ using SmartFinance.API.Infrastructure;
 using SmartFinance.API.Middleware;
 using SmartFinance.Infrastructure.Email;
 using SmartFinance.Infrastructure.MarketData;
+using SmartFinance.Infrastructure.Fundamentals;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +74,12 @@ builder.Services.AddHttpClient<IPriceProvider, TcmbPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, GoldPriceProvider>();
 builder.Services.AddHttpClient<IPriceProvider, SilverPriceProvider>();
 builder.Services.AddScoped<IMarketDataService, MarketDataService>();
+
+// F/K ve PD/DD icin KAP'tan donemlik net kar ve ozkaynak. Senkron servis
+// portfoydeki hisseler icin 6 saatte bir KAP'a gider; istekler veritabanindan okur.
+builder.Services.AddScoped<IFundamentalsService, FundamentalsService>();
+builder.Services.AddHttpClient<IKapClient, KapClient>();
+builder.Services.AddHostedService<KapFundamentalsSyncService>();
 
 // Premium hakki ve ucretsiz katman sinirlari. Sinirlarin uygulandigi TEK yer
 // sunucu: istemcinin "ben premium'um" demesine guvenilmez.

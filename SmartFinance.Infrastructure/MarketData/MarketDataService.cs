@@ -11,11 +11,15 @@ public class MarketDataService : IMarketDataService
     private readonly IMemoryCache _cache;
     private readonly IPriceCache _priceCache;
 
-    public MarketDataService(IEnumerable<IPriceProvider> providers, IMemoryCache cache, IPriceCache priceCache)
+    private readonly IFundamentalsService? _fundamentals;
+
+    public MarketDataService(IEnumerable<IPriceProvider> providers, IMemoryCache cache, IPriceCache priceCache,
+        IFundamentalsService? fundamentals = null)
     {
         _providers = providers;
         _cache = cache;
         _priceCache = priceCache;
+        _fundamentals = fundamentals;
     }
 
     private IPriceProvider ResolveProvider(string investmentType)
@@ -120,6 +124,8 @@ public class MarketDataService : IMarketDataService
         if (!_cache.TryGetValue(statisticsKey, out StockStatisticsDto? statistics))
         {
             statistics = await provider.GetStatisticsAsync(symbol, ct);
+            if (statistics != null && _fundamentals != null)
+                await ApplyFundamentalsAsync(statistics, symbol, ct);
             // null sonuc da onbellege alinir: istatistik desteklemeyen tiplerde
             // her istekte bosuna dis servise gidilmesini onler.
             _cache.Set(statisticsKey, statistics, StatisticsTtl);
@@ -138,6 +144,30 @@ public class MarketDataService : IMarketDataService
             Indicators = TechnicalIndicatorCalculator.Calculate(series, keys),
             Statistics = statistics,
         };
+    }
+
+    // F/K, PD/DD ve ozsermaye KAP bilancosundan: Yahoo'nun BIST temel verileri
+    // guvenilir degildi (bkz. YahooFinancePriceProvider.GetStatisticsAsync).
+    // Piyasa degeri Yahoo'dan, TL (Is Yatirim ile ~%1 icinde tutarli). KAP verisi
+    // yoksa alanlar bos kalir; son 12 ay zarardaysa "Zararda" isaretlenir.
+    private async Task ApplyFundamentalsAsync(StockStatisticsDto stats, string symbol, CancellationToken ct)
+    {
+        if (stats.MarketCap is not > 0) return;
+        var snapshot = await _fundamentals!.GetSnapshotAsync(symbol, ct);
+        if (snapshot == null) return;
+
+        var piyasaDegeri = stats.MarketCap.Value;
+        if (snapshot.TtmNetProfit > 0)
+            stats.TrailingPE = piyasaDegeri / snapshot.TtmNetProfit;
+        else
+            stats.IsLossMaking = true;
+
+        if (snapshot.Equity > 0)
+        {
+            stats.PriceToBook = piyasaDegeri / snapshot.Equity;
+            stats.EquityValue = snapshot.Equity;
+        }
+        stats.FundamentalsPeriod = $"{snapshot.Period * 3}/{snapshot.Year}";
     }
 
     // Gunluk gecmis 30 dk onbellekte kaliyor, guncel fiyat ise arka planda 5 dk'da

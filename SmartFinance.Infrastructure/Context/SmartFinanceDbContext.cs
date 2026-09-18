@@ -25,6 +25,8 @@ public class SmartFinanceDbContext : DbContext
     // Uygulama ici bildirimler (orn. butce asimi uyarisi) — push degil, sadece
     // bildirim ekraninda listelenir.
     public DbSet<Notification> Notifications {get;set;}
+    // KAP'tan cekilen donemlik net kar ve ozkaynak — F/K ve PD/DD bunlardan hesaplaniyor.
+    public DbSet<CompanyFinancial> CompanyFinancials {get;set;}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

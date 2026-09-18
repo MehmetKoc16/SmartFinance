@@ -491,6 +491,9 @@ KOD_REHBERI.md
 *.pdf
 *.xlsx
 *.xls
+# Tek istisna: KAP'in herkese acik sirket finansallari (Excel ayristirici
+# testinin girdisi). Kisisel veri icermez; yalnizca bu klasor ve bu onek.
+!SmartFinance.Tests/Fixtures/kap_*.xlsx
 # --- Gizlilik: depo herkese acik, bunlar asla girmemeli ---
 # Bunlar .githooks/pre-commit ile de ayrica engelleniyor; gitignore ilk
 # savunma hatti, kanca ise gitignore'i atlayan (git add -f gibi) durumlar icin.

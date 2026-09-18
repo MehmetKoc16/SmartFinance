@@ -1,8 +1,8 @@
 namespace SmartFinance.Application.DTOs.MarketData;
 
-// Sadece hisse senedi (stock) tipi yatirimlar icin doldurulur — Yahoo Finance'in
-// quoteSummary uc noktasindan gelir. Taban/Tavan ve Ihracat orani bilerek yok:
-// Yahoo'da karsiligi bulunmuyor, yanlis/yaklasik veri gostermektense hic gosterilmiyor.
+// Sadece hisse senedi (stock) tipi yatirimlar icin doldurulur — fiyat/hacim/piyasa
+// degeri Yahoo'dan; F/K, PD/DD ve ozsermaye KAP bilancosundan (Yahoo'nun BIST
+// temel verileri guvenilir degildi). Taban/Tavan ve Ihracat orani bilerek yok.
 public class StockStatisticsDto
 {
     public decimal? Open { get; set; }
@@ -21,6 +21,10 @@ public class StockStatisticsDto
     // ayri bir alan: aksi halde kullanici "neden F/K yok" diye sormaya devam
     // eder, sanki eksik/bozuk bir veri gibi gorunur.
     public bool IsLossMaking { get; set; }
+
+    // F/K, PD/DD ve ozsermaye KAP bilancosundan hesaplandiysa dayandigi donem
+    // ("6/2026"); istemci kaynagi gosterebilsin diye. Hesaplanmadiysa null.
+    public string? FundamentalsPeriod { get; set; }
 
     public decimal? PriceToBook { get; set; }
     public decimal? EquityValue { get; set; }

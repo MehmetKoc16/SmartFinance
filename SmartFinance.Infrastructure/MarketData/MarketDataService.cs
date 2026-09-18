@@ -125,14 +125,41 @@ public class MarketDataService : IMarketDataService
             _cache.Set(statisticsKey, statistics, StatisticsTtl);
         }
 
+        // Gun-ici barlar zaten 5 dk'lik onbellekte; yama yalnizca gunluk araliklar icin.
+        var series = range == "1d" ? bars : WithLatestQuote(bars, symbol, investmentType);
+
         return new TechnicalAnalysisDto
         {
             Symbol = symbol,
             InvestmentType = investmentType,
-            PriceBars = bars.OrderBy(b => b.Date).ToList(),
-            Indicators = TechnicalIndicatorCalculator.Calculate(bars, keys),
+            PriceBars = series.OrderBy(b => b.Date).ToList(),
+            Indicators = TechnicalIndicatorCalculator.Calculate(series, keys),
             Statistics = statistics,
         };
+    }
+
+    // Gunluk gecmis 30 dk onbellekte kaliyor, guncel fiyat ise arka planda 5 dk'da
+    // bir tazeleniyor. Bugunun bari onbellekteki haliyle donunce ayni ekranda
+    // 1G/1H/6A secimine gore farkli "guncel" fiyat gorunuyordu. Onbellekteki liste
+    // degistirilmiyor: son bar kopyalanip yeni liste donuluyor.
+    private IReadOnlyList<PriceBarDto> WithLatestQuote(IReadOnlyList<PriceBarDto> bars, string symbol, string investmentType)
+    {
+        if (bars.Count == 0) return bars;
+        var last = bars.MaxBy(b => b.Date)!;
+        if (last.Date.Date != DateTime.Today) return bars;
+        if (!_priceCache.TryGet(symbol, investmentType, out var quote) || quote == null || quote.Price <= 0)
+            return bars;
+
+        var guncel = new PriceBarDto
+        {
+            Date = last.Date,
+            Open = last.Open,
+            High = Math.Max(last.High, quote.Price),
+            Low = Math.Min(last.Low, quote.Price),
+            Close = quote.Price,
+            Volume = last.Volume,
+        };
+        return bars.Select(b => ReferenceEquals(b, last) ? guncel : b).ToList();
     }
 
     public async Task<IReadOnlyList<SymbolSearchResultDto>> SearchSymbolsAsync(

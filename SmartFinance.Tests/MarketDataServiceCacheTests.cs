@@ -19,6 +19,13 @@ public class MarketDataServiceCacheTests
 
     private static (MarketDataService service, Mock<IPriceProvider> provider) CreateService(string desteklenenTip = "stock")
     {
+        var (service, provider, _) = CreateServiceWithPriceCache(desteklenenTip);
+        return (service, provider);
+    }
+
+    private static (MarketDataService service, Mock<IPriceProvider> provider, PriceCache priceCache) CreateServiceWithPriceCache(
+        string desteklenenTip = "stock")
+    {
         var provider = new Mock<IPriceProvider>();
         provider.Setup(p => p.SupportedInvestmentTypes).Returns([desteklenenTip]);
         provider.Setup(p => p.GetCurrentPriceAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -32,8 +39,45 @@ public class MarketDataServiceCacheTests
         // Guncel fiyat onbellegi ayri bir soyutlamada: arka plandaki
         // PriceRefreshService ile MarketDataService ayni anahtar bicimini
         // paylasmak zorunda oldugu icin.
-        var service = new MarketDataService([provider.Object], cache, new PriceCache(cache));
-        return (service, provider);
+        var priceCache = new PriceCache(cache);
+        var service = new MarketDataService([provider.Object], cache, priceCache);
+        return (service, provider, priceCache);
+    }
+
+    private static PriceQuoteDto Fiyat(decimal price) => new() { Symbol = "THYAO", Price = price, AsOf = DateTime.UtcNow };
+
+    /// Regresyon (18.09.2026, test kullanicisi geri bildirimi): gunluk gecmis
+    /// 30 dk onbellekte kaliyor, guncel fiyat ise 5 dk'da bir tazeleniyor.
+    /// 1H/6A ekrani bugunun barini onbellekteki haliyle gosterdigi icin ayni
+    /// anda 1G'de 290,50, 1H'de 290,75, 6A'da 289,50 goruldu.
+    [Fact]
+    public async Task GunlukAralik_BugununBariGuncelFiyatlaGuncellenir()
+    {
+        var (service, _, priceCache) = CreateServiceWithPriceCache();
+        await service.GetTechnicalAnalysisAsync("THYAO", "stock", "6m", []);
+
+        priceCache.Set("THYAO", "stock", Fiyat(12.25m), TimeSpan.FromMinutes(20));
+        var sonuc = await service.GetTechnicalAnalysisAsync("THYAO", "stock", "6m", []);
+
+        Assert.Equal(12.25m, sonuc.PriceBars[^1].Close);
+        Assert.Equal(12.25m, sonuc.PriceBars[^1].High);
+        Assert.Equal(10.5m, sonuc.PriceBars[^2].Close);
+    }
+
+    /// Yama onbellekteki listeye yazilirsa bir sonraki istekte eski yamanin
+    /// izi (yukselttigi High) kalir.
+    [Fact]
+    public async Task GuncelFiyatYamasi_OnbellektekiBarlariDegistirmez()
+    {
+        var (service, _, priceCache) = CreateServiceWithPriceCache();
+        priceCache.Set("THYAO", "stock", Fiyat(12.25m), TimeSpan.FromMinutes(20));
+        await service.GetTechnicalAnalysisAsync("THYAO", "stock", "6m", []);
+
+        priceCache.Set("THYAO", "stock", Fiyat(11m), TimeSpan.FromMinutes(20));
+        var sonuc = await service.GetTechnicalAnalysisAsync("THYAO", "stock", "6m", []);
+
+        Assert.Equal(11m, sonuc.PriceBars[^1].Close);
+        Assert.Equal(12m, sonuc.PriceBars[^1].High);
     }
 
     [Fact]

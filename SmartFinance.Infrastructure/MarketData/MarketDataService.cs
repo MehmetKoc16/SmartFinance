@@ -146,27 +146,22 @@ public class MarketDataService : IMarketDataService
         };
     }
 
-    // F/K, PD/DD ve ozsermaye KAP bilancosundan: Yahoo'nun BIST temel verileri
+    // PD/DD ve ozsermaye KAP bilancosundan: Yahoo'nun BIST temel verileri
     // guvenilir degildi (bkz. YahooFinancePriceProvider.GetStatisticsAsync).
     // Piyasa degeri Yahoo'dan, TL (Is Yatirim ile ~%1 icinde tutarli). KAP verisi
-    // yoksa alanlar bos kalir; son 12 ay zarardaysa "Zararda" isaretlenir.
+    // yoksa alanlar bos kalir.
+    //
+    // F/K (ve ayni son 12 ay hesabindan gelen "Zararda") kullanici karariyla
+    // DONULMUYOR: dolar esasli sirketlerde (THYAO 3,56 — Is Yatirim 3,0) ve TMS 29
+    // uygulayanlarda sapiyor. Duzeltilene kadar gosterilmeyecek.
     private async Task ApplyFundamentalsAsync(StockStatisticsDto stats, string symbol, CancellationToken ct)
     {
         if (stats.MarketCap is not > 0) return;
         var snapshot = await _fundamentals!.GetSnapshotAsync(symbol, ct);
-        if (snapshot == null) return;
+        if (snapshot == null || snapshot.Equity <= 0) return;
 
-        var piyasaDegeri = stats.MarketCap.Value;
-        if (snapshot.TtmNetProfit > 0)
-            stats.TrailingPE = piyasaDegeri / snapshot.TtmNetProfit;
-        else
-            stats.IsLossMaking = true;
-
-        if (snapshot.Equity > 0)
-        {
-            stats.PriceToBook = piyasaDegeri / snapshot.Equity;
-            stats.EquityValue = snapshot.Equity;
-        }
+        stats.PriceToBook = stats.MarketCap.Value / snapshot.Equity;
+        stats.EquityValue = snapshot.Equity;
         stats.FundamentalsPeriod = $"{snapshot.Period * 3}/{snapshot.Year}";
     }
 

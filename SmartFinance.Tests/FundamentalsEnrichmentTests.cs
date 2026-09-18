@@ -6,9 +6,9 @@ using SmartFinance.Infrastructure.MarketData;
 
 namespace SmartFinance.Tests;
 
-/// F/K ve PD/DD artik Yahoo'dan degil KAP bilancosundan: piyasa degeri (Yahoo,
-/// TL) / son 12 ay net kar ve / ozkaynak. Rakamlar THYAO'nun 18.09.2026 degerleri
-/// (piyasa degeri Is Yatirim'dan; o gun Is Yatirim PD/DD 0,4).
+/// PD/DD artik Yahoo'dan degil KAP bilancosundan: piyasa degeri (Yahoo, TL) /
+/// ozkaynak. Rakamlar THYAO'nun 18.09.2026 degerleri (piyasa degeri Is
+/// Yatirim'dan; o gun Is Yatirim PD/DD 0,4).
 public class FundamentalsEnrichmentTests
 {
     private static async Task<StockStatisticsDto> Istatistik(decimal? piyasaDegeri, FundamentalSnapshotDto? kap)
@@ -31,25 +31,34 @@ public class FundamentalsEnrichmentTests
     private static readonly FundamentalSnapshotDto Thyao = new(112_059_000_000m, 1_018_517_000_000m, 2026, 2);
 
     [Fact]
-    public async Task FKVePDDD_PiyasaDegeriVeKapBilancosundanHesaplanir()
+    public async Task PDDD_PiyasaDegeriVeKapBilancosundanHesaplanir()
     {
         var s = await Istatistik(399_165_000_000m, Thyao);
 
-        Assert.Equal(3.562m, Math.Round(s.TrailingPE!.Value, 3));
         Assert.Equal(0.392m, Math.Round(s.PriceToBook!.Value, 3));
         Assert.Equal(1_018_517_000_000m, s.EquityValue);
         Assert.Equal("6/2026", s.FundamentalsPeriod);
+    }
+
+    /// Kullanici karari (18.09.2026): F/K, dolar esasli sirketlerde (THYAO 3,56 —
+    /// Is Yatirim 3,0) ve TMS 29'da sapiyor; duzeltilene kadar gosterilmiyor.
+    /// "Zararda" ayni son 12 ay hesabindan geldigi icin o da.
+    [Fact]
+    public async Task FK_DuzeltilenekadarGosterilmez()
+    {
+        var s = await Istatistik(399_165_000_000m, Thyao);
+
+        Assert.Null(s.TrailingPE);
         Assert.False(s.IsLossMaking);
     }
 
-    /// "Zararda" artik yalnizca KAP'taki gercek son 12 ay zararina dayaniyor.
     [Fact]
-    public async Task SonOnIkiAyZarardaysa_FKYokVeZarardaIsaretlenir()
+    public async Task SonOnIkiAyZarardaOlsaBile_ZarardaIsaretlenmez()
     {
         var s = await Istatistik(399_165_000_000m, Thyao with { TtmNetProfit = -5_000_000_000m });
 
         Assert.Null(s.TrailingPE);
-        Assert.True(s.IsLossMaking);
+        Assert.False(s.IsLossMaking);
         Assert.NotNull(s.PriceToBook);
     }
 

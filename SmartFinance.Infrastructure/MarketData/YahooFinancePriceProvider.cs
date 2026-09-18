@@ -256,32 +256,18 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
 
             var result = results[0];
             var summaryDetail = result.TryGetProperty("summaryDetail", out var sd) ? sd : default;
-            var keyStats = result.TryGetProperty("defaultKeyStatistics", out var ks) ? ks : default;
             var financialData = result.TryGetProperty("financialData", out var fd) ? fd : default;
 
-            var marketCap = TryGetRaw(summaryDetail, "marketCap");
-            var priceToBook = TryGetRaw(keyStats, "priceToBook");
-
-            // Yahoo BIST hisselerinde summaryDetail.trailingPE'yi cogu zaman
-            // BOS birakiyor. trailingEps genelde doluyor; F/K = fiyat / hisse
-            // basi kazanc formuluyle kendimiz hesaplayip yedek olarak
-            // kullaniyoruz.
-            //
-            // ONEMLI (THYAO test kullanicisi geri bildirimiyle bulundu):
-            // trailingPE'nin bos olmasinin en sik sebebi "veri eksikligi"
-            // degil, sirketin son 12 ayda (trailing donem) ZARAR etmis
-            // olmasi — F/K negatif kazancla matematiksel olarak tanimsiz.
-            // Istemcinin bu ikisini ayirt edip "veri yok" yerine "Zararda"
-            // gosterebilmesi icin IsLossMaking ayrica isaretleniyor.
-            var trailingPE = TryGetRaw(summaryDetail, "trailingPE");
-            var eps = TryGetRaw(keyStats, "trailingEps");
-            var isLossMaking = eps is <= 0;
-            if (trailingPE is null)
-            {
-                var price = TryGetRaw(financialData, "currentPrice") ?? TryGetRaw(summaryDetail, "previousClose");
-                if (eps is > 0 && price is > 0)
-                    trailingPE = price / eps;
-            }
+            // Yahoo'nun BIST temel verileri guvenilir degil (18.09.2026'da Is Yatirim
+            // ve Midas ile karsilastirildi). THYAO finansallarini USD raporluyor;
+            // Yahoo bunlari TL fiyatla karistiriyor: PD/DD 18,2 (gercegi 0,4) ve
+            // kar eden sirket "Zararda" gorundu. TL raporlayan MPARK'ta da son 12 ay
+            // kari eski donemden: F/K 14,77 (Is Yatirim 12,5). KAP'tan kendi
+            // hesaplamamiz gelene kadar F/K, PD/DD ve PD/DD'den turetilen ozsermaye
+            // degeri donulmuyor. FAVOK bir tutar oldugu icin yalnizca sirket TL
+            // raporluyorsa donuluyor; oranlarda pay ve payda ayni para biriminde.
+            var tlRaporluyor = financialData.ValueKind == JsonValueKind.Object
+                && TryGetString(financialData, "financialCurrency") == "TRY";
 
             return new StockStatisticsDto
             {
@@ -292,13 +278,9 @@ public class YahooFinancePriceProvider : IPriceProvider, IBatchPriceProvider, IB
                 FiftyTwoWeekHigh = TryGetRaw(summaryDetail, "fiftyTwoWeekHigh"),
                 FiftyTwoWeekLow = TryGetRaw(summaryDetail, "fiftyTwoWeekLow"),
                 AverageVolume = TryGetRaw(summaryDetail, "averageVolume"),
-                MarketCap = marketCap,
-                TrailingPE = trailingPE,
-                IsLossMaking = isLossMaking,
-                PriceToBook = priceToBook,
-                EquityValue = (marketCap.HasValue && priceToBook is > 0) ? marketCap / priceToBook : null,
+                MarketCap = TryGetRaw(summaryDetail, "marketCap"),
                 ReturnOnEquity = TryGetRaw(financialData, "returnOnEquity"),
-                Ebitda = TryGetRaw(financialData, "ebitda"),
+                Ebitda = tlRaporluyor ? TryGetRaw(financialData, "ebitda") : null,
                 ProfitMargin = TryGetRaw(financialData, "profitMargins"),
                 GrossMargin = TryGetRaw(financialData, "grossMargins"),
             };

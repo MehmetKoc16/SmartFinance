@@ -112,84 +112,67 @@ public class YahooFinancePriceProviderTests
         Assert.Equal(296.0m, quote.Price);
     }
 
-    // ─── GetStatisticsAsync: F/K yedek hesabi ────────────────────────────
+    // ─── GetStatisticsAsync: guvenilmeyen temel veriler ──────────────────
     //
-    // Yahoo, BIST hisselerinde summaryDetail.trailingPE'yi cogu zaman BOS
-    // birakiyor — kar eden bir sirket (THYAO) icin bile. trailingEps genelde
-    // doluyor; fiyat/EPS ile kendimiz hesapliyoruz.
+    // 18.09.2026'da Is Yatirim ve Midas ile karsilastirildi: THYAO
+    // finansallarini USD raporluyor, Yahoo bunlari TL fiyatla karistiriyor
+    // (PD/DD 18,2 — gercegi 0,4; kar eden sirket "Zararda" gorundu). TL
+    // raporlayan MPARK'ta da F/K 14,77 (Is Yatirim 12,5, Midas 12,72).
+    // Asagidaki JSON'lar o gunun gercek Yahoo degerleri.
 
     [Fact]
-    public async Task Istatistik_TrailingPEBossaEpsVeFiyattanHesaplanir()
+    public async Task Istatistik_FKVePDDDYahoodanAlinmaz()
     {
         var provider = Create(HttpStatusCode.OK, """
             {"quoteSummary":{"result":[{
-                "summaryDetail":{"previousClose":{"raw":296.0}},
-                "defaultKeyStatistics":{"trailingEps":{"raw":15.5}},
-                "financialData":{"currentPrice":{"raw":296.0}}
+                "summaryDetail":{"trailingPE":{"raw":14.774259},"previousClose":{"raw":443.0},"marketCap":{"raw":83469074432}},
+                "defaultKeyStatistics":{"trailingEps":{"raw":-6.73},"priceToBook":{"raw":1.9111}},
+                "financialData":{"currentPrice":{"raw":438.5},"financialCurrency":"TRY"}
             }]}}
             """);
 
-        var istatistik = await provider.GetStatisticsAsync("THYAO");
-
-        Assert.NotNull(istatistik!.TrailingPE);
-        Assert.Equal(296.0m / 15.5m, istatistik.TrailingPE!.Value, precision: 4);
-        Assert.False(istatistik.IsLossMaking);
-    }
-
-    /// summaryDetail.trailingPE zaten doluysa, hesaplanan degere BAKILMAMALI —
-    /// Yahoo'nun kendi verdigi deger her zaman oncelikli.
-    [Fact]
-    public async Task Istatistik_TrailingPEDoluysaHesaplamaYapilmaz()
-    {
-        var provider = Create(HttpStatusCode.OK, """
-            {"quoteSummary":{"result":[{
-                "summaryDetail":{"trailingPE":{"raw":12.5},"previousClose":{"raw":296.0}},
-                "defaultKeyStatistics":{"trailingEps":{"raw":15.5}},
-                "financialData":{"currentPrice":{"raw":296.0}}
-            }]}}
-            """);
-
-        var istatistik = await provider.GetStatisticsAsync("THYAO");
-
-        Assert.Equal(12.5m, istatistik!.TrailingPE);
-    }
-
-    /// Negatif EPS = sirket zarar ediyor (gercek THYAO verisiyle keşfedildi:
-    /// trailingEps -6.73). F/K matematiksel olarak anlamsiz, null kalmali —
-    /// uydurma bir "negatif F/K" gosterilmemeli. IsLossMaking=true olmali ki
-    /// istemci "veri yok" yerine "Zararda" gosterebilsin.
-    [Fact]
-    public async Task Istatistik_NegatifEpsdeTrailingPENullKalirVeZarardaIsaretlenir()
-    {
-        var provider = Create(HttpStatusCode.OK, """
-            {"quoteSummary":{"result":[{
-                "summaryDetail":{"previousClose":{"raw":296.0}},
-                "defaultKeyStatistics":{"trailingEps":{"raw":-3.2}},
-                "financialData":{"currentPrice":{"raw":296.0}}
-            }]}}
-            """);
-
-        var istatistik = await provider.GetStatisticsAsync("THYAO");
+        var istatistik = await provider.GetStatisticsAsync("MPARK");
 
         Assert.Null(istatistik!.TrailingPE);
-        Assert.True(istatistik.IsLossMaking);
+        Assert.Null(istatistik.PriceToBook);
+        Assert.Null(istatistik.EquityValue);
+        Assert.False(istatistik.IsLossMaking);
+        Assert.Equal(83469074432m, istatistik.MarketCap);
     }
 
-    /// EPS verisi hic yoksa (zarar degil, bilinmiyor) IsLossMaking false
-    /// kalmali — istemci yanlislikla "Zararda" demeameli, "veri yok" gibi
-    /// davranmali (satiri gizlemeli).
+    /// FAVOK bir tutar: USD raporlayan sirkette Yahoo onu USD veriyor, biz
+    /// onune ₺ koyup gosteriyorduk. Oranlarda pay ve payda ayni para
+    /// biriminde, onlar etkilenmiyor.
     [Fact]
-    public async Task Istatistik_HicVeriYoksaTrailingPENullKalirVeZarardaIsaretlenmez()
+    public async Task Istatistik_DolarRaporlayanSirkette_FavokDonmezAmaOranlarKalir()
     {
         var provider = Create(HttpStatusCode.OK, """
             {"quoteSummary":{"result":[{
-                "summaryDetail":{"previousClose":{"raw":296.0}}
+                "summaryDetail":{"previousClose":{"raw":289.5}},
+                "financialData":{"financialCurrency":"USD","ebitda":{"raw":2185999872},
+                                 "profitMargins":{"raw":0.10189},"returnOnEquity":{"raw":0.13129}}
             }]}}
             """);
 
         var istatistik = await provider.GetStatisticsAsync("THYAO");
 
-        Assert.Null(istatistik!.TrailingPE);
-        Assert.False(istatistik.IsLossMaking);
+        Assert.Null(istatistik!.Ebitda);
+        Assert.Equal(0.10189m, istatistik.ProfitMargin);
+        Assert.Equal(0.13129m, istatistik.ReturnOnEquity);
+    }
+
+    [Fact]
+    public async Task Istatistik_TLRaporlayanSirkette_FavokDoner()
+    {
+        var provider = Create(HttpStatusCode.OK, """
+            {"quoteSummary":{"result":[{
+                "summaryDetail":{"previousClose":{"raw":438.5}},
+                "financialData":{"financialCurrency":"TRY","ebitda":{"raw":13090094080}}
+            }]}}
+            """);
+
+        var istatistik = await provider.GetStatisticsAsync("MPARK");
+
+        Assert.Equal(13090094080m, istatistik!.Ebitda);
     }
 }

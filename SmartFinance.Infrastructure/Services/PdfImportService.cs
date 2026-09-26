@@ -128,7 +128,13 @@ public class PdfImportService : IPdfImportService
 
     private (List<ParsedTransactionDto> Transactions, string BankName, string? Period) ParsePdfText(Stream pdfStream)
     {
-        var fullText = ExtractTextFromPdf(pdfStream);
+        // PDF iki kez okunuyor (duz metin + konumlu kelimeler); akis her zaman
+        // basa sarilabilir olmadigi icin bir kez belleğe aliniyor.
+        using var bellek = new MemoryStream();
+        pdfStream.CopyTo(bellek);
+        var pdf = bellek.ToArray();
+
+        var fullText = ExtractTextFromPdf(new MemoryStream(pdf));
         _logger.LogInformation("PDF metin uzunlugu: {Length}", fullText?.Length ?? 0);
 
         if (string.IsNullOrWhiteSpace(fullText))
@@ -137,11 +143,27 @@ public class PdfImportService : IPdfImportService
             return (new(), "Bilinmeyen", null);
         }
 
-        var parser = _parsers.FirstOrDefault(p => p.CanParse(fullText))
-                     ?? _parsers.Last(); // GenericBankParser
-        _logger.LogInformation("Secilen parser: {BankName}", parser.BankName);
+        // Bankaya ozel ayristiricilar (Halkbank, Ziraat, Enpara) kanitlandigi icin once.
+        var ozel = _parsers.Where(p => p is not GenericBankParser).FirstOrDefault(p => p.CanParse(fullText));
+        if (ozel != null)
+        {
+            _logger.LogInformation("Secilen parser: {BankName}", ozel.BankName);
+            return (ozel.Parse(fullText), ozel.BankName, ozel.ExtractPeriod(fullText));
+        }
 
-        return (parser.Parse(fullText), parser.BankName, parser.ExtractPeriod(fullText));
+        // Taninmayan banka: once sutun tabanli genel ayristirici; tablo basligi
+        // bulunamazsa eski metin tabanli ayristiriciya dusulur.
+        var sutunlu = new LayoutStatementParser().Parse(PdfWordExtractor.Extract(pdf));
+        if (sutunlu.HeaderFound && sutunlu.Transactions.Count > 0)
+        {
+            _logger.LogInformation("Secilen parser: {BankName}, bakiye celiskili satir: {Mismatch}",
+                LayoutStatementParser.BankName, sutunlu.Transactions.Count(t => t.BalanceMismatch));
+            return (sutunlu.Transactions, LayoutStatementParser.BankName, null);
+        }
+
+        var genel = _parsers.Last(); // GenericBankParser
+        _logger.LogInformation("Secilen parser: {BankName} (sutun basligi bulunamadi)", genel.BankName);
+        return (genel.Parse(fullText), genel.BankName, genel.ExtractPeriod(fullText));
     }
 
     private (List<ParsedTransactionDto> Transactions, string BankName, string? Period) ParseExcel(Stream excelStream)

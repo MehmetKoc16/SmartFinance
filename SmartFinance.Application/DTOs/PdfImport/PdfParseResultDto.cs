@@ -20,4 +20,9 @@ public class ParsedTransactionDto
     public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }
     public bool IsDuplicate { get; set; }      // Zaten kayıtlı mı?
+
+    // Ekstrede bakiye sutunu varsa: onceki bakiye +/- bu tutar, bu satirin
+    // bakiyesini vermiyor. Tutar veya tur yanlis okunmus olabilir; kullanici
+    // inceleme ekraninda kontrol etmeli.
+    public bool BalanceMismatch { get; set; }
 }

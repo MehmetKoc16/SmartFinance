@@ -16,6 +16,7 @@ using SmartFinance.API.Middleware;
 using SmartFinance.Infrastructure.Email;
 using SmartFinance.Infrastructure.MarketData;
 using SmartFinance.Infrastructure.Fundamentals;
+using SmartFinance.Infrastructure.Push;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,6 +61,16 @@ builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 builder.Services.AddScoped<IPdfImportService, PdfImportService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IDeviceTokenService, DeviceTokenService>();
+
+// Anlik bildirim (FCM). Anahtar dosyasi yoksa (gelistirme, test) push
+// gonderilmez; uygulama ici bildirimler yine calisir.
+var fcmAnahtari = builder.Configuration["Firebase:CredentialsPath"];
+if (!string.IsNullOrWhiteSpace(fcmAnahtari) && File.Exists(fcmAnahtari))
+{
+    builder.Services.AddSingleton<IPushSender>(sp =>
+        new FcmPushSender(fcmAnahtari, sp.GetRequiredService<ILogger<FcmPushSender>>()));
+}
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // Fiyat sağlayıcıları — her biri IPriceProvider altında kayıtlı, MarketDataService IEnumerable<IPriceProvider> ile hepsini alır

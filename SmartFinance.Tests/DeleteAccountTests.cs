@@ -84,6 +84,8 @@ public class DeleteAccountTests
         {
             UserId = user.Id, Token = Guid.NewGuid().ToString(), ExpiresAt = DateTime.UtcNow.AddDays(30),
         });
+        // Hesap silindikten sonra o telefona bildirim gitmemeli.
+        context.DeviceTokens.Add(new DeviceToken { UserId = user.Id, Token = Guid.NewGuid().ToString() });
         context.SaveChanges();
         return user;
     }
@@ -94,6 +96,7 @@ public class DeleteAccountTests
         + c.Budgets.IgnoreQueryFilters().Count(x => x.UserId == userId)
         + c.CategoryMappings.IgnoreQueryFilters().Count(x => x.UserId == userId)
         + c.RefreshTokens.IgnoreQueryFilters().Count(x => x.UserId == userId)
+        + c.DeviceTokens.IgnoreQueryFilters().Count(x => x.UserId == userId)
         + c.Categories.IgnoreQueryFilters().Count(x => x.UserId == userId)
         + c.Users.IgnoreQueryFilters().Count(x => x.Id == userId);
 

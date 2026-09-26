@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SmartFinance.Application.DTOs.Notification;
 using SmartFinance.Application.Exceptions;
 using SmartFinance.Application.Interfaces;
@@ -13,8 +15,14 @@ public class NotificationService : INotificationService
     private readonly SmartFinanceDbContext _context;
     private readonly ICurrentUserService _currentUserService;
 
-    public NotificationService(SmartFinanceDbContext context, ICurrentUserService currentUserService)
+    private readonly IPushSender? _pushSender;
+    private readonly ILogger<NotificationService> _logger;
+
+    public NotificationService(SmartFinanceDbContext context, ICurrentUserService currentUserService,
+        IPushSender? pushSender = null, ILogger<NotificationService>? logger = null)
     {
+        _pushSender = pushSender;
+        _logger = logger ?? NullLogger<NotificationService>.Instance;
         _context = context;
         _currentUserService = currentUserService;
     }
@@ -96,14 +104,55 @@ public class NotificationService : INotificationService
             .AnyAsync(n => n.UserId == userId && n.DedupeKey == dedupeKey);
         if (alreadyNotified) return;
 
-        _context.Notifications.Add(new Notification
+        var bildirim = new Notification
         {
             UserId = userId,
             Type = NotificationType.BudgetExceeded,
             Title = "Bütçe limiti aşıldı",
             Message = $"{budget.Category.Name} kategorisinde bu ayki {budget.MonthlyLimit:N0}₺ bütçe limitinizi aştınız.",
             DedupeKey = dedupeKey,
-        });
+        };
+        _context.Notifications.Add(bildirim);
         await _context.SaveChangesAsync();
+
+        await PushGonderAsync(userId, bildirim);
+    }
+
+    /// Uygulama ici bildirimi kullanicinin telefonlarina da gonderir. Push ek
+    /// bir kanal: hata olursa loglanir, islem kaydini veya bildirimi bozmaz.
+    private async Task PushGonderAsync(int userId, Notification bildirim)
+    {
+        if (_pushSender == null) return;
+
+        var tokenlar = await _context.DeviceTokens
+            .Where(t => t.UserId == userId)
+            .Select(t => t.Token)
+            .ToListAsync();
+        if (tokenlar.Count == 0) return;
+
+        try
+        {
+            // Kullanici islem kaydederken bekliyor; FCM yavaslarsa kaydi bekletme.
+            using var zamanAsimi = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var gecersiz = await _pushSender.SendAsync(tokenlar, new PushMessage(
+                bildirim.Title,
+                bildirim.Message,
+                new Dictionary<string, string>
+                {
+                    ["type"] = "notification",
+                    ["notificationId"] = bildirim.Id.ToString(),
+                }), zamanAsimi.Token);
+
+            if (gecersiz.Count > 0)
+            {
+                _context.DeviceTokens.RemoveRange(
+                    await _context.DeviceTokens.Where(t => gecersiz.Contains(t.Token)).ToListAsync());
+                await _context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Push bildirimi gonderilemedi (kullanici {UserId}, {Count} cihaz)", userId, tokenlar.Count);
+        }
     }
 }

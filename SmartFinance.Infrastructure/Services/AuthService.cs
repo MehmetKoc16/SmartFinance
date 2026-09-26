@@ -451,6 +451,8 @@ public class AuthService : IAuthService{
             await _context.Investments.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
         _context.RefreshTokens.RemoveRange(
             await _context.RefreshTokens.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        _context.DeviceTokens.RemoveRange(
+            await _context.DeviceTokens.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
         await _context.SaveChangesAsync();
 
         _context.Categories.RemoveRange(

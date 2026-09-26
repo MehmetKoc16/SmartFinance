@@ -28,21 +28,30 @@ public sealed class FcmPushSender : IPushSender
         _messaging = FirebaseMessaging.GetMessaging(app);
     }
 
+    /// FCM'ye giden mesaj. EventTimestamp ACIKCA verilmeli: SDK'da bu alan
+    /// DateTime (bos olamaz) ve verilmezse 0001-01-01 gidiyor; telefon
+    /// bildirimin saatini "3.01.1" diye gosteriyordu (26.09.2026, cihazda).
+    public static MulticastMessage MesajOlustur(IReadOnlyList<string> tokens, PushMessage message, DateTime simdiUtc) => new()
+    {
+        Tokens = tokens,
+        Notification = new Notification { Title = message.Title, Body = message.Body },
+        Data = message.Data,
+        Android = new AndroidConfig
+        {
+            Priority = Priority.High,
+            Notification = new AndroidNotification
+            {
+                ChannelId = AndroidChannelId,
+                EventTimestamp = simdiUtc,
+            },
+        },
+    };
+
     public async Task<IReadOnlyList<string>> SendAsync(IReadOnlyList<string> tokens, PushMessage message, CancellationToken ct = default)
     {
         if (tokens.Count == 0) return [];
 
-        var yanit = await _messaging.SendEachForMulticastAsync(new MulticastMessage
-        {
-            Tokens = tokens,
-            Notification = new Notification { Title = message.Title, Body = message.Body },
-            Data = message.Data,
-            Android = new AndroidConfig
-            {
-                Priority = Priority.High,
-                Notification = new AndroidNotification { ChannelId = AndroidChannelId },
-            },
-        }, ct);
+        var yanit = await _messaging.SendEachForMulticastAsync(MesajOlustur(tokens, message, DateTime.UtcNow), ct);
 
         var gecersiz = new List<string>();
         for (var i = 0; i < yanit.Responses.Count; i++)

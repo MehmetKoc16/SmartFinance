@@ -201,4 +201,25 @@ public class NotificationServiceTests
 
         await Assert.ThrowsAsync<NotFoundException>(() => notificationService.MarkAsReadAsync(baskasininBildirimi.Id));
     }
+
+    /// Regresyon (26.09.2026, cihazda): az once olusan bildirim "3 saat once"
+    /// gorunuyordu. Zaman UTC saklaniyor ama SQL Server turunu (Kind) saklamiyor;
+    /// JSON'a "Z" olmadan yazilinca telefon yerel saat sandi (Turkiye UTC+3).
+    [Fact]
+    public async Task BildirimZamani_UtcOlarakDoner()
+    {
+        var (_, notificationService, context, userId) = CreateServices();
+        // SQL Server'dan okunan deger gibi: turu belirsiz.
+        var saklanan = DateTime.SpecifyKind(new DateTime(2026, 9, 26, 9, 22, 0), DateTimeKind.Unspecified);
+        context.Notifications.Add(new Notification
+        {
+            UserId = userId, Type = NotificationType.Info, Title = "t", Message = "m", CreatedDate = saklanan,
+        });
+        await context.SaveChangesAsync();
+
+        var bildirim = Assert.Single(await notificationService.GetAllAsync());
+
+        Assert.Equal(DateTimeKind.Utc, bildirim.CreatedDate.Kind);
+        Assert.Equal(saklanan.Ticks, bildirim.CreatedDate.Ticks); // saat kaydirilmaz, yalnizca UTC isaretlenir
+    }
 }

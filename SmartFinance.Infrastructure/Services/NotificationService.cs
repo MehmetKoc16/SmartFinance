@@ -42,7 +42,9 @@ public class NotificationService : INotificationService
                 Title = n.Title,
                 Message = n.Message,
                 IsRead = n.IsRead,
-                CreatedDate = n.CreatedDate,
+                // UTC saklaniyor ama SQL Server turu (Kind) tutmuyor; isaretlenmezse
+                // JSON'a "Z" olmadan gider ve telefon yerel saat sanir (3 saat kayar).
+                CreatedDate = DateTime.SpecifyKind(n.CreatedDate, DateTimeKind.Utc),
             })
             .ToListAsync();
     }

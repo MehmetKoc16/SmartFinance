@@ -8,6 +8,10 @@ public class PdfParseResultDto
     public int TotalIncome { get; set; }
     public int TotalExpense { get; set; }
     public int DuplicateCount { get; set; }
+
+    // PDF'te gomulu metin yok (taranmis ekstre). Telefon sayfalari kendisi
+    // OCR ile okuyup kelimeleri /pdfimport/parse-words ucuna gonderir.
+    public bool NeedsOcr { get; set; }
 }
 
 public class ParsedTransactionDto

@@ -85,6 +85,8 @@ public class PdfImportService : IPdfImportService
         };
     }
 
+    public const string OcrBankName = "Taranmış ekstre (OCR)";
+
     private int GetUserId() =>
         _currentUserService.UserId;
 
@@ -102,11 +104,33 @@ public class PdfImportService : IPdfImportService
         }
         else
         {
-            (transactions, bankName, period) = ParsePdfText(fileStream);
+            (transactions, bankName, period) = ParsePdfText(fileStream, out var metinYok);
+            if (metinYok)
+                return new PdfParseResultDto { BankName = bankName, NeedsOcr = true };
         }
 
         _logger.LogInformation("{Count} islem cikarildi, donem: {Period}", transactions.Count, period);
+        return await TamamlaAsync(transactions, bankName, period);
+    }
 
+    public async Task<PdfParseResultDto> ParseWordsAsync(IReadOnlyList<OcrWordDto> words)
+    {
+        var kelimeler = words
+            .Select(w => new PositionedWord(w.Text, w.Left, w.Top, w.Right, w.Bottom, w.Page))
+            .ToList();
+        var sonuc = new LayoutStatementParser().Parse(kelimeler);
+
+        // Kelime icerigi (ekstre metni) loglanmaz; yalnizca sayilar.
+        _logger.LogInformation("OCR ice aktarma: {Words} kelime, baslik: {Header}, {Count} islem, bakiye celiskili: {Mismatch}",
+            kelimeler.Count, sonuc.HeaderFound, sonuc.Transactions.Count, sonuc.Transactions.Count(t => t.BalanceMismatch));
+
+        return await TamamlaAsync(sonuc.HeaderFound ? sonuc.Transactions : new(), OcrBankName, null);
+    }
+
+    /// Hangi yoldan okunmus olursa olsun (PDF metni, Excel, OCR) ayni son adimlar.
+    private async Task<PdfParseResultDto> TamamlaAsync(
+        List<ParsedTransactionDto> transactions, string bankName, string? period)
+    {
         var userId = GetUserId();
 
         // Kategori eşleştirme (öğrenilen + default)
@@ -126,8 +150,10 @@ public class PdfImportService : IPdfImportService
         };
     }
 
-    private (List<ParsedTransactionDto> Transactions, string BankName, string? Period) ParsePdfText(Stream pdfStream)
+    private (List<ParsedTransactionDto> Transactions, string BankName, string? Period) ParsePdfText(
+        Stream pdfStream, out bool metinYok)
     {
+        metinYok = false;
         // PDF iki kez okunuyor (duz metin + konumlu kelimeler); akis her zaman
         // basa sarilabilir olmadigi icin bir kez belleğe aliniyor.
         using var bellek = new MemoryStream();
@@ -139,7 +165,8 @@ public class PdfImportService : IPdfImportService
 
         if (string.IsNullOrWhiteSpace(fullText))
         {
-            _logger.LogWarning("PDF'den metin cikarilamadi — goruntu tabanli PDF olabilir");
+            _logger.LogWarning("PDF'den metin cikarilamadi — goruntu tabanli PDF olabilir, telefonda OCR istenecek");
+            metinYok = true;
             return (new(), "Bilinmeyen", null);
         }
 

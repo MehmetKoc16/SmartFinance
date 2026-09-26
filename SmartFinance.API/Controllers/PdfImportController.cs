@@ -35,10 +35,27 @@ public class PdfImportController : ControllerBase
         using var stream = file.OpenReadStream();
         var result = await _pdfImportService.ParsePdfAsync(stream, file.FileName);
 
+        // needsOcr ust seviyede: telefon bu durumda sayfalari kendisi OCR ile
+        // okuyup parse-words ucuna gonderir.
         if (!result.Transactions.Any())
             return Ok(new { message = isPdf
                 ? "PDF'den işlem çıkarılamadı. Dosya metin tabanlı olmayabilir."
-                : "Excel dosyasından işlem çıkarılamadı. Beklenen ekstre formatında olmayabilir.", result });
+                : "Excel dosyasından işlem çıkarılamadı. Beklenen ekstre formatında olmayabilir.",
+                needsOcr = result.NeedsOcr, result });
+
+        return Ok(result);
+    }
+
+    /// <summary>Taranmış ekstre: telefondaki OCR'ın okuduğu kelimeleri parse et (önizleme)</summary>
+    /// <remarks>Sayfa görüntüsü sunucuya gelmez; yalnızca kelimeler ve konumları.
+    /// Liste ve kelime sınırları <see cref="ParseWordsRequestDto"/> üzerinde doğrulanır.</remarks>
+    [HttpPost("parse-words")]
+    public async Task<IActionResult> ParseWords([FromBody] ParseWordsRequestDto dto)
+    {
+        var result = await _pdfImportService.ParseWordsAsync(dto.Words);
+
+        if (!result.Transactions.Any())
+            return Ok(new { message = "Taranmış ekstrede işlem tablosu bulunamadı.", result });
 
         return Ok(result);
     }

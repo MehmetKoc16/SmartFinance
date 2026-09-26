@@ -1,0 +1,2 @@
+# Sunucuda calisan betikler: Windows CRLF satir sonu bash'i bozar (": command not found").
+*.sh text eol=lf

@@ -39,7 +39,7 @@ eklenenler() { git diff --cached -U0 "$@" | grep -v 'sahte-veri'; }
 # Banka ekstresi, imzalama anahtari, ortam dosyasi, ozel anahtar.
 # Tek istisna (.gitignore ile ayni): KAP'in herkese acik sirket finansallari,
 # Excel ayristirici testinin girdisi. Yalnizca bu klasor ve bu onek.
-yasakli=$(echo "$dosyalar" | grep -iE '(\.(pdf|xlsx|xls|jks|p12|keystore|pem|env)$)|(^|/)key\.properties$|(^|/)\.env|(^|/)secrets\.json$|appsettings\.Development\.json$|(^|/)id_(rsa|ed25519)$' | grep -vE '^SmartFinance\.Tests/Fixtures/kap_[^/]*\.xlsx$')
+yasakli=$(echo "$dosyalar" | grep -iE '(\.(pdf|xlsx|xls|jks|p12|keystore|pem|env)$)|(^|/)key\.properties$|(^|/)\.env|(^|/)secrets\.json$|appsettings\.Development\.json$|(^|/)id_(rsa|ed25519)$|(^|/)google-services.json$|(^|/)GoogleService-Info.plist$|firebase-adminsdk[^/]*.json$' | grep -vE '^SmartFinance\.Tests/Fixtures/kap_[^/]*\.xlsx$')
 if [ -n "$yasakli" ]; then
     bildir "Bu dosya turleri depoya giremez:"
     echo "$yasakli" | sed 's/^/    /'

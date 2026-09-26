@@ -25,6 +25,8 @@ public static class KeywordCategoryMatcher
         ("MAAS", "Maaş"),
         ("UCRET", "Maaş"),
         ("AYLIK", "Maaş"),
+        // Ek Gelir ("BURS" tek basina BURSA sehrine de uyardi)
+        ("BURS BEDELI", "Ek Gelir"),
         // Kira Geliri (yalnizca gelirde; giderdeki kira icin varsayilan kategori yok)
         ("KIRA", "Kira Geliri"),
         // Transfer
@@ -65,6 +67,10 @@ public static class KeywordCategoryMatcher
         ("BALIK", "Yeme-İçme"),
         ("PIZZA", "Yeme-İçme"),
         ("BURGER", "Yeme-İçme"),
+        ("COFFEE", "Yeme-İçme"),
+        ("KAHVE", "Yeme-İçme"),
+        ("KANTIN", "Yeme-İçme"),
+        ("TIKLAGELSIN", "Yeme-İçme"),
         ("STARBUCKS", "Yeme-İçme"),
         ("MCDONALD", "Yeme-İçme"),
         ("KFC", "Yeme-İçme"),
@@ -94,6 +100,7 @@ public static class KeywordCategoryMatcher
         ("THY", "Ulaşım"),
         ("PEGASUS", "Ulaşım"),
         ("SUNEXPRESS", "Ulaşım"),
+        ("OBILET", "Ulaşım"),
         // Alışveriş
         ("MIGROS", "Alışveriş"),
         ("BIM", "Alışveriş"),
@@ -112,6 +119,7 @@ public static class KeywordCategoryMatcher
         ("AMAZON", "Alışveriş"),
         ("N11", "Alışveriş"),
         ("GIDA", "Alışveriş"),
+        ("TEKEL", "Alışveriş"),
         ("PLAYSTATION", "Alışveriş"),
         ("ELEKTRONIK", "Alışveriş"),
     ];
@@ -123,6 +131,8 @@ public static class KeywordCategoryMatcher
         "", "I", "U", "SI", "SU", "YI", "YU", "IN", "UN", "NIN", "NUN",
         "DE", "DA", "TE", "TA", "DEN", "DAN", "TEN", "TAN", "NDE", "NDA",
         "LAR", "LER", "LARI", "LERI", "CI", "CU", "LI", "LU", "E", "A", "YE", "YA", "S",
+        // Iyelik "-m": isyeri adlarinda yaygin (PIDEM, KEBABIM, DONERIM).
+        "M", "IM", "UM",
     ];
 
     private static readonly (string[] Tokens, string Category)[] Hazir =
@@ -134,7 +144,14 @@ public static class KeywordCategoryMatcher
         foreach (var (anahtar, kategori) in Hazir)
             if (Iceriyor(kelimeler, anahtar))
                 yield return kategori;
+
+        // IBAN kesin havale isareti. Bankalar "ucretiFAST islemi" diye bitisik
+        // yazdigi icin FAST kelimesi yakalanamiyor; OCR IBAN'i ikiye bolebiliyor.
+        if (kelimeler.Any(k => IbanRx.IsMatch(k)))
+            yield return "Transfer";
     }
+
+    private static readonly Regex IbanRx = new(@"^TR\d{10,24}$", RegexOptions.Compiled);
 
     private static bool Iceriyor(string[] kelimeler, string[] anahtar)
     {

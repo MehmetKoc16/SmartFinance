@@ -56,7 +56,7 @@ public class PdfImportDuplicateTests
         var (service, context, _) = CreateService();
         var dosya = Dto(
             Item("2026-08-28", 182.50m, "POS ALIŞVERİŞ ORNEK KAFE SUBESI"),
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA"),
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET"),
             Item("2026-08-27", 108.00m, "POS ALIŞVERİŞ ORNEK KAFE SUBESI"));
 
         var ilk = await service.ConfirmImportAsync(dosya);
@@ -77,8 +77,8 @@ public class PdfImportDuplicateTests
         var (service, context, _) = CreateService();
 
         var sonuc = await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA"),
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA")));
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET"),
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET")));
 
         Assert.Equal(2, sonuc.SavedCount);
         Assert.Equal(0, sonuc.SkippedCount);
@@ -108,11 +108,11 @@ public class PdfImportDuplicateTests
     {
         var (service, context, _) = CreateService();
         await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA")));
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET")));
 
         var sonuc = await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA"),
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA")));
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET"),
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET")));
 
         Assert.Equal(1, sonuc.SavedCount);
         Assert.Equal(1, sonuc.SkippedCount);
@@ -125,11 +125,11 @@ public class PdfImportDuplicateTests
     {
         var (service, context, _) = CreateService();
         await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA")));
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET")));
 
         var sonuc = await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 21.00m, "POS ALIŞVERİŞ ORNEK GIDA"),
-            Item("2026-08-29", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA")));
+            Item("2026-08-28", 21.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET"),
+            Item("2026-08-29", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET")));
 
         Assert.Equal(2, sonuc.SavedCount);
         Assert.Equal(0, sonuc.SkippedCount);
@@ -146,10 +146,10 @@ public class PdfImportDuplicateTests
     {
         var (service, context, _) = CreateService();
         await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ  ORNEK GIDA")));
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ  ORNEK GIDA MARKET")));
 
         var sonuc = await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ornek gida")));
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ornek gida market")));
 
         Assert.Equal(0, sonuc.SavedCount);
         Assert.Equal(1, sonuc.SkippedCount);
@@ -169,14 +169,14 @@ public class PdfImportDuplicateTests
         {
             UserId = digerKullanici.Id,
             Amount = 20.00m,
-            Description = "POS ALIŞVERİŞ ORNEK GIDA",
+            Description = "POS ALIŞVERİŞ ORNEK GIDA MARKET",
             TransactionDate = new DateTime(2026, 8, 28),
             Type = TransactionType.Expense,
         });
         context.SaveChanges();
 
         var sonuc = await service.ConfirmImportAsync(Dto(
-            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA")));
+            Item("2026-08-28", 20.00m, "POS ALIŞVERİŞ ORNEK GIDA MARKET")));
 
         Assert.Equal(1, sonuc.SavedCount);
         Assert.Equal(0, sonuc.SkippedCount);

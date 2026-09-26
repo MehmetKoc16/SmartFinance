@@ -49,7 +49,7 @@ public sealed class LayoutStatementParser
 
     private static readonly Regex DateRx = new(@"^(\d{2})[./-](\d{2})[./-](\d{4}|\d{2})$", RegexOptions.Compiled);
     private static readonly Regex AmountRx = new(@"^[+-]?\(?(\d{1,3}(\.\d{3})+|\d+),\d{2}\)?(TL|₺)?$", RegexOptions.Compiled);
-    // OCR ondalik virgulu noktaya cevirebiliyor ("4.100.50"). Yalnizca binlik
+    // OCR ondalik virgulu noktaya cevirebiliyor ("1.234.56"). Yalnizca binlik
     // grubu varsa kabul: "12.09" gibi gun.ay parcalari tutar sanilmasin.
     private static readonly Regex OcrAmountRx = new(@"^[+-]?(\d{1,3}(\.\d{3})+)\.(\d{2})$", RegexOptions.Compiled);
     private static readonly Regex TimeRx = new(@"^\d{2}:\d{2}(:\d{2})?$", RegexOptions.Compiled);
@@ -288,7 +288,7 @@ public sealed class LayoutStatementParser
     private static decimal ParseAmount(string text)
     {
         var s = Temiz(text);
-        // "4.100.50" -> "4.100,50": son nokta ondalik ayirici.
+        // "1.234.56" -> "1.234,56": son nokta ondalik ayirici.
         if (OcrAmountRx.IsMatch(s)) s = s[..s.LastIndexOf('.')] + "," + s[(s.LastIndexOf('.') + 1)..];
         var eksi = s.StartsWith('-') || (s.StartsWith('(') && s.EndsWith(')'));
         s = s.Replace("TL", "").Replace("₺", "").Trim('+', '-', '(', ')').Replace(".", "").Replace(",", ".");

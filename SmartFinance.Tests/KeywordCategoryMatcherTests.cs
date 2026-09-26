@@ -17,6 +17,7 @@ public class KeywordCategoryMatcherTests
     [InlineData("ATMACA SOKAK NO 5", "ATM")]
     [InlineData("ATMACA SOKAK NO 5", "Alışveriş")]
     [InlineData("KOOPERATIF AIDATI", "Ulaşım")]
+    [InlineData("Gönd: ORNEK LTD BURSA", "Ek Gelir")]     // BURS anahtari sehre uymamali
     public void KelimeninParcasi_EslesmeSayilmaz(string metin, string olmamali)
     {
         Assert.DoesNotContain(olmamali, Adaylar(metin));
@@ -35,6 +36,15 @@ public class KeywordCategoryMatcherTests
     [InlineData("EFT GELEN KİRA", "Kira Geliri")]
     [InlineData("EYLUL KIRASI", "Kira Geliri")]
     [InlineData("KOMIS. BP ISTASYON", "Ulaşım")]          // eski " BP " anahtari
+    // 26.09.2026, gercek Ziraat ekstresi: kategorisiz kalan isyerleri
+    [InlineData("İŞYERİ: PIDEM BALIKESIR", "Yeme-İçme")]   // PIDE + -m (isyeri adlarinda yaygin iyelik eki)
+    [InlineData("KARDESLER KEBABIM", "Yeme-İçme")]         // KEBAB + -im
+    [InlineData("CARIBOU COFFEE IZMIR", "Yeme-İçme")]
+    [InlineData("IYZICO/TIKLAGELSIN.C", "Yeme-İçme")]
+    [InlineData("HICRAN TERZI KANTIN", "Yeme-İçme")]
+    [InlineData("İŞYERİ: S/OBILET 3", "Ulaşım")]
+    [InlineData("ANTIK TEKEL", "Alışveriş")]
+    [InlineData("2025-2026 EĞİTİM ÖĞRETİM YILI BURS BEDELİ", "Ek Gelir")]
     public void KelimeVeTurkceEkli_Hali_Eslesir(string metin, string beklenen)
     {
         Assert.Contains(beklenen, Adaylar(metin));
@@ -54,5 +64,14 @@ public class KeywordCategoryMatcherTests
     public void EslesmeYoksa_Bos()
     {
         Assert.Empty(Adaylar("ORNEK LTD STI"));
+    }
+
+    /// Banka havaleyi "...A.S./TR14...-AD SOYAD/yemekhane ucretiFAST islemi"
+    /// diye yaziyor; FAST ayri kelime degil. IBAN kesin havale isaretidir.
+    [Fact]
+    public void IbanIcerenAciklama_TransferAdayi()
+    {
+        Assert.Contains("Transfer", Adaylar("ORNEK BANKASI A.Ş./TR00000000000000000012-ORNEK KISI/yemekhane ücretiFAST işlemi"));
+        Assert.DoesNotContain("Transfer", Adaylar("MUTABAKAT: 1234567 KART NO 9999"));
     }
 }

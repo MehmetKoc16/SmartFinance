@@ -31,7 +31,7 @@ public sealed class LayoutStatementParser
 {
     public const string BankName = "Genel (sütun tabanlı)";
 
-    private enum Role { Date, Description, Debit, Credit, Amount, Balance }
+    private enum Role { Date, Description, Debit, Credit, Amount, Balance, Reference }
 
     private static readonly Role[] MoneyRoles = [Role.Debit, Role.Credit, Role.Amount, Role.Balance];
 
@@ -43,10 +43,15 @@ public sealed class LayoutStatementParser
         (Role.Credit, ["alacak", "giren", "giris"]),
         (Role.Amount, ["tutar", "tutari", "miktar"]),
         (Role.Balance, ["bakiye", "bakiyesi"]),
+        // Fis/dekont numarasi sutunu: aciklamaya girmez.
+        (Role.Reference, ["fis", "dekont", "referans"]),
     ];
 
     private static readonly Regex DateRx = new(@"^(\d{2})[./-](\d{2})[./-](\d{4}|\d{2})$", RegexOptions.Compiled);
     private static readonly Regex AmountRx = new(@"^[+-]?\(?(\d{1,3}(\.\d{3})+|\d+),\d{2}\)?(TL|₺)?$", RegexOptions.Compiled);
+    // OCR ondalik virgulu noktaya cevirebiliyor ("4.100.50"). Yalnizca binlik
+    // grubu varsa kabul: "12.09" gibi gun.ay parcalari tutar sanilmasin.
+    private static readonly Regex OcrAmountRx = new(@"^[+-]?(\d{1,3}(\.\d{3})+)\.(\d{2})$", RegexOptions.Compiled);
     private static readonly Regex TimeRx = new(@"^\d{2}:\d{2}(:\d{2})?$", RegexOptions.Compiled);
     private static readonly Regex SiraNoRx = new(@"^\d{1,4}$", RegexOptions.Compiled);
     private static readonly Regex LongDigitsRx = new(@"^\d{5,}$", RegexOptions.Compiled);
@@ -191,7 +196,9 @@ public sealed class LayoutStatementParser
         // tam sayi "Sira No" sutunudur, aciklamaya girmez.
         var aciklama = string.Join(" ", kullanilanEkler.Append(line)
             .OrderBy(l => l.CenterY)
-            .Select(l => DescriptionText(l.Words.Where(w => !(w.Right <= tarihKelimesi.Left && SiraNoRx.IsMatch(w.Text.Trim())))))
+            .Select(l => DescriptionText(l.Words.Where(w =>
+                !(w.Right <= tarihKelimesi.Left && SiraNoRx.IsMatch(w.Text.Trim()))
+                && !ReferansSutununda(w, header))))
             .Where(t => t.Length > 0));
         var tx = new ParsedTransactionDto
         {
@@ -241,8 +248,16 @@ public sealed class LayoutStatementParser
             && ParseDate(t) == null && !IsAmount(t) && !TimeRx.IsMatch(t) && !LongDigitsRx.IsMatch(t)
             && t is not "-" and not "+" && !CurrencyTokens.Contains(t)));
 
+    // Isyeri adi ("ISYERI: X MUTABAKAT", "Gond: X", "-X/FAST islemi"); ogrenilen
+    // kategori eslesmeleri buna dayaniyor. Ilk 50 karakter tum kart
+    // harcamalarinda ayni "POS ALISVERIS KART NO..." oluyordu.
     private static string Merchant(string description) =>
-        description.Length > 50 ? description[..50].Trim() : description;
+        ZiraatParser.ExtractMerchantName(description) ?? description;
+
+    private static bool ReferansSutununda(PositionedWord w, Dictionary<Role, PositionedWord> header) =>
+        header.TryGetValue(Role.Reference, out var referans)
+        && header.TryGetValue(Role.Description, out var aciklama)
+        && Distance(w, referans) < Distance(w, aciklama);
 
     /// <summary>
     /// Her satirin bakiyesi = onceki satirin bakiyesi +/- bu satirin tutari. Ekstre
@@ -265,11 +280,16 @@ public sealed class LayoutStatementParser
             rows[i].Tx.BalanceMismatch = true;
     }
 
-    private static bool IsAmount(string text) => AmountRx.IsMatch(text.Trim());
+    // OCR tablo cizgisini kelimeye yapistirabiliyor ("|21.09.2026").
+    private static string Temiz(string text) => text.Trim().Trim('|', '[', ']', '{', '}', '`', '\'', '"').Trim();
+
+    private static bool IsAmount(string text) => AmountRx.IsMatch(Temiz(text)) || OcrAmountRx.IsMatch(Temiz(text));
 
     private static decimal ParseAmount(string text)
     {
-        var s = text.Trim();
+        var s = Temiz(text);
+        // "4.100.50" -> "4.100,50": son nokta ondalik ayirici.
+        if (OcrAmountRx.IsMatch(s)) s = s[..s.LastIndexOf('.')] + "," + s[(s.LastIndexOf('.') + 1)..];
         var eksi = s.StartsWith('-') || (s.StartsWith('(') && s.EndsWith(')'));
         s = s.Replace("TL", "").Replace("₺", "").Trim('+', '-', '(', ')').Replace(".", "").Replace(",", ".");
         var deger = decimal.Parse(s, CultureInfo.InvariantCulture);
@@ -278,7 +298,7 @@ public sealed class LayoutStatementParser
 
     private static DateTime? ParseDate(string text)
     {
-        var m = DateRx.Match(text.Trim());
+        var m = DateRx.Match(Temiz(text));
         if (!m.Success) return null;
         var bicim = m.Groups[3].Value.Length == 4 ? "dd.MM.yyyy" : "dd.MM.yy";
         var duz = $"{m.Groups[1].Value}.{m.Groups[2].Value}.{m.Groups[3].Value}";

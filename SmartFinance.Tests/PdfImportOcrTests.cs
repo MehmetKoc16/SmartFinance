@@ -75,6 +75,52 @@ public class PdfImportOcrTests
         Assert.False(sonuc.NeedsOcr);
     }
 
+    /// Regresyon (26.09.2026, gercek Ziraat ekstresi): gider olan "MESAJ UCRETI"
+    /// gelir kategorisi Maas'a ataniyordu. Kategori turu islemin turuyle uymali.
+    [Fact]
+    public async Task KategoriTuru_IslemTuruyleUyar()
+    {
+        var (service, context, userId) = CreateService();
+        context.Categories.Add(new Category { Name = "Maaş", Type = TransactionType.Income, UserId = userId });
+        context.SaveChanges();
+
+        var sonuc = await service.ParseWordsAsync(
+        [
+            W("Tarih", 60, 300), W("Açıklama", 280, 300), W("Borç", 840, 300), W("Alacak", 1060, 300),
+            W("25.09.2026", 60, 360), W("MESAJ", 280, 360), W("ÜCRETİ", 380, 360), W("0,37", 840, 360),
+            W("26.09.2026", 60, 420), W("ÜCRET", 280, 420), W("ÖDEMESİ", 380, 420), W("26.000,00", 1060, 420),
+        ]);
+
+        Assert.Equal(["Fatura", "Maaş"], sonuc.Transactions.Select(t => t.CategoryName));
+    }
+
+    /// Eski surumler ogrenilen eslesmeyi aciklamanin ilk 50 karakteriyle
+    /// kaydediyordu ("POS ALISVERIS KART NO: 9999 ..."): tum kart harcamalarinda
+    /// ayni. Bu anahtar aciklamanin icinde de arandigi icin kullanici bir kez
+    /// "Yeme-Icme" secince butun alisverisler Yeme-Icme oluyordu.
+    [Fact]
+    public async Task GenelOnekliEskiOgrenilmisEslesme_BaskaIsyerineUygulanmaz()
+    {
+        var (service, context, userId) = CreateService();
+        var yemek = new Category { Name = "Yeme-İçme", Type = TransactionType.Expense, UserId = userId };
+        context.Categories.Add(yemek);
+        context.SaveChanges();
+        context.CategoryMappings.Add(new CategoryMapping { UserId = userId, CategoryId = yemek.Id, MerchantKeyword = "POS ALIŞVERİŞ KART NO: 9999" });
+        context.CategoryMappings.Add(new CategoryMapping { UserId = userId, CategoryId = yemek.Id, MerchantKeyword = "KARDESLER KEBAP" });
+        context.SaveChanges();
+
+        var sonuc = await service.ParseWordsAsync(
+        [
+            W("Tarih", 60, 300), W("Açıklama", 280, 300), W("Tutar", 1060, 300),
+            W("21.09.2026", 60, 360), W("POS", 280, 360), W("ALIŞVERİŞ", 340, 360), W("KART", 480, 360), W("NO:", 550, 360),
+            W("9999", 600, 360), W("İŞYERİ:", 680, 360), W("ORNEK", 790, 360), W("TERZI", 880, 360), W("-85,00", 1060, 360),
+            W("22.09.2026", 60, 420), W("POS", 280, 420), W("ALIŞVERİŞ", 340, 420), W("KART", 480, 420), W("NO:", 550, 420),
+            W("9999", 600, 420), W("İŞYERİ:", 680, 420), W("KARDESLER", 790, 420), W("KEBAP", 930, 420), W("-120,00", 1060, 420),
+        ]);
+
+        Assert.Equal([null, "Yeme-İçme"], sonuc.Transactions.Select(t => t.CategoryName));
+    }
+
     [Fact]
     public async Task OcrKelimeleri_ZatenKayitliIslemiMukerrerIsaretler()
     {

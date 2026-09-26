@@ -213,4 +213,56 @@ public class LayoutStatementParserTests
 
         Assert.Equal(["KREDI KARTI KART SON HANE", "ECZANE"], sonuc.Transactions.Select(t => t.Description));
     }
+
+    // Ziraat duzeni: Tarih | Fis No | Aciklama (iki satir, tarih dikey ortada) | Tutar | Bakiye
+    private static readonly (string, double)[] ZiraatBasligi =
+        [("Tarih", 73), ("Fiş", 240), ("No", 281), ("Açıklama", 436), ("Tutar", 1427), ("Bakiye", 1592)];
+
+    /// Regresyon (26.09.2026, gercek Ziraat taramasi, telefonda ML Kit): tablo
+    /// cizgisi tarihin basina "|" olarak yapisti ("|21.09.2026"); satir islem
+    /// sayilmadi ve 100 TL'lik harcama sessizce kayboldu.
+    [Fact]
+    public void OcrTablocizgisiYapismisTarih_YineOkunur()
+    {
+        var sonuc = Coz(Satir(445, ZiraatBasligi)
+            .Concat(Satir(1689, ("21.09.2026", 74), ("F10001", 238), ("MARKET", 436), ("-100,00", 1428), ("1.200,00", 1591)))
+            .Concat(Satir(1766, ("|21.09.2026", 74), ("F10002", 239), ("MARKET", 436), ("-100,00", 1428), ("1.300,00", 1591))));
+
+        Assert.Equal(2, sonuc.Transactions.Count);
+    }
+
+    /// OCR ondalik virgulu noktaya cevirebiliyor ("4.100.50"). Bakiye okunamazsa
+    /// zincir kontrolu tum ekstre icin kapaniyordu.
+    [Fact]
+    public void OcrNoktaliOndalik_BinlikAyiriciliysaTutarSayilir()
+    {
+        var sonuc = Coz(Satir(445, ZiraatBasligi)
+            .Concat(Satir(686, ("25.09.2026", 74), ("F20001", 239), ("BSMV", 436), ("-0,38", 1428), ("4.100.50", 1591)))
+            .Concat(Satir(730, ("25.09.2026", 75), ("F20001", 239), ("KOMISYON", 436), ("-7,62", 1428), ("4.101,00", 1591)))
+            .Concat(Satir(790, ("24.09.2026", 74), ("F20002", 239), ("TARIH", 436), ("GIBI", 520), ("12.09", 600), ("-1,00", 1428), ("9.999,99", 1591))));
+
+        Assert.Equal([0.38m, 7.62m, 1m], sonuc.Transactions.Select(t => t.Amount));
+        // Son satirin bakiyesi bilerek yanlis. Zincir ancak "4.100.50" okunursa
+        // kontrol edilir (bir satirda bakiye yoksa kontrol hic yapilmiyor):
+        // 4.101,00 - 0,38 = 4.100,50 tutuyor, KOMISYON satiri tutmuyor.
+        Assert.Equal([false, true, false], sonuc.Transactions.Select(t => t.BalanceMismatch));
+        Assert.Contains("12.09", sonuc.Transactions[2].Description); // binlik grubu olmayan "12.09" tutar degil
+    }
+
+    /// Fis No sutunu aciklamaya girmez; isyeri adi "ISYERI: ... MUTABAKAT"
+    /// arasindan alinir (ogrenilen kategori eslesmeleri buna dayaniyor; ilk 50
+    /// karakter tum kart harcamalarinda ayni "POS ALISVERIS KART NO..." idi).
+    [Fact]
+    public void FisNoAciklamayaGirmez_IsyeriAdiAyiklanir()
+    {
+        var sonuc = Coz(Satir(445, ZiraatBasligi)
+            .Concat(Satir(1357, ("POS", 436), ("ALIŞVERİŞ", 495), ("KART", 771), ("NO:", 851), ("9999", 906), ("İŞYERİ:", 1157)))
+            .Concat(Satir(1380, ("23.09.2026", 73), ("FO9999", 239), ("-180,00", 1428), ("800,00", 1592)))
+            .Concat(Satir(1393, ("ORNEK", 441), ("GIDA", 669), ("MUTABAKAT:", 750), ("1234567", 934))));
+
+        var tx = Assert.Single(sonuc.Transactions);
+        Assert.DoesNotContain("FO9999", tx.Description);
+        Assert.StartsWith("POS ALIŞVERİŞ KART NO: 9999 İŞYERİ: ORNEK GIDA", tx.Description);
+        Assert.Equal("ORNEK GIDA", tx.MerchantName);
+    }
 }

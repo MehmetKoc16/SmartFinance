@@ -19,7 +19,9 @@ public sealed record LayoutParseResult(bool HeaderFound, List<ParsedTransactionD
 ///      sutunu gider, Alacak gelir, tek Tutar sutununda isaret belirler. Eski
 ///      genel ayristirici turu yalnizca isaretten cikariyordu; ayri Borc/Alacak
 ///      sutunlu bankalarda tum giderler gelir sayiliyordu.
-///   4. Tarihsiz, hemen alttaki satirlar onceki islemin aciklamasina eklenir.
+///   4. Tarihsiz satirlar EN YAKIN tarihli satira baglanir (ustte ya da altta):
+///      bazi bankalar cok satirli hucrede tarihi dikey ortaliyor, tutar ve
+///      aciklamanin basi tarihin ustundeki satirda kaliyor.
 ///   5. Bakiye sutunu varsa zincir kontrol edilir; tutmayan satir isaretlenir.
 ///
 /// Baslik bulunamazsa tahmin yurutulmez (HeaderFound=false); cagiran eski metin
@@ -46,6 +48,7 @@ public sealed class LayoutStatementParser
     private static readonly Regex DateRx = new(@"^(\d{2})[./-](\d{2})[./-](\d{4}|\d{2})$", RegexOptions.Compiled);
     private static readonly Regex AmountRx = new(@"^[+-]?\(?(\d{1,3}(\.\d{3})+|\d+),\d{2}\)?(TL|₺)?$", RegexOptions.Compiled);
     private static readonly Regex TimeRx = new(@"^\d{2}:\d{2}(:\d{2})?$", RegexOptions.Compiled);
+    private static readonly Regex SiraNoRx = new(@"^\d{1,4}$", RegexOptions.Compiled);
     private static readonly Regex LongDigitsRx = new(@"^\d{5,}$", RegexOptions.Compiled);
     private static readonly HashSet<string> CurrencyTokens = new(StringComparer.OrdinalIgnoreCase) { "TL", "TRY", "₺" };
 
@@ -63,11 +66,10 @@ public sealed class LayoutStatementParser
 
     public LayoutParseResult Parse(IReadOnlyList<PositionedWord> words)
     {
+        // 1. Baslik altindaki satirlar, her biri o sayfanin basligiyla.
         Dictionary<Role, PositionedWord>? header = null;
         var headerFound = false;
-        var rows = new List<Row>();
-        Line? lastRowLine = null;
-
+        var tablo = new List<(Line Line, Dictionary<Role, PositionedWord> Header)>();
         foreach (var line in GroupLines(words))
         {
             var yeniBaslik = TryHeader(line);
@@ -75,43 +77,45 @@ public sealed class LayoutStatementParser
             {
                 header = yeniBaslik;
                 headerFound = true;
-                lastRowLine = null;
                 continue;
             }
-            if (header == null) continue;
+            if (header != null) tablo.Add((line, header));
+        }
 
-            var row = TryRow(line, header);
-            if (row != null)
-            {
-                rows.Add(row);
-                lastRowLine = line;
-                continue;
-            }
+        // 2. Tarihsiz satirlar en yakin tarihli satira baglanir. Sayfa alti gibi
+        //    uzaktaki yazilar hicbir isleme baglanmaz.
+        var tarihli = tablo.Where(t => HasDate(t.Line)).ToList();
+        var ekler = tarihli.ToDictionary(t => t.Line, _ => new List<Line>());
+        foreach (var (line, h) in tablo.Where(t => !HasDate(t.Line)))
+        {
+            // Olcu satir KUTULARI arasindaki bosluk: PdfPig kutulari harflere siki
+            // oturtuyor, merkez uzakligi kelime yuksekligine gore hep buyuk kaliyordu.
+            var hedef = tarihli
+                .Where(t => t.Line.Page == line.Page && ReferenceEquals(t.Header, h))
+                .Select(t => (t.Line, Bosluk: Bosluk(t.Line, line), Merkez: Math.Abs(t.Line.CenterY - line.CenterY)))
+                .Where(x => x.Bosluk <= 1.5 * Math.Max(x.Line.Height, line.Height))
+                // Esitlikte ustteki: klasik "alt satira tasan aciklama".
+                .OrderBy(x => x.Bosluk).ThenBy(x => x.Merkez).ThenBy(x => x.Line.CenterY)
+                .Select(x => x.Line)
+                .FirstOrDefault();
+            if (hedef != null) ekler[hedef].Add(line);
+        }
 
-            // Tarihsiz satir: hemen ustteki islemin aciklamasinin devami mi?
-            // Sayfa alti ("Sayfa 1/2") gibi uzaktaki yazilar eklenmez.
-            if (lastRowLine != null && line.Page == lastRowLine.Page
-                && line.Top - lastRowLine.Bottom <= 1.5 * lastRowLine.Height
-                && !line.Words.Any(w => IsAmount(w.Text)))
-            {
-                var ek = DescriptionText(line.Words);
-                if (ek.Length > 0)
-                {
-                    var tx = rows[^1].Tx;
-                    tx.Description = (tx.Description + " " + ek).Trim();
-                    tx.MerchantName = Merchant(tx.Description);
-                }
-                lastRowLine = line;
-            }
-            else
-            {
-                lastRowLine = null;
-            }
+        var rows = new List<Row>();
+        foreach (var (line, h) in tarihli)
+        {
+            var row = TryRow(line, ekler[line], h);
+            if (row != null) rows.Add(row);
         }
 
         MarkBalanceMismatches(rows);
         return new LayoutParseResult(headerFound, rows.Select(r => r.Tx).ToList());
     }
+
+    // Iki satirin kutulari arasindaki dikey bosluk; ust uste biniyorsa 0.
+    private static double Bosluk(Line a, Line b) => Math.Max(0, Math.Max(a.Top, b.Top) - Math.Min(a.Bottom, b.Bottom));
+
+    private static bool HasDate(Line line) => line.Words.Any(w => ParseDate(w.Text) != null);
 
     private static List<Line> GroupLines(IReadOnlyList<PositionedWord> words)
     {
@@ -153,30 +157,23 @@ public sealed class LayoutStatementParser
         return roller.ContainsKey(Role.Date) && MoneyRoles.Any(roller.ContainsKey) ? roller : null;
     }
 
-    private static Row? TryRow(Line line, Dictionary<Role, PositionedWord> header)
+    private static Row? TryRow(Line line, List<Line> ekler, Dictionary<Role, PositionedWord> header)
     {
-        var tarihKelimesi = line.Words.FirstOrDefault(w => ParseDate(w.Text) != null);
-        if (tarihKelimesi == null) return null;
-
+        var tarihKelimesi = line.Words.First(w => ParseDate(w.Text) != null);
         var paraSutunlari = MoneyRoles.Where(header.ContainsKey).ToList();
-        var degerler = new Dictionary<Role, (decimal Value, double Distance)>();
 
-        for (var i = 0; i < line.Words.Count; i++)
+        // Tutarlar once tarihli satirdan. Orada hic tutar yoksa (tarih dikey
+        // ortalanmis hucre) bagli satirlardan; tutarli bir ek satir (toplam,
+        // devir) tutari olan bir isleme karismaz.
+        var degerler = Tutarlar(line.Words, paraSutunlari, header);
+        var kullanilanEkler = ekler.Where(e => !e.Words.Any(w => IsAmount(w.Text))).ToList();
+        if (degerler.Count == 0)
         {
-            var w = line.Words[i];
-            if (!IsAmount(w.Text)) continue;
-
-            var deger = ParseAmount(w.Text);
-            // Ayri yazilmis isaret ("-" 75,25): hemen solundaki tek karakterlik kelime.
-            if (i > 0 && line.Words[i - 1].Text is "-" or "+" && w.Left - line.Words[i - 1].Right <= 2 * w.Height)
-                deger = line.Words[i - 1].Text == "-" ? -Math.Abs(deger) : Math.Abs(deger);
-
-            var (rol, uzaklik) = paraSutunlari
-                .Select(r => (r, Distance(w, header[r])))
-                .OrderBy(x => x.Item2)
-                .First();
-            if (!degerler.TryGetValue(rol, out var mevcut) || uzaklik < mevcut.Distance)
-                degerler[rol] = (deger, uzaklik);
+            kullanilanEkler = ekler;
+            foreach (var e in ekler)
+                foreach (var (rol, d) in Tutarlar(e.Words, paraSutunlari, header))
+                    if (!degerler.TryGetValue(rol, out var mevcut) || d.Distance < mevcut.Distance)
+                        degerler[rol] = d;
         }
 
         decimal tutar;
@@ -190,7 +187,12 @@ public sealed class LayoutStatementParser
         else
             return null;
 
-        var aciklama = DescriptionText(line.Words);
+        // Aciklama satirlarin yukaridan asagi sirasiyla. Tarihin solundaki kisa
+        // tam sayi "Sira No" sutunudur, aciklamaya girmez.
+        var aciklama = string.Join(" ", kullanilanEkler.Append(line)
+            .OrderBy(l => l.CenterY)
+            .Select(l => DescriptionText(l.Words.Where(w => !(w.Right <= tarihKelimesi.Left && SiraNoRx.IsMatch(w.Text.Trim())))))
+            .Where(t => t.Length > 0));
         var tx = new ParsedTransactionDto
         {
             TransactionDate = ParseDate(tarihKelimesi.Text)!.Value,
@@ -200,6 +202,31 @@ public sealed class LayoutStatementParser
             MerchantName = Merchant(aciklama),
         };
         return new Row(tx, degerler.TryGetValue(Role.Balance, out var bakiye) ? bakiye.Value : null);
+    }
+
+    /// Satirdaki tutarlar, her biri en yakin para sutununa.
+    private static Dictionary<Role, (decimal Value, double Distance)> Tutarlar(
+        List<PositionedWord> kelimeler, List<Role> paraSutunlari, Dictionary<Role, PositionedWord> header)
+    {
+        var degerler = new Dictionary<Role, (decimal Value, double Distance)>();
+        for (var i = 0; i < kelimeler.Count; i++)
+        {
+            var w = kelimeler[i];
+            if (!IsAmount(w.Text)) continue;
+
+            var deger = ParseAmount(w.Text);
+            // Ayri yazilmis isaret ("-" 75,25): hemen solundaki tek karakterlik kelime.
+            if (i > 0 && kelimeler[i - 1].Text is "-" or "+" && w.Left - kelimeler[i - 1].Right <= 2 * w.Height)
+                deger = kelimeler[i - 1].Text == "-" ? -Math.Abs(deger) : Math.Abs(deger);
+
+            var (rol, uzaklik) = paraSutunlari
+                .Select(r => (r, Distance(w, header[r])))
+                .OrderBy(x => x.Item2)
+                .First();
+            if (!degerler.TryGetValue(rol, out var mevcut) || uzaklik < mevcut.Distance)
+                degerler[rol] = (deger, uzaklik);
+        }
+        return degerler;
     }
 
     // Sutun basligi ile deger ayni hizada olmayabilir (sola/saga/ortaya yasli);

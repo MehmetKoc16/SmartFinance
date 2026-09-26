@@ -153,4 +153,64 @@ public class LayoutStatementParserTests
         Assert.False(sonuc.HeaderFound);
         Assert.Empty(sonuc.Transactions);
     }
+
+    /// Regresyon (26.09.2026, gercek Garanti ekstresi): cok satirli hucrede tarih
+    /// dikey ORTALANIYOR; aciklamanin ilk satiri ve tutar tarihin USTUNDEKI
+    /// satirda. Tarihli satirda tutar bulunamadigi icin gelen havale (maas gibi
+    /// buyuk bir gelir) sessizce atlaniyordu.
+    [Fact]
+    public void DikeyOrtalanmisTarih_UstSatirdakiTutarVeAciklamaAlinir()
+    {
+        var baslik = new[] { ("Tarih", 31.0), ("Açıklama", 88.0), ("Etiket", 315.0), ("Tutar", 460.0), ("Bakiye", 541.0) };
+        var sonuc = Coz(Satir(221, baslik)
+            .Concat(Satir(237, ("04.09.2026", 31), ("HAVALE", 88), ("GIDEN", 125), ("Transfer", 315), ("-1.111,11", 440), ("0,00", 544)))
+            .Concat(Satir(251, ("04.09.2026", 31), ("KART", 88), ("ODEMESI", 115), ("Kart", 315), ("-2.222,22", 436), ("1.111,11", 528)))
+            .Concat(Satir(265, ("ORNEK", 88), ("KURUMU", 118), ("GELEN", 160), ("+3.333,33", 434), ("3.333,33", 524)))
+            .Concat(Satir(274, ("04.09.2026", 31), ("KURUM", 88), ("ADINA", 125), ("Transfer", 315)))
+            .Concat(Satir(284, ("GONDERILEN", 88))));
+
+        Assert.Equal([(2, 1111.11m), (2, 2222.22m), (1, 3333.33m)], sonuc.Transactions.Select(t => (t.Type, t.Amount)));
+        Assert.Equal("ORNEK KURUMU GELEN KURUM ADINA Transfer GONDERILEN", sonuc.Transactions[2].Description);
+        Assert.All(sonuc.Transactions, t => Assert.False(t.BalanceMismatch)); // yeniden eskiye zincir tutuyor
+    }
+
+    /// Tutari olan tarihsiz satir (toplam, devir) tutari olan bir isleme karismaz.
+    [Fact]
+    public void TutarliTarihsizSatir_TutariOlanIslemeKarismaz()
+    {
+        var sonuc = Coz(Satir(50, BorcAlacakBasligi)
+            .Concat(Satir(70, ("01.09.2026", 20), ("MARKET", 100), ("150,00", 300), ("1.850,00", 460)))
+            .Concat(Satir(82, ("TOPLAM", 100), ("150,00", 300))));
+
+        var tx = Assert.Single(sonuc.Transactions);
+        Assert.Equal(150m, tx.Amount);
+        Assert.Equal("MARKET", tx.Description);
+    }
+
+    /// Regresyon (26.09.2026, gercek TEB ekstresi): "Sira No" sutunundaki sayi
+    /// aciklamanin basina yapisiyordu ("1 ... den gelen havale").
+    [Fact]
+    public void SiraNumarasi_AciklamayaKarismaz()
+    {
+        var sonuc = Coz(Satir(444, ("Sıra", 47), ("No", 66), ("Tarih", 121), ("Açıklama", 246), ("İşlem", 391), ("Tutarı", 417), ("Bakiye", 502))
+            .Concat(Satir(472, ("1", 55), ("04.09.2026", 110), ("ORNEK", 180), ("den", 230), ("gelen", 250), ("havale", 280), ("1.111,11", 400), ("1.111,11", 500)))
+            .Concat(Satir(492, ("12", 55), ("05.09.2026", 110), ("ATM", 180), ("Para", 200), ("Cekme", 225), ("-500,00", 400), ("1.000,00", 500))));
+
+        Assert.Equal(["ORNEK den gelen havale", "ATM Para Cekme"], sonuc.Transactions.Select(t => t.Description));
+    }
+
+    /// Regresyon (26.09.2026): PdfPig kelime kutularini harflere siki oturtuyor
+    /// (yukseklik ~6, satir araligi 11). Satir merkezleri arasi uzaklikla
+    /// bakilinca alt satira tasan aciklama hicbir isleme baglanmiyordu.
+    [Fact]
+    public void SikiKutuluKelimeler_DevamSatiriYineBaglanir()
+    {
+        static PositionedWord K(string m, double sol, double ust) => new(m, sol, ust, sol + m.Length * 5, ust + 6);
+        var sonuc = Coz(Satir(130, BorcAlacakBasligi)
+            .Concat([K("04.09.2026", 20, 148.8), K("KREDI", 100, 148.8), K("KARTI", 130, 148.8), K("4.250,00", 300, 148.8), K("30.000,00", 460, 148.8)])
+            .Concat([K("KART", 100, 159.8), K("SON", 125, 159.8), K("HANE", 145, 159.8)])
+            .Concat([K("05.09.2026", 20, 178.8), K("ECZANE", 100, 178.8), K("312,45", 300, 178.8), K("29.687,55", 460, 178.8)]));
+
+        Assert.Equal(["KREDI KARTI KART SON HANE", "ECZANE"], sonuc.Transactions.Select(t => t.Description));
+    }
 }

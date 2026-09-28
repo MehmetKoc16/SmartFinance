@@ -162,13 +162,14 @@ public class PdfImportService : IPdfImportService
         var savedCount = 0;
         var skippedCount = 0;
 
-        // Kullanıcının sahip olduğu kategori id'leri — client'tan gelen categoryId
-        // başka bir kullanıcıya ait olsa bile kabul edilmesin diye önceden çekiliyor.
-        var ownedCategoryIds = (await _context.Categories
+        // Kullanıcının sahip olduğu kategoriler ve türleri — client'tan gelen
+        // categoryId başka bir kullanıcıya ait olsa bile kabul edilmesin diye
+        // önceden çekiliyor. Tür de kontrol ediliyor: elle ekleme/düzenleme
+        // bunu yapıyordu, içe aktarma yapmıyordu; iki banka masrafı gelir
+        // kategorisi Maaş'a kaydedilmişti (28.09.2026).
+        var ownedCategoryTypes = await _context.Categories
             .Where(c => c.UserId == userId)
-            .Select(c => c.Id)
-            .ToListAsync())
-            .ToHashSet();
+            .ToDictionaryAsync(c => c.Id, c => (int)c.Type);
 
         // Aylik ice aktarma siniri. Kontrol kayittan ONCE: sinir asilmissa
         // hicbir sey yazilmamali.
@@ -195,7 +196,11 @@ public class PdfImportService : IPdfImportService
                 continue;
             }
 
-            var categoryId = item.CategoryId.HasValue && ownedCategoryIds.Contains(item.CategoryId.Value)
+            // Türü uymayan kategori atılır (işlem kategorisiz kaydedilir, eşleşme
+            // öğrenilmez); işlemi kaybetmektense kullanıcının sonradan seçmesi iyi.
+            var categoryId = item.CategoryId.HasValue
+                && ownedCategoryTypes.TryGetValue(item.CategoryId.Value, out var kategoriTuru)
+                && kategoriTuru == item.Type
                 ? item.CategoryId.Value
                 : (int?)null;
 

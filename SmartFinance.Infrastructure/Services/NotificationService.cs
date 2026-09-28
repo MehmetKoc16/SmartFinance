@@ -29,6 +29,89 @@ public class NotificationService : INotificationService
 
     private int GetUserId() => _currentUserService.UserId;
 
+    // FCM tek istekte en fazla 500 cihaz kabul ediyor.
+    public const int PushBatchSize = 500;
+
+    public async Task<BroadcastResult> BroadcastAsync(string key, string title, string message,
+        string? onlyEmail = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
+            throw new ArgumentException("Anahtar, başlık ve metin boş olamaz.");
+        title = title.Trim();
+        message = message.Trim();
+        // Sinirlar NotificationConfiguration ile ayni (Title 200, Message 1000, DedupeKey 100).
+        if (key.Trim().Length > 50 || title.Length > 200 || message.Length > 1000)
+            throw new ArgumentException("Anahtar en fazla 50, başlık 200, metin 1000 karakter olabilir.");
+        var dedupeKey = $"duyuru:{key.Trim()}";
+
+        var kullanicilar = _context.Users.AsQueryable();
+        if (onlyEmail != null)
+        {
+            var eposta = onlyEmail.Trim().ToLower();
+            kullanicilar = kullanicilar.Where(u => u.Email.ToLower() == eposta);
+        }
+        var hedef = await kullanicilar.Select(u => u.Id).ToListAsync(ct);
+        if (onlyEmail != null && hedef.Count == 0)
+            throw new ArgumentException($"{onlyEmail} ile kayıtlı kullanıcı yok.");
+
+        // Ayni anahtarla daha once bildirim almis olanlar atlanir (tekrar calistirma
+        // guvenli). Silinmis isaretliler de sayilir: (UserId, DedupeKey) tekil.
+        var zaten = (await _context.Notifications.IgnoreQueryFilters()
+            .Where(n => n.DedupeKey == dedupeKey && hedef.Contains(n.UserId))
+            .Select(n => n.UserId)
+            .ToListAsync(ct)).ToHashSet();
+        var yeni = hedef.Where(id => !zaten.Contains(id)).ToList();
+
+        foreach (var userId in yeni)
+        {
+            _context.Notifications.Add(new Notification
+            {
+                UserId = userId,
+                Type = NotificationType.Info,
+                Title = title,
+                Message = message,
+                DedupeKey = dedupeKey,
+            });
+        }
+        await _context.SaveChangesAsync(ct);
+
+        // Push yalnizca bu calistirmada bildirim alanlarin cihazlarina. Surum
+        // 9 oncesi uygulamalar cihaz kaydi yapmiyor; onlar zilde gorur.
+        var tokenlar = await _context.DeviceTokens
+            .Where(t => yeni.Contains(t.UserId))
+            .Select(t => t.Token)
+            .ToListAsync(ct);
+
+        var silinen = 0;
+        if (_pushSender != null && tokenlar.Count > 0)
+        {
+            var push = new PushMessage(title, message, new Dictionary<string, string> { ["type"] = "notification" });
+            var gecersiz = new List<string>();
+            foreach (var grup in tokenlar.Chunk(PushBatchSize))
+            {
+                try
+                {
+                    gecersiz.AddRange(await _pushSender.SendAsync(grup, push, ct));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Duyuru push grubu gonderilemedi ({Count} cihaz)", grup.Length);
+                }
+            }
+            if (gecersiz.Count > 0)
+            {
+                var kayitlar = await _context.DeviceTokens.Where(t => gecersiz.Contains(t.Token)).ToListAsync(ct);
+                _context.DeviceTokens.RemoveRange(kayitlar);
+                await _context.SaveChangesAsync(ct);
+                silinen = kayitlar.Count;
+            }
+        }
+
+        _logger.LogInformation("Duyuru {Key}: {New} kullaniciya bildirim ({Already} zaten almisti), {Push} cihaza push, {Invalid} gecersiz cihaz silindi",
+            dedupeKey, yeni.Count, zaten.Count, tokenlar.Count, silinen);
+        return new BroadcastResult(yeni.Count, zaten.Count, tokenlar.Count, silinen);
+    }
+
     public async Task<IEnumerable<NotificationDto>> GetAllAsync()
     {
         var userId = GetUserId();

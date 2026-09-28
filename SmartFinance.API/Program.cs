@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using SmartFinance.API.Cli;
 using SmartFinance.API.Infrastructure;
 using SmartFinance.API.Middleware;
 using SmartFinance.Infrastructure.Email;
@@ -205,6 +206,14 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 var app = builder.Build();
+
+// Tek seferlik yonetim komutlari (web sunucusu baslatilmaz). Bkz. Cli/DuyuruKomutu.
+if (DuyuruKomutu.KomutMu(args))
+{
+    Environment.ExitCode = await DuyuruKomutu.CalistirAsync(args, app.Services);
+    return;
+}
+
 app.UseMiddleware<ExceptionMiddleware>();
 
 if(app.Environment.IsDevelopment())

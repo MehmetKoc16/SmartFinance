@@ -7,4 +7,5 @@ public interface ISubscriptionService
     /// Uygulamanin paywall'i ve kullanim sayaclarini cizebilmesi icin
     /// abonelik durumu ve mevcut kullanim.
     Task<SubscriptionStatusDto> GetStatusAsync(CancellationToken ct = default);
+    Task<SubscriptionStatusDto> VerifyPurchaseAsync(string productId, string purchaseToken, CancellationToken ct);
 }

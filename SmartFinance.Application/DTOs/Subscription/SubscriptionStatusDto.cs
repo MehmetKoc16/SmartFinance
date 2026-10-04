@@ -11,6 +11,12 @@ public class SubscriptionStatusDto
 {
     public bool IsPremium { get; set; }
 
+    /// Play satın alımını oturumdaki hesaba bağlamak için sabit, gizlenmiş kimlik.
+    public string? AccountToken { get; set; }
+
+    /// Ödeme henüz tamamlanmadı; bu satın alım premium hakkı oluşturmaz.
+    public bool PurchasePending { get; set; }
+
     /// Premium ise aboneliğin bittiği an, değilse null.
     public DateTime? ExpiresAt { get; set; }
 

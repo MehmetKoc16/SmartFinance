@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SmartFinance.Application.DTOs.Subscription;
 using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.API.Controllers;
@@ -24,4 +25,8 @@ public class SubscriptionController : ControllerBase
     [HttpGet("status")]
     public async Task<IActionResult> GetStatus(CancellationToken ct)
         => Ok(await _subscriptionService.GetStatusAsync(ct));
+
+    [HttpPost("verify")]
+    public async Task<IActionResult> Verify([FromBody] VerifyPurchaseDto dto, CancellationToken ct)
+        => Ok(await _subscriptionService.VerifyPurchaseAsync(dto.ProductId, dto.PurchaseToken, ct));
 }

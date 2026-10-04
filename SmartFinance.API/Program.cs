@@ -101,6 +101,7 @@ builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddSingleton<IPlayBillingClient, SmartFinance.Infrastructure.Billing.GooglePlayBillingClient>();
 
 // Gunluk fiyat gecmisi (fon + hisse) kendi veritabanimizda saklanir: TEFAS tek
 // istekte 1 aylik veri veriyor ve IP basina dakikada ~6 istekle siniriyor,
@@ -117,6 +118,7 @@ builder.Services.AddScoped<IPriceCache, PriceCache>();
 // servise giden istek sayisi kullanici sayisindan bagimsiz hale gelir:
 // yalnizca farkli sembol sayisina bagli kalir.
 builder.Services.AddHostedService<PriceRefreshService>();
+builder.Services.AddHostedService<SmartFinance.Infrastructure.Billing.SubscriptionRenewalService>();
 
 // JWT Authentication yapılandırması
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

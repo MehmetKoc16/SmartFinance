@@ -9,7 +9,8 @@ namespace SmartFinance.Infrastructure.Billing;
 
 public sealed class SubscriptionRenewalService : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
+    // Tur aralığı. Bayatlık süreleri (6 saat / 10 dakika) SubscriptionRefresher'da ayrı sabitlerdir.
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(15);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IPlayBillingClient _client;
     private readonly ILogger<SubscriptionRenewalService> _logger;
@@ -43,12 +44,19 @@ public sealed class SubscriptionRenewalService : BackgroundService
         if (!_client.IsConfigured) return;
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<SmartFinanceDbContext>();
-        var from = nowUtc.AddDays(-7);
-        var to = nowUtc.AddDays(2);
-        var stale = nowUtc.Subtract(Interval);
+        // (a) Süresi yaklaşan: ExpiresAt (now, now+2gün], son doğrulama 6 saatten eski.
+        var expiringTo = nowUtc.Add(SubscriptionRefresher.ExpiringWindow);
+        var expiringStale = nowUtc.Subtract(SubscriptionRefresher.ExpiringStaleAfter);
+        // (b) Süresi yeni dolmuş ve otomatik yenilenen: ExpiresAt [now-30gün, now],
+        // son doğrulama 10 dakikadan eski. AutoRenewing == false (iptal) olanlara dokunulmaz.
+        var expiredFrom = nowUtc.Subtract(SubscriptionRefresher.ExpiredLookback);
+        var expiredStale = nowUtc.Subtract(SubscriptionRefresher.ExpiredStaleAfter);
         var ids = await context.Subscriptions.AsNoTracking()
-            .Where(s => s.ExpiresAt >= from && s.ExpiresAt <= to
-                && (s.LastVerifiedAt == null || s.LastVerifiedAt < stale))
+            .Where(s =>
+                (s.ExpiresAt > nowUtc && s.ExpiresAt <= expiringTo
+                    && (s.LastVerifiedAt == null || s.LastVerifiedAt < expiringStale))
+                || (s.ExpiresAt >= expiredFrom && s.ExpiresAt <= nowUtc && s.AutoRenewing
+                    && (s.LastVerifiedAt == null || s.LastVerifiedAt < expiredStale)))
             .OrderBy(s => s.LastVerifiedAt).ThenBy(s => s.Id)
             .Select(s => s.Id).Take(200).ToListAsync(ct);
 
@@ -60,16 +68,7 @@ public sealed class SubscriptionRenewalService : BackgroundService
                 // Her kaydı yeniden yükle; bağlı jeton önceki adımda değişmiş olabilir.
                 var row = await context.Subscriptions.SingleOrDefaultAsync(s => s.Id == id, ct);
                 if (row is null) continue;
-                var info = await _client.GetSubscriptionAsync(row.PurchaseToken, ct);
-                if (info is null)
-                {
-                    row.ExpiresAt = nowUtc;
-                    row.LastVerifiedAt = nowUtc;
-                }
-                else
-                {
-                    await SubscriptionUpdater.ApplyAsync(context, row, info, _client, _logger, nowUtc, ct);
-                }
+                await SubscriptionRefresher.RefreshAsync(context, row, _client, _logger, nowUtc, ct);
                 await context.SaveChangesAsync(ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

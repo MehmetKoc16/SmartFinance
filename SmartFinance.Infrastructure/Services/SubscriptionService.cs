@@ -112,10 +112,63 @@ public class SubscriptionService : ISubscriptionService
     private static ExternalServiceException Unavailable()
         => new("Google Play satın alma doğrulaması kullanılamıyor.", userMessage: VerificationUnavailable);
 
+    /// <summary>
+    /// Aktif aboneliği olmayan ama süresi son 30 günde dolmuş, otomatik
+    /// yenilenen en son satırı (2 dakikadan eski doğrulanmışsa) Google'a sorar.
+    /// Google hatası durum ucunu ASLA bozmaz: uyarı loglanır, eski veriyle devam edilir.
+    /// </summary>
+    private static readonly TimeSpan GoogleTimeout = TimeSpan.FromSeconds(5);
+
+    private async Task RefreshLapsedSubscriptionAsync(int userId, DateTime now, CancellationToken ct)
+    {
+        if (_playBillingClient is null || !_playBillingClient.IsConfigured) return;
+        try
+        {
+            var activeExists = await _context.Subscriptions.AsNoTracking()
+                .AnyAsync(s => s.UserId == userId && s.ExpiresAt > now, ct);
+            if (activeExists) return;
+
+            var from = now.Subtract(SubscriptionRefresher.ExpiredLookback);
+            // Değişecek satır olduğu için izlenen (tracked) olarak yüklenir.
+            var candidate = await _context.Subscriptions
+                .Where(s => s.UserId == userId && s.ExpiresAt >= from && s.ExpiresAt <= now && s.AutoRenewing)
+                .OrderByDescending(s => s.ExpiresAt).ThenByDescending(s => s.Id)
+                .FirstOrDefaultAsync(ct);
+            if (candidate is null) return;
+
+            var staleLimit = now.Subtract(SubscriptionRefresher.StatusStaleAfter);
+            if (candidate.LastVerifiedAt is not null && candidate.LastVerifiedAt >= staleLimit) return;
+
+            // Google yanıt vermezse istemcinin varsayılan 100 sn beklemesi durum
+            // ucunu (uygulama açılışını) kilitlerdi; en fazla 5 sn beklenir.
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(GoogleTimeout);
+            await SubscriptionRefresher.RefreshAsync(_context, candidate, _playBillingClient, _logger, now, timeout.Token);
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            // Jeton/e-posta içerebilecek hata metni loglanmaz; yalnızca hata türü.
+            _logger.LogWarning("Süresi dolmuş abonelik anında yenilenemedi. Hata türü: {ErrorType}.",
+                ex.GetType().Name);
+            // Yarım kalmış değişiklikler sonraki SaveChanges'e taşınmasın.
+            foreach (var entry in _context.ChangeTracker.Entries()
+                         .Where(e => e.State is EntityState.Modified or EntityState.Added or EntityState.Deleted)
+                         .ToList())
+                entry.State = EntityState.Detached;
+        }
+    }
+
     public async Task<SubscriptionStatusDto> GetStatusAsync(CancellationToken ct = default)
     {
         var userId = _currentUserService.UserId;
         var now = DateTime.UtcNow;
+
+        // Google yenilemeyi bildirmiyor: süresi yeni dolmuş ama otomatik yenilenen
+        // bir abonelik varsa kullanıcı sorduğu anda Google'a danışılır. Premium
+        // kararından ÖNCE yapılmalı; yoksa yenilenmiş kullanıcı saatlerce ücretsiz görünür.
+        await RefreshLapsedSubscriptionAsync(userId, now, ct);
 
         // Bitis tarihi ve otomatik yenileme bilgisi icin gercek abonelik
         // satiri gerekiyor. Birden fazla satir olabilir (yenilemeler, gecmis

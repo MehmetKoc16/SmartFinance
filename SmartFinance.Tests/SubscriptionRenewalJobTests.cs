@@ -52,10 +52,12 @@ public class SubscriptionRenewalJobTests
         }
     }
 
-    private static Subscription Kayit(string token, DateTime? expiry = null, DateTime? verified = null) => new()
+    private static Subscription Kayit(string token, DateTime? expiry = null, DateTime? verified = null,
+        bool autoRenewing = false) => new()
     {
         UserId = 1, ProductId = "premium_monthly", PurchaseToken = token,
         StartsAt = Simdi.AddDays(-10), ExpiresAt = expiry ?? Simdi.AddDays(1), LastVerifiedAt = verified,
+        AutoRenewing = autoRenewing,
     };
 
     /// NEDEN: Play'de yenilenmiş süre ve sipariş bilgisi yeni scope'ta kalıcı olarak okunabilmeli.
@@ -79,13 +81,96 @@ public class SubscriptionRenewalJobTests
     public async Task GoogleNullDonerse_AbonelikSonlanir()
     {
         using var o = new Ortam();
-        await o.Ekle(Kayit("ornek-token"));
+        await o.Ekle(Kayit("ornek-token", autoRenewing: true));
         o.Client.Result = null;
         await o.Job.RunOnceAsync(Simdi, default);
         var row = Assert.Single(await o.Oku());
         Assert.Equal(Simdi, row.ExpiresAt);
         Assert.Equal(Simdi, row.LastVerifiedAt);
+        // Sonlanan satır artık otomatik yenilenen sayılmamalı.
+        Assert.False(row.AutoRenewing);
         Assert.Empty(o.Client.Acknowledgements);
+    }
+
+    /// NEDEN: Google parayı almışken (deneme bitti / aylık yenileme) tablo eski kalırsa kullanıcı ücretsiz sayılıyordu.
+    [Theory]
+    [InlineData(null)]
+    [InlineData(11)]
+    public async Task SuresiDolmusOtomatikYenilenen_IsteYenidenSorulur(int? dogrulamaDakikaOnce)
+    {
+        using var o = new Ortam();
+        DateTime? verified = dogrulamaDakikaOnce is null ? null : Simdi.AddMinutes(-dogrulamaDakikaOnce.Value);
+        await o.Ekle(Kayit("ornek-token", Simdi.AddMinutes(-30), verified, autoRenewing: true));
+        await o.Job.RunOnceAsync(Simdi, default);
+        Assert.Equal("ornek-token", Assert.Single(o.Client.QueriedTokens));
+        var row = Assert.Single(await o.Oku());
+        Assert.Equal(o.Client.Result!.ExpiresAtUtc, row.ExpiresAt);
+        Assert.True(row.ExpiresAt > Simdi);
+        Assert.Equal(Simdi, row.LastVerifiedAt);
+        Assert.True(row.AutoRenewing);
+    }
+
+    /// NEDEN: Yeni dolmuş satır her turda değil, en fazla 10 dakikada bir sorulmalı (Google kotası).
+    [Fact]
+    public async Task SuresiDolmusOtomatikYenilenen_OnDakikaIcindeTekrarSorulmaz()
+    {
+        using var o = new Ortam();
+        var expiry = Simdi.AddMinutes(-30);
+        // 10 dakika tam sınır: bayatlık "10 dakikadan eski" olduğu için bu da sorulmaz.
+        await o.Ekle(Kayit("ornek-dokuz-dakika", expiry, Simdi.AddMinutes(-9), autoRenewing: true),
+            Kayit("ornek-tam-on-dakika", expiry, Simdi.AddMinutes(-10), autoRenewing: true));
+        await o.Job.RunOnceAsync(Simdi, default);
+        Assert.Empty(o.Client.QueriedTokens);
+        foreach (var row in await o.Oku())
+            Assert.Equal(expiry, row.ExpiresAt);
+    }
+
+    /// NEDEN: Kullanıcı iptal ettiyse (AutoRenewing=false) süresi dolan satır için Google'a boşuna sorulmamalı.
+    [Fact]
+    public async Task SuresiDolmusIptalEdilmis_GoogleaSorulmaz()
+    {
+        using var o = new Ortam();
+        var expiry = Simdi.AddHours(-1);
+        await o.Ekle(Kayit("ornek-iptal", expiry, autoRenewing: false));
+        await o.Job.RunOnceAsync(Simdi, default);
+        Assert.Empty(o.Client.QueriedTokens);
+        var row = Assert.Single(await o.Oku());
+        Assert.Equal(expiry, row.ExpiresAt);
+        Assert.Null(row.LastVerifiedAt);
+    }
+
+    /// NEDEN: Otuz günden eski dolmuş satırlar terk edilmiş sayılır; sınırın tam üstü hâlâ sorulur.
+    [Fact]
+    public async Task OtuzGundenEskiDolmus_GoogleaSorulmaz()
+    {
+        using var o = new Ortam();
+        await o.Ekle(Kayit("ornek-otuz-gunden-eski", Simdi.AddDays(-30).AddTicks(-1), autoRenewing: true),
+            Kayit("ornek-tam-otuz-gun", Simdi.AddDays(-30), autoRenewing: true));
+        await o.Job.RunOnceAsync(Simdi, default);
+        Assert.Equal("ornek-tam-otuz-gun", Assert.Single(o.Client.QueriedTokens));
+        var eski = (await o.Oku()).Single(s => s.PurchaseToken == "ornek-otuz-gunden-eski");
+        Assert.Equal(Simdi.AddDays(-30).AddTicks(-1), eski.ExpiresAt);
+        Assert.Null(eski.LastVerifiedAt);
+    }
+
+    /// NEDEN: Google jetonu tanımıyorsa satır kapanmalı; yoksa dolmuş satır her 15 dakikada yeniden sorulurdu.
+    [Fact]
+    public async Task GoogleNullDonerse_OtomatikYenilemeKapanir()
+    {
+        using var o = new Ortam();
+        var expiry = Simdi.AddHours(-1);
+        await o.Ekle(Kayit("ornek-token", expiry, autoRenewing: true));
+        o.Client.Result = null;
+        await o.Job.RunOnceAsync(Simdi, default);
+        var row = Assert.Single(await o.Oku());
+        Assert.False(row.AutoRenewing);
+        // Geçmişte bitmiş tarih şimdiye ileri taşınmaz.
+        Assert.Equal(expiry, row.ExpiresAt);
+        Assert.Equal(Simdi, row.LastVerifiedAt);
+        Assert.Single(o.Client.QueriedTokens);
+
+        await o.Job.RunOnceAsync(Simdi.AddMinutes(30), default);
+        Assert.Single(o.Client.QueriedTokens);
     }
 
     /// NEDEN: Tek jetondaki dış servis hatası diğer kullanıcıların yenilenmesini durdurmamalı.
@@ -107,7 +192,10 @@ public class SubscriptionRenewalJobTests
         Assert.Equal(2, o.Client.QueriedTokens.Count);
     }
 
-    /// NEDEN: Pencere dışındaki veya son altı saatte doğrulanan kayıtlar API kotasını tüketmemeli.
+    /// NEDEN: Pencere dışındaki veya yakın zamanda doğrulanan kayıtlar API kotasını tüketmemeli.
+    /// Beklenti değişikliği: eski 7 günlük "dolmuş" penceresi kalktı; dolmuş satırlar artık yalnızca
+    /// AutoRenewing == true ise sorulur. Bu testteki dolmuş satırlar AutoRenewing=false (varsayılan)
+    /// olduğundan "ornek-alt-sinir" artık sorulmaz ve değişmeden kalır (Take(4) -> Take(5)).
     [Fact]
     public async Task PencereDisindakilereVeYeniDogrulananlara_Dokunulmaz()
     {
@@ -123,9 +211,9 @@ public class SubscriptionRenewalJobTests
         };
         await o.Ekle(rows);
         await o.Job.RunOnceAsync(Simdi, default);
-        Assert.Equal(new[] { "ornek-alt-sinir", "ornek-ust-sinir" }, o.Client.QueriedTokens.OrderBy(t => t));
+        Assert.Equal(new[] { "ornek-ust-sinir" }, o.Client.QueriedTokens.OrderBy(t => t));
         var saved = await o.Oku();
-        foreach (var original in rows.Take(4))
+        foreach (var original in rows.Take(5))
         {
             var current = saved.Single(s => s.PurchaseToken == original.PurchaseToken);
             Assert.Equal(original.ExpiresAt, current.ExpiresAt);

@@ -22,7 +22,7 @@
 
 <main class="wrap">
   <h1>Gizlilik Politikası</h1>
-  <p class="meta">Son güncelleme: 26 Eylül 2026</p>
+  <p class="meta">Son güncelleme: 11 Ekim 2026</p>
 
   <p>
     Bu metin, Wallet Mark mobil uygulamasının hangi verileri işlediğini,
@@ -63,6 +63,10 @@
     <tr>
       <td><strong>Cihaz bildirim kaydı</strong><br>(Firebase Cloud Messaging belirteci)</td>
       <td>Bütçe uyarısı gibi bildirimleri telefonunuza gönderebilmek için. Bildirim iznini vermezseniz kaydedilmez; oturumu kapattığınızda veya hesabınızı sildiğinizde silinir.</td>
+    </tr>
+    <tr>
+      <td><strong>Premium abonelik kaydı</strong><br>(seçtiğiniz plan, başlangıç ve bitiş tarihi, otomatik yenileme durumu, Google Play sipariş numarası ve satın alma belirteci)</td>
+      <td>Satın almanızı Google Play'e doğrulatmak, Premium özelliklerini açmak ve aboneliğiniz yenilendikçe ya da iptal edildikçe güncel tutmak için. <strong>Kart bilgileriniz bize hiçbir zaman ulaşmaz;</strong> ödemeyi doğrudan Google Play alır.</td>
     </tr>
     <tr>
       <td><strong>IP adresiniz</strong></td>
@@ -120,6 +124,7 @@
     <tr><td>Hetzner Online GmbH (sunucu: Helsinki, Finlandiya)</td><td>Sunucu barındırma</td><td>Tüm hesap verisi (barındırma amacıyla)</td></tr>
     <tr><td>Google Drive</td><td>Şifreli yedek saklama</td><td>Yalnızca şifrelenmiş yedek dosyası (okunamaz)</td></tr>
     <tr><td>Google (Firebase Cloud Messaging)</td><td>Bildirimleri telefonunuza iletme</td><td>Cihaz bildirim kaydı ve bildirimin başlığı ile metni. Bütçe uyarısının metni kategori adını ve bütçe tutarınızı içerir (ör. "Market kategorisinde bu ayki 1.000₺ bütçe limitinizi aştınız"). Adınız, e-postanız veya işlemleriniz gönderilmez.</td></tr>
+    <tr><td>Google (Google Play Faturalandırma)</td><td>Premium aboneliğin ödemesini almak ve satın almayı doğrulamak</td><td>Ödeme işlemi tamamen Google Play üzerinden yapılır. Sunucumuz Google'a yalnızca satın alma belirtecini gönderir. Satın almayı hesabınızla eşleştirmek için Google'a adınız veya e-postanız değil, hesabınızdan türetilmiş ve geri çözülemeyen bir kimlik verilir.</td></tr>
     <tr><td>Google (ML Kit)</td><td>Taranmış ekstreyi telefonda okuma</td><td>Yalnızca teknik kullanım ve performans ölçümleri (bkz. bölüm 4). Sayfa görüntüsü ve okunan metin Google'a gönderilmez.</td></tr>
     <tr><td>Yahoo Finance, TEFAS, Binance, TCMB, CoinGecko</td><td>Piyasa fiyatı sorgulama</td><td><strong>Hiçbir kişisel veri gönderilmez</strong> — yalnızca "THYAO", "BTC" gibi sembol adları sorgulanır. Bu sağlayıcılar sizin kim olduğunuzu, ne kadar tuttuğunuzu veya portföyünüzü göremez.</td></tr>
   </table>
@@ -142,12 +147,19 @@
   <h2>8. Saklama süresi</h2>
   <p>
     Verileriniz hesabınız aktif olduğu sürece saklanır. Hesabınızı sildiğinizde
-    tüm işlem, portföy, bütçe, kategori ve cihaz bildirim kayıtlarınız veritabanından
+    tüm işlem, portföy, bütçe, kategori, abonelik ve cihaz bildirim kayıtlarınız veritabanından
     <strong>kalıcı olarak</strong> silinir — "silindi" olarak işaretlenmez,
     gerçekten kaldırılır. Silme işleminden sonraki 30 gün içinde alınmış şifreli
     yedeklerde veriniz teknik olarak bir süre daha bulunabilir; bu yedekler
     saklama süresi dolduğunda otomatik olarak silinir ve yalnızca felaket
     kurtarma amacıyla kullanılır.
+  </p>
+  <p>
+    <strong>Hesabınızı silmek Premium aboneliğinizi iptal etmez.</strong>
+    Abonelik Google Play'de yönetildiği için, ücretlendirmenin durması için
+    aboneliğinizi Play Store &rsaquo; Ödemeler ve abonelikler bölümünden ayrıca
+    iptal etmeniz gerekir. Google Play'in sipariş ve ödeme kayıtları Google'ın
+    kendi saklama kurallarına tabidir.
   </p>
 
   <h2>9. Haklarınız</h2>

@@ -313,4 +313,53 @@ public class FreeTierLimitTests
     /// sessizce premium yolundan gecip hicbir sey dogrulamaz hale gelirdi.
     private static IConfiguration BosYapilandirma() =>
         new ConfigurationBuilder().Build();
+
+    // NEDEN: Silinmis butce benzersiz indekste kalir, ayni satir dirilmeli.
+    [Fact]
+    public async Task SilinenButce_AyniKategoriyeTekrarEklenince_DiriltilirVeYeniLimitAlir()
+    {
+        var o = Kur();
+        using var context = o.Context;
+        var kid = await KategoriEkle(o, "Deneme kategori");
+        var ilk = await o.Budgets.UpsertAsync(new CreateBudgetDto { CategoryId = kid, MonthlyLimit = 100 });
+        await o.Budgets.DeleteAsync(ilk.Id);
+        var once = DateTime.UtcNow;
+        var sonuc = await o.Budgets.UpsertAsync(new CreateBudgetDto { CategoryId = kid, MonthlyLimit = 250 });
+        var satir = Assert.Single(context.Budgets.IgnoreQueryFilters());
+        Assert.Equal(ilk.Id, sonuc.Id);
+        Assert.False(satir.IsDeleted);
+        Assert.Equal(250m, sonuc.MonthlyLimit);
+        Assert.True(satir.UpdatedDate >= once);
+    }
+
+    // NEDEN: Diriltme aktif sayiyi artirir, ucretsiz siniri atlayamamali.
+    [Fact]
+    public async Task SilinenButceyiDiriltmek_UcretsizSiniraTakilir()
+    {
+        var o = Kur();
+        using var context = o.Context;
+        var kid = await KategoriEkle(o, "Silinen deneme");
+        var ilk = await o.Budgets.UpsertAsync(new CreateBudgetDto { CategoryId = kid, MonthlyLimit = 100 });
+        await o.Budgets.DeleteAsync(ilk.Id);
+        for (var i = 0; i < FreeTierLimits.Budgets; i++)
+            await o.Budgets.UpsertAsync(new CreateBudgetDto { CategoryId = await KategoriEkle(o, $"Aktif {i}"), MonthlyLimit = 100 });
+        await Assert.ThrowsAsync<PremiumRequiredException>(() => o.Budgets.UpsertAsync(new CreateBudgetDto { CategoryId = kid, MonthlyLimit = 250 }));
+        Assert.True(context.Budgets.IgnoreQueryFilters().Single(b => b.Id == ilk.Id).IsDeleted);
+        Assert.Equal(FreeTierLimits.Budgets, context.Budgets.Count());
+    }
+
+    // NEDEN: Aktif butcenin var olan guncelleme davranisi korunmali.
+    [Fact]
+    public async Task AktifButceVarken_TekrarEklemek_LimitiGunceller()
+    {
+        var o = Kur();
+        using var context = o.Context;
+        var kid = await KategoriEkle(o, "Aktif deneme");
+        var ilk = await o.Budgets.UpsertAsync(new CreateBudgetDto { CategoryId = kid, MonthlyLimit = 100 });
+        var sonuc = await o.Budgets.UpsertAsync(new CreateBudgetDto { CategoryId = kid, MonthlyLimit = 300 });
+        Assert.Equal(ilk.Id, sonuc.Id);
+        Assert.Equal(300m, sonuc.MonthlyLimit);
+        Assert.Single(context.Budgets);
+    }
+
 }

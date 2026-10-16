@@ -208,10 +208,37 @@ public class TransactionService : ITransactionService
         await _context.SaveChangesAsync();
     }
 
+    // Aylik ozetin mevcut yil/ay mantigi iki uc icin de aynidir.
+    private IQueryable<Transaction> MonthlyTransactions(int month, int year)
+    {
+        var userId = _currentUserService.UserId;
+        return _repository.Query().Where(t => t.UserId == userId
+            && t.TransactionDate.Month == month && t.TransactionDate.Year == year);
+    }
+
+    public async Task<IReadOnlyList<CategorySummaryDto>> GetCategorySummaryAsync(int month, int year, int type = 2)
+    {
+        if (month < 1 || month > 12 || (type != 1 && type != 2))
+            throw new BadRequestException("Geçersiz ay veya işlem tipi!");
+
+        return await MonthlyTransactions(month, year)
+            .Where(t => t.Type == (TransactionType)type)
+            .GroupBy(t => new { t.CategoryId, CategoryName = t.Category == null ? "Kategorisiz" : t.Category.Name })
+            .Select(g => new CategorySummaryDto
+            {
+                CategoryId = g.Key.CategoryId,
+                CategoryName = g.Key.CategoryName,
+                Total = g.Sum(t => t.Amount),
+                Count = g.Count()
+            })
+            .OrderByDescending(g => g.Total)
+            .ThenBy(g => g.CategoryId)
+            .ToListAsync();
+    }
+
     public async Task<MonthlySummaryDto> GetMonthlySummaryAsync(int month, int year)
     {
-        var userId=_currentUserService.UserId;
-        var monthly = _repository.Query().Where(t=>t.UserId==userId && t.TransactionDate.Month==month && t.TransactionDate.Year==year);
+        var monthly = MonthlyTransactions(month, year);
 
         var totalIncome=await monthly.Where(t=>t.Type==TransactionType.Income).SumAsync(t=>t.Amount);
 

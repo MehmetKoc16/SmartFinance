@@ -52,6 +52,14 @@ namespace SmartFinance.API.Controllers{
             await _transactionService.DeleteTransactionAsync(id);
             return NoContent();
         }
+        [HttpGet("category-summary/{year}/{month}")]
+        public async Task<IActionResult> GetCategorySummaryAsync(int year, int month, [FromQuery] int type = 2)
+        {
+            if (month < 1 || month > 12 || (type != 1 && type != 2))
+                return BadRequest(new { message = "Geçersiz ay veya işlem tipi!" });
+            return Ok(await _transactionService.GetCategorySummaryAsync(month, year, type));
+        }
+
         [HttpGet("summary/{year}/{month}")]
         public async Task<IActionResult> GetMonthlySummaryAsync(int year,int month)
         {

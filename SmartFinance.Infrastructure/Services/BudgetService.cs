@@ -53,12 +53,12 @@ public class BudgetService : IBudgetService
         if (category == null)
             throw new NotFoundException("Kategori bulunamadı!");
 
-        var existing = await _repository.Query()
+        var existing = await _repository.Query().IgnoreQueryFilters()
             .FirstOrDefaultAsync(b => b.UserId == userId && b.CategoryId == dto.CategoryId);
 
-        // Sinir yalnizca YENI butce eklerken. Mevcut butcenin limitini
+        // Yeni veya diriltilen butce aktif sayiyi artirir. Mevcut butcenin limitini
         // guncellemek (asagidaki dal) sayiyi artirmadigi icin serbest.
-        if (existing == null)
+        if (existing == null || existing.IsDeleted)
         {
             var mevcutSayi = await _repository.Query().CountAsync(b => b.UserId == userId);
             await _entitlementService.EnsureWithinFreeLimitAsync(
@@ -69,6 +69,7 @@ public class BudgetService : IBudgetService
 
         if (existing != null)
         {
+            existing.IsDeleted = false;
             existing.MonthlyLimit = dto.MonthlyLimit;
             existing.UpdatedDate = DateTime.UtcNow;
             _repository.Update(existing);

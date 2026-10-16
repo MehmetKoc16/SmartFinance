@@ -146,6 +146,8 @@ public class AuthService : IAuthService{
         //    Bu bilgiler token içinde şifreli olarak taşınır
         var claims = new[]
         {
+            // Ayni saniyede uretilen yeni erisim token'i da benzersiz olmali.
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             // Sub = Subject (sâbcekt) = Kim bu token'ın sahibi?
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             // Email bilgisi
@@ -199,7 +201,7 @@ public class AuthService : IAuthService{
         };
     }
 
-    public async Task ChangePasswordAsync(ChangePasswordDto dto)
+    public async Task<TokenDto> ChangePasswordAsync(ChangePasswordDto dto)
     {
         var userId = _currentUserService.UserId;
         var user = await _context.Users.FindAsync(userId)
@@ -208,7 +210,9 @@ public class AuthService : IAuthService{
             throw new BadRequestException("Mevcut şifre hatalı!");
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
         user.UpdatedDate = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await RevokeRefreshTokensAsync(userId);
+        // Hash, iptaller ve yeni refresh token tek SaveChanges ile kaydedilir.
+        return await GenerateTokenAsync(user);
     }
 
     /// <summary>
@@ -352,13 +356,19 @@ public class AuthService : IAuthService{
 
         // Sifre degistiyse mevcut oturumlar da dusmeli: hesabi ele geciren
         // biri varsa yenileme token'iyla erisimini surdurememeli.
-        var oturumlar = await _context.RefreshTokens
-            .Where(r => r.UserId == kayit.UserId && r.RevokedAt == null)
-            .ToListAsync(ct);
-        foreach (var oturum in oturumlar) oturum.RevokedAt = DateTime.UtcNow;
+        await RevokeRefreshTokensAsync(kayit.UserId, ct);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Şifre sıfırlandı. UserId: {UserId}", kayit.UserId);
+    }
+
+    private async Task RevokeRefreshTokensAsync(int userId, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var tokens = await _context.RefreshTokens.IgnoreQueryFilters()
+            .Where(r => r.UserId == userId && r.RevokedAt == null)
+            .ToListAsync(ct);
+        foreach (var token in tokens) token.RevokedAt = now;
     }
 
     private static string HashToken(string token) =>

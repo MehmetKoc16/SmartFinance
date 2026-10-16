@@ -49,8 +49,8 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
     {
-        await _authService.ChangePasswordAsync(dto);
-        return NoContent();
+        var token = await _authService.ChangePasswordAsync(dto);
+        return Ok(token);
     }
 
     [HttpPut("profile")]
@@ -107,6 +107,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("refresh")]
+    [EnableRateLimiting("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto dto)
     {
         var token = await _authService.RefreshTokenAsync(dto.RefreshToken);

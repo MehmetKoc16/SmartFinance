@@ -208,6 +208,73 @@ public class TransactionService : ITransactionService
         await _context.SaveChangesAsync();
     }
 
+    public async Task<IReadOnlyList<DeletedTransactionDto>> GetDeletedTransactionsAsync()
+    {
+        var userId = _currentUserService.UserId;
+        var now = DateTime.UtcNow;
+        var cutoff = now.AddDays(-30);
+        // IgnoreQueryFilters kullanilirken kullanici ve silinme kosullari zorunlu.
+        var items = await _context.Transactions.IgnoreQueryFilters().AsNoTracking()
+            .Where(t => t.UserId == userId && t.IsDeleted
+                && t.UpdatedDate.HasValue && t.UpdatedDate.Value >= cutoff && t.UpdatedDate.Value <= now)
+            .OrderByDescending(t => t.UpdatedDate)
+            .ThenByDescending(t => t.Id)
+            .Take(200)
+            .Select(t => new DeletedTransactionDto
+            {
+                Id = t.Id,
+                UserId = t.UserId,
+                Amount = t.Amount,
+                Description = t.Description,
+                MerchantName = t.MerchantName,
+                TransactionDate = t.TransactionDate,
+                Type = t.Type,
+                CategoryId = t.CategoryId,
+                CreatedDate = t.CreatedDate,
+                DeletedAt = t.UpdatedDate!.Value
+            }).ToListAsync();
+
+        // SQL datetime Kind saklamaz; kaydedilen UTC degerini saat dilimi donusumu yapmadan isaretle.
+        foreach (var item in items)
+            item.DeletedAt = DateTime.SpecifyKind(item.DeletedAt, DateTimeKind.Utc);
+
+        return items;
+    }
+
+    public async Task<TransactionDto?> RestoreTransactionAsync(int id)
+    {
+        var userId = _currentUserService.UserId;
+        var now = DateTime.UtcNow;
+        var cutoff = now.AddDays(-30);
+        var transaction = await _context.Transactions.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId && t.IsDeleted
+                && t.UpdatedDate.HasValue && t.UpdatedDate.Value >= cutoff && t.UpdatedDate.Value <= now);
+        if (transaction == null) return null;
+
+        // Kategori filtresini kaldirma: silinmis veya kayip kategori geri getirilmez.
+        if (transaction.CategoryId.HasValue && !await _context.Categories
+            .AnyAsync(c => c.Id == transaction.CategoryId.Value && c.UserId == userId))
+            transaction.CategoryId = null;
+
+        transaction.IsDeleted = false;
+        transaction.UpdatedDate = now;
+        await _context.SaveChangesAsync();
+
+        // Geri alma yeni gider degildir; butce/bildirim degerlendirmesi yapilmaz.
+        return new TransactionDto
+        {
+            Id = transaction.Id,
+            UserId = transaction.UserId,
+            Amount = transaction.Amount,
+            Description = transaction.Description,
+            MerchantName = transaction.MerchantName,
+            TransactionDate = transaction.TransactionDate,
+            Type = transaction.Type,
+            CategoryId = transaction.CategoryId,
+            CreatedDate = transaction.CreatedDate
+        };
+    }
+
     // Aylik ozetin mevcut yil/ay mantigi iki uc icin de aynidir.
     private IQueryable<Transaction> MonthlyTransactions(int month, int year)
     {

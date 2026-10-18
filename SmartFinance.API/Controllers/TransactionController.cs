@@ -27,6 +27,20 @@ namespace SmartFinance.API.Controllers{
             var transactions = await _transactionService.GetAllTransactionsAsync();
             return Ok(transactions);
         }
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedTransactionsAsync()
+        {
+            return Ok(await _transactionService.GetDeletedTransactionsAsync());
+        }
+
+        [HttpPost("{id}/restore")]
+        public async Task<IActionResult> RestoreTransactionAsync(int id)
+        {
+            var transaction = await _transactionService.RestoreTransactionAsync(id);
+            if (transaction == null) return NotFound();
+            return Ok(transaction);
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTransactionByIdAsync(int id)
         {

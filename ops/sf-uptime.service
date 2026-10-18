@@ -1,0 +1,12 @@
+[Unit]
+Description=Wallet Mark uptime and disk alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/bin/sf-uptime-check.sh
+TimeoutStartSec=120
+Nice=10
+UMask=0077

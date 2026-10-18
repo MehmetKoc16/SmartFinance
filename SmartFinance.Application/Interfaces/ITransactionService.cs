@@ -9,6 +9,8 @@ public interface ITransactionService{
     Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto);
     Task UpdateTransactionAsync(int id, CreateTransactionDto dto);
     Task DeleteTransactionAsync(int id);
+    Task<IReadOnlyList<DeletedTransactionDto>> GetDeletedTransactionsAsync();
+    Task<TransactionDto?> RestoreTransactionAsync(int id);
     Task<IReadOnlyList<CategorySummaryDto>> GetCategorySummaryAsync(int month, int year, int type = 2);
     Task<MonthlySummaryDto> GetMonthlySummaryAsync(int month, int year);
 }

@@ -166,6 +166,15 @@ public static class KeywordCategoryMatcher
                 tamam = j < anahtar.Length - 1
                     ? k == a
                     : k.StartsWith(a, StringComparison.Ordinal) && Ekler.Contains(k[a.Length..]);
+                // OCR kayip ayirici: yalnizca tek kelimelik, en az bes karakterli
+                // anahtarin basina TEK harf/rakam eklenebilir. Ekli veya daha uzun
+                // tokenlara tolerans uygulama; mevcut kelime sinirlari korunur.
+                if (!tamam && anahtar.Length == 1 && a.Length >= 5
+                    && k.Length == a.Length + 1 && char.IsLetterOrDigit(k[0]))
+                {
+                    var kalan = k[1..];
+                    tamam = kalan.StartsWith(a, StringComparison.Ordinal) && Ekler.Contains(kalan[a.Length..]);
+                }
             }
             if (tamam) return true;
         }

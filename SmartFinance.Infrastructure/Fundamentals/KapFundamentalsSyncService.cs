@@ -9,8 +9,8 @@ namespace SmartFinance.Infrastructure.Fundamentals;
 
 /// <summary>
 /// Portfoylerde tutulan hisselerin donemlik net kar ve ozkaynagini KAP'tan ceker.
-/// Acilistan kisa sure sonra ve 6 saatte bir calisir; yeni bir ceyrek raporu
-/// en gec birkac saat icinde yansir.
+/// Her gun sabit 05:00 ve 13:00 Europe/Istanbul saatlerinde calisir; yeni bir ceyrek raporu
+/// ayni gun icinde yansir.
 ///
 /// Hisse basina TEK sirketlik istek: Excel satirlarinda sirket kimligi yok, yalnizca
 /// rapor tarihindeki unvan var. Toplu istekte unvan degistirmis bir sirketin
@@ -21,8 +21,10 @@ public class KapFundamentalsSyncService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<KapFundamentalsSyncService> _logger;
 
-    private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
+    // 18:30–23:30 TSİ otomatik-al-sat'ın KAP penceresi, buraya koyma
+    private static readonly TimeOnly[] RunTimesTr = { new(5, 0), new(13, 0) };
+
+    private static readonly TimeZoneInfo TrTimeZone = ResolveTrTimeZone();
 
     // KAP ~8 ardisik indirmeden sonra 429 donuyor (otomatik-al-sat olcumu);
     // istekler arasi bekleme o projedekiyle ayni.
@@ -36,11 +38,16 @@ public class KapFundamentalsSyncService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        try { await Task.Delay(StartupDelay, stoppingToken); }
-        catch (OperationCanceledException) { return; }
-
         while (!stoppingToken.IsCancellationRequested)
         {
+            var nowUtc = DateTime.UtcNow;
+            var bekleme = NextRunUtc(nowUtc) - nowUtc;
+            if (bekleme <= TimeSpan.Zero)
+                bekleme = TimeSpan.FromMinutes(1);
+
+            try { await Task.Delay(bekleme, stoppingToken); }
+            catch (OperationCanceledException) { return; }
+
             try
             {
                 await SyncAsync(stoppingToken);
@@ -51,10 +58,38 @@ public class KapFundamentalsSyncService : BackgroundService
                 // Tur basarisiz olursa servis olmemeli; F/K son kaydedilen veriyle gosterilmeye devam eder.
                 _logger.LogError(ex, "KAP temel veri senkronu basarisiz oldu.");
             }
-
-            try { await Task.Delay(Interval, stoppingToken); }
-            catch (OperationCanceledException) { return; }
         }
+    }
+
+    /// <summary>
+    /// Verilen UTC zamanindan SONRAKI ilk 05:00 veya 13:00 Europe/Istanbul anini UTC olarak dondurur.
+    /// </summary>
+    public static DateTime NextRunUtc(DateTime nowUtc)
+    {
+        var utc = DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc);
+        var nowTr = TimeZoneInfo.ConvertTimeFromUtc(utc, TrTimeZone);
+        var bugunTr = DateOnly.FromDateTime(nowTr);
+
+        for (var gunFarki = 0; gunFarki <= 1; gunFarki++)
+        {
+            var tarih = bugunTr.AddDays(gunFarki);
+            foreach (var saat in RunTimesTr)
+            {
+                var adayTr = DateTime.SpecifyKind(tarih.ToDateTime(saat), DateTimeKind.Unspecified);
+                var adayUtc = TimeZoneInfo.ConvertTimeToUtc(adayTr, TrTimeZone);
+                if (adayUtc > utc)
+                    return adayUtc;
+            }
+        }
+
+        var ertesiTr = DateTime.SpecifyKind(bugunTr.AddDays(1).ToDateTime(RunTimesTr[0]), DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(ertesiTr, TrTimeZone);
+    }
+
+    private static TimeZoneInfo ResolveTrTimeZone()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul"); }
+        catch (TimeZoneNotFoundException) { return TimeZoneInfo.FindSystemTimeZoneById("Turkey Standard Time"); }
     }
 
     private async Task SyncAsync(CancellationToken ct)

@@ -1,2 +1,4 @@
 # Sunucuda calisan betikler: Windows CRLF satir sonu bash'i bozar (": command not found").
 *.sh text eol=lf
+# systemd birimleri ve ops altindaki her sey de sunucuda calisiyor.
+ops/** text eol=lf

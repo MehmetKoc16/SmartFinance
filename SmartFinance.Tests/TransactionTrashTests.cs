@@ -230,7 +230,8 @@ public class TransactionTrashTests
         db.ChangeTracker.Clear();
         var row = Assert.Single(await service.GetDeletedTransactionsAsync());
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(row, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-        Assert.Equal(new[] { "amount", "categoryId", "createdDate", "deletedAt", "description", "id", "merchantName", "transactionDate", "type", "userId" },
+        // accountId 19.10'da çoklu hesap özelliğiyle eklendi.
+        Assert.Equal(new[] { "accountId", "amount", "categoryId", "createdDate", "deletedAt", "description", "id", "merchantName", "transactionDate", "type", "userId" },
             json.RootElement.EnumerateObject().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal).ToArray());
         Assert.EndsWith("Z", json.RootElement.GetProperty("deletedAt").GetString());
     }

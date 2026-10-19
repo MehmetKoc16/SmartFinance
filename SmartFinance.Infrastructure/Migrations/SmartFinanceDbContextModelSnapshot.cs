@@ -22,6 +22,61 @@ namespace SmartFinance.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SmartFinance.Domain.Entities.Account", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("CreditLimit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("DueDay")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<decimal>("OpeningBalance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StatementDay")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Accounts");
+                });
+
             modelBuilder.Entity("SmartFinance.Domain.Entities.Budget", b =>
                 {
                     b.Property<int>("Id")
@@ -561,6 +616,9 @@ namespace SmartFinance.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AccountId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
@@ -595,11 +653,60 @@ namespace SmartFinance.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AccountId");
+
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("UserId");
 
                     b.ToTable("Transactions");
+                });
+
+            modelBuilder.Entity("SmartFinance.Domain.Entities.Transfer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("FromAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ToAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("TransferDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromAccountId");
+
+                    b.HasIndex("ToAccountId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Transfers");
                 });
 
             modelBuilder.Entity("SmartFinance.Domain.Entities.User", b =>
@@ -639,6 +746,15 @@ namespace SmartFinance.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("SmartFinance.Domain.Entities.Account", b =>
+                {
+                    b.HasOne("SmartFinance.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SmartFinance.Domain.Entities.Budget", b =>
@@ -769,6 +885,11 @@ namespace SmartFinance.Infrastructure.Migrations
 
             modelBuilder.Entity("SmartFinance.Domain.Entities.Transaction", b =>
                 {
+                    b.HasOne("SmartFinance.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SmartFinance.Domain.Entities.Category", "Category")
                         .WithMany("Transactions")
                         .HasForeignKey("CategoryId")
@@ -780,9 +901,36 @@ namespace SmartFinance.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Account");
+
                     b.Navigation("Category");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SmartFinance.Domain.Entities.Transfer", b =>
+                {
+                    b.HasOne("SmartFinance.Domain.Entities.Account", "FromAccount")
+                        .WithMany()
+                        .HasForeignKey("FromAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartFinance.Domain.Entities.Account", "ToAccount")
+                        .WithMany()
+                        .HasForeignKey("ToAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartFinance.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FromAccount");
+
+                    b.Navigation("ToAccount");
                 });
 
             modelBuilder.Entity("SmartFinance.Domain.Entities.Category", b =>

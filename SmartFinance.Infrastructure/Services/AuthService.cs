@@ -465,6 +465,15 @@ public class AuthService : IAuthService{
             await _context.DeviceTokens.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
         await _context.SaveChangesAsync();
 
+        // Transactions kalıcı silindikten sonra transferler, ardından hesaplar silinir.
+        // İki hesap FK'sı Restrict olduğu için Accounts transferlerden sonra gitmeli.
+        _context.Transfers.RemoveRange(
+            await _context.Transfers.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        await _context.SaveChangesAsync();
+        _context.Accounts.RemoveRange(
+            await _context.Accounts.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        await _context.SaveChangesAsync();
+
         _context.Categories.RemoveRange(
             await _context.Categories.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
         await _context.SaveChangesAsync();

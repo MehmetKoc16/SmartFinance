@@ -5,6 +5,7 @@ namespace SmartFinance.Application.DTOs.Transaction;
 
 public class CreateTransactionDto
 {
+    public int? AccountId { get; set; }
     [Required(ErrorMessage="Tutar zorunludur!")]
     [Range(0.01,double.MaxValue,ErrorMessage="Tutar 0'dan büyük olmalıdır!")]
     public decimal Amount{get;set;}

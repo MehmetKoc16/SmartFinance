@@ -9,6 +9,7 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
     public void Configure(EntityTypeBuilder<Transaction> builder)
     {
         builder.HasKey(t=>t.Id);
+        builder.HasOne(t => t.Account).WithMany().HasForeignKey(t => t.AccountId).OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(t=>t.Amount).IsRequired().HasColumnType("decimal(18,2)");
 

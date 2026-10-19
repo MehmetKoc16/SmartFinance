@@ -3,6 +3,7 @@ using SmartFinance.Domain.Enums;
 namespace SmartFinance.Application.DTOs.Transaction;
 
 public class TransactionDto{
+    public int? AccountId { get; set; }
     public int Id{get;set;}
     public int UserId{get;set;}
     public decimal Amount{get;set;}

@@ -31,6 +31,13 @@ public class TransactionService : ITransactionService
         // zincirleri belleğe tum tabloyu cekmek yerine SQL'e itilir.
         var query=_repository.Query().Where(t=>t.UserId==userId);
 
+        if (filter.AccountId.HasValue)
+        {
+            if (!await _context.Accounts.AnyAsync(a => a.Id == filter.AccountId.Value && a.UserId == userId))
+                throw new NotFoundException("Hesap bulunamadı");
+            query = query.Where(t => t.AccountId == filter.AccountId.Value);
+        }
+
         if(filter.StartDate.HasValue)
             query=query.Where(t=>t.TransactionDate>=filter.StartDate.Value);
         if(filter.EndDate.HasValue)
@@ -75,6 +82,7 @@ public class TransactionService : ITransactionService
             MerchantName=t.MerchantName,
             TransactionDate=t.TransactionDate,
             Type=t.Type,
+            AccountId = t.AccountId,
             CategoryId=t.CategoryId,
             CreatedDate=t.CreatedDate,
         }).ToListAsync();
@@ -100,6 +108,7 @@ public class TransactionService : ITransactionService
             MerchantName = t.MerchantName,
             TransactionDate = t.TransactionDate,
             Type = t.Type,
+            AccountId = t.AccountId,
             CategoryId = t.CategoryId,
             CreatedDate = t.CreatedDate,
         }).ToListAsync();
@@ -119,9 +128,17 @@ public class TransactionService : ITransactionService
             MerchantName = transaction.MerchantName,
             TransactionDate = transaction.TransactionDate,
             Type = transaction.Type,
+            AccountId = transaction.AccountId,
             CategoryId = transaction.CategoryId,
             CreatedDate = transaction.CreatedDate,
         };
+    }
+
+    private async Task EnsureAccountOwnedAsync(int? accountId, int userId)
+    {
+        if (accountId.HasValue && !await _context.Accounts.AnyAsync(a => a.Id == accountId.Value
+            && a.UserId == userId && !a.IsArchived))
+            throw new BadRequestException("Hesap bulunamadı");
     }
 
     private async Task EnsureCategoryOwnedAsync(int? categoryId, int userId, TransactionType transactionType)
@@ -141,9 +158,12 @@ public class TransactionService : ITransactionService
 
         await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
+        await EnsureAccountOwnedAsync(dto.AccountId, userId);
+
         var transaction = new Transaction
         {
             Amount = dto.Amount,
+            AccountId = dto.AccountId,
             Description = dto.Description,
             TransactionDate = dto.TransactionDate,
             Type = dto.Type,
@@ -166,6 +186,7 @@ public class TransactionService : ITransactionService
             MerchantName = transaction.MerchantName,
             TransactionDate = transaction.TransactionDate,
             Type = transaction.Type,
+            AccountId = transaction.AccountId,
             CategoryId = transaction.CategoryId,
             CreatedDate = transaction.CreatedDate,
         };
@@ -180,7 +201,10 @@ public class TransactionService : ITransactionService
 
         await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
+        await EnsureAccountOwnedAsync(dto.AccountId, userId);
+
         transaction.Amount = dto.Amount;
+        transaction.AccountId = dto.AccountId;
         transaction.Description = dto.Description;
         // Elle düzenleme, otomatik çıkarılmış işyeri adını geçersiz kılar —
         // arayüz artık kullanıcının az önce yazdığı Description'ı esas alsın.
@@ -229,6 +253,7 @@ public class TransactionService : ITransactionService
                 MerchantName = t.MerchantName,
                 TransactionDate = t.TransactionDate,
                 Type = t.Type,
+                AccountId = t.AccountId,
                 CategoryId = t.CategoryId,
                 CreatedDate = t.CreatedDate,
                 DeletedAt = t.UpdatedDate!.Value
@@ -270,6 +295,7 @@ public class TransactionService : ITransactionService
             MerchantName = transaction.MerchantName,
             TransactionDate = transaction.TransactionDate,
             Type = transaction.Type,
+            AccountId = transaction.AccountId,
             CategoryId = transaction.CategoryId,
             CreatedDate = transaction.CreatedDate
         };

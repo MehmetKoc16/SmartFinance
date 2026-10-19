@@ -14,6 +14,7 @@ namespace SmartFinance.Application.Common;
 /// </summary>
 public static class FreeTierLimits
 {
+    public const int Accounts = 2;
     /// Ücretsiz katmanda aynı anda tutulabilecek yatırım pozisyonu sayısı.
     public const int Investments = 5;
 

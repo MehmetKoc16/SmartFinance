@@ -56,6 +56,7 @@ builder.Services.AddOpenApi(options =>
 
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 builder.Services.AddScoped<IPdfImportService, PdfImportService>();

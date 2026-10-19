@@ -9,6 +9,8 @@ public class SmartFinanceDbContext : DbContext
     {}
     public DbSet<User> Users {get;set;}
     public DbSet<Transaction> Transactions {get;set;}
+    public DbSet<Account> Accounts { get; set; }
+    public DbSet<Transfer> Transfers { get; set; }
     public DbSet<Category> Categories {get;set;}
     public DbSet<Investment> Investments {get;set;}
     public DbSet<CategoryMapping> CategoryMappings {get;set;}

@@ -4,6 +4,7 @@ namespace SmartFinance.Application.DTOs.Transaction;
 
 public class TransactionFilterDto
 {
+    public int? AccountId { get; set; }
     [Range(1, int.MaxValue, ErrorMessage = "Sayfa numarası 1'den küçük olamaz!")]
     public int Page{get;set;}=1;
 

@@ -57,6 +57,7 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IRecurringPaymentService, RecurringPaymentService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 builder.Services.AddScoped<IPdfImportService, PdfImportService>();
@@ -92,6 +93,8 @@ builder.Services.AddScoped<IMarketDataService, MarketDataService>();
 builder.Services.AddScoped<IFundamentalsService, FundamentalsService>();
 builder.Services.AddHttpClient<IKapClient, KapClient>();
 builder.Services.AddHostedService<KapFundamentalsSyncService>();
+builder.Services.AddScoped<SmartFinance.Infrastructure.Recurring.RecurringReminderRunner>();
+builder.Services.AddHostedService<SmartFinance.Infrastructure.Recurring.RecurringReminderService>();
 
 // Premium hakki ve ucretsiz katman sinirlari. Sinirlarin uygulandigi TEK yer
 // sunucu: istemcinin "ben premium'um" demesine guvenilmez.

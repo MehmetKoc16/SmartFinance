@@ -465,10 +465,15 @@ public class AuthService : IAuthService{
             await _context.DeviceTokens.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
         await _context.SaveChangesAsync();
 
-        // Transactions kalıcı silindikten sonra transferler, ardından hesaplar silinir.
+        // FK sırası: Transactions → Transfers → RecurringPayments → Accounts → Categories → Users.
+        // Planlı ödemeler hem hesaba hem kategoriye Restrict ile bağlıdır.
+        // Transactions kalıcı silindikten sonra transferler, ardından planlar ve hesaplar silinir.
         // İki hesap FK'sı Restrict olduğu için Accounts transferlerden sonra gitmeli.
         _context.Transfers.RemoveRange(
             await _context.Transfers.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
+        await _context.SaveChangesAsync();
+        _context.RecurringPayments.RemoveRange(
+            await _context.RecurringPayments.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
         await _context.SaveChangesAsync();
         _context.Accounts.RemoveRange(
             await _context.Accounts.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());

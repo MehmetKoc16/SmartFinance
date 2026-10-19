@@ -15,6 +15,8 @@ namespace SmartFinance.Application.Common;
 public static class FreeTierLimits
 {
     public const int Accounts = 2;
+    /// Ücretsiz katmanda aktif planlı ödeme sayısı; yalnız oluşturmada uygulanır.
+    public const int RecurringPayments = 3;
     /// Ücretsiz katmanda aynı anda tutulabilecek yatırım pozisyonu sayısı.
     public const int Investments = 5;
 

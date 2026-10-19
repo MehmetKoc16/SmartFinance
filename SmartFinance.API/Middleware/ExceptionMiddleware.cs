@@ -39,6 +39,7 @@ public class ExceptionMiddleware
         {
             BadRequestException => (int)HttpStatusCode.BadRequest,       // 400
             NotFoundException => (int)HttpStatusCode.NotFound,           // 404
+            ConflictException => (int)HttpStatusCode.Conflict,           // 409
             UnauthorizedException => (int)HttpStatusCode.Unauthorized,   // 401
             // 402: istemci bunu gorunce hata mesaji degil paywall ekrani aciyor.
             PremiumRequiredException => (int)HttpStatusCode.PaymentRequired, // 402
@@ -85,7 +86,10 @@ public class ExceptionMiddleware
             traceId = context.TraceIdentifier
         };
 
-        var json = JsonSerializer.Serialize(response);
+        // 402 istemcinin paywall açabilmesi için açık işaret taşır; diğer yanıtlar değişmez.
+        var json = exception is PremiumRequiredException
+            ? JsonSerializer.Serialize(new { response.statusCode, response.message, response.traceId, premiumRequired = true })
+            : JsonSerializer.Serialize(response);
         await context.Response.WriteAsync(json);
     }
 }

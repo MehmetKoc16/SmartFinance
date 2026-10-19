@@ -9,6 +9,24 @@ namespace SmartFinance.Tests;
 
 public class ExceptionMiddlewareTests
 {
+    // NEDEN: Mobil aynı vadeyi tekrar gönderince yeniden denemek yerine listeyi yenilemeli.
+    [Fact]
+    public async Task PlanliOdeme_Cakisma409_MesajKorunur()
+    {
+        var (status, body, _) = await RunAsync(new ConflictException("Bu vade zaten işlendi."));
+        Assert.Equal(409, status); Assert.Equal("Bu vade zaten işlendi.", MesajiOku(body));
+    }
+
+    // NEDEN: Ücretsiz sınır hatası mobilde Premium ekranına yönlendirilebilmeli.
+    [Fact]
+    public async Task Premium402_PremiumRequiredIsareti()
+    {
+        var (status, body, _) = await RunAsync(new PremiumRequiredException("Deneme sınırı"));
+        Assert.Equal(402, status);
+        using var json = JsonDocument.Parse(body);
+        Assert.True(json.RootElement.GetProperty("premiumRequired").GetBoolean());
+    }
+
     /// Middleware'i verilen exception'i firlatan sahte bir pipeline ile calistirir,
     /// donen govdeyi metin olarak ve kullanilan logger'i geri verir.
     private static async Task<(int statusCode, string body, Mock<ILogger<ExceptionMiddleware>> logger)>

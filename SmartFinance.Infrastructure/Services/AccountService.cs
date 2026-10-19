@@ -127,7 +127,14 @@ public class AccountService : IAccountService
             || await _context.Transfers.IgnoreQueryFilters()
             .AnyAsync(x => x.UserId == _user.UserId && (x.FromAccountId == id || x.ToAccountId == id));
         if (hasHistory) account.IsArchived = true;
-        else account.IsDeleted = true;
+        else
+        {
+            // Hareketsiz hesabın 204 yolunda görünmeyen planların FK bağı da temizlenir.
+            var plans = await _context.RecurringPayments.IgnoreQueryFilters()
+                .Where(x => x.AccountId == id).ToListAsync();
+            foreach (var plan in plans) plan.AccountId = null;
+            account.IsDeleted = true;
+        }
         account.UpdatedDate = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return hasHistory;

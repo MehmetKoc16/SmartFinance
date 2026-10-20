@@ -10,6 +10,7 @@ using SmartFinance.Application.Exceptions;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Domain.Enums;
+using SmartFinance.Infrastructure.Accounts;
 using SmartFinance.Infrastructure.Context;
 using SmartFinance.Infrastructure.Repositories;
 using SmartFinance.Infrastructure.Services;
@@ -47,7 +48,25 @@ public class AccountServiceTests
             { AccountId = id, Amount = amount, Type = type, TransactionDate = new DateTime(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc) });
         public Task<TransferDto> Transfer(int from, int to, decimal amount) => Service.CreateTransferAsync(new CreateTransferDto
             { FromAccountId = from, ToAccountId = to, Amount = amount, TransferDate = new DateTime(2026, 10, 11, 12, 0, 0, DateTimeKind.Utc) });
+
+        public async Task<Account> EkstreKarti(DateOnly today, DateTime createdUtc)
+        {
+            var card = new Account { UserId = 1, Name = "Deneme kartı", Type = AccountType.CreditCard,
+                CreditLimit = 5000, StatementDay = SonKesim(today).Day, DueDay = 25, CreatedDate = createdUtc };
+            Db.Accounts.Add(card);
+            await Db.SaveChangesAsync();
+            Assert.Equal(createdUtc, (await Db.Accounts.AsNoTracking().SingleAsync(x => x.Id == card.Id)).CreatedDate);
+            return card;
+        }
     }
+
+    // Kesim bugünden önce seçilir; servis testleri ayın her gününde aynı senaryoyu kurar.
+    private static DateOnly SonKesim(DateOnly today) => today.Day == 1
+        ? new DateOnly(today.Year, today.Month, 28).AddMonths(-1)
+        : new DateOnly(today.Year, today.Month, 1);
+
+    private static DateTime UtcGun(DateOnly day) =>
+        DateTime.SpecifyKind(day.ToDateTime(new TimeOnly(12, 0)), DateTimeKind.Utc);
 
     // NEDEN: Dört hareket türü tek bakiye formülünde doğru işaretle birleşmeli.
     [Fact]
@@ -260,10 +279,86 @@ public class AccountServiceTests
     public async Task Ekstre_KartOlmayanHesapVeGecersizSayida400()
     {
         using var o = new Ortam(); var cash = await o.Hesap(); var card = await o.Hesap(AccountType.CreditCard);
+        // Üç dönem beklentisi için kart bu dönemlerden önce açılmış olmalı.
+        o.Db.Accounts.Single(x => x.Id == card.Id).CreatedDate = DateTime.UtcNow.AddYears(-1);
+        await o.Db.SaveChangesAsync();
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.GetStatementsAsync(cash.Id, 3));
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.GetStatementsAsync(card.Id, 0));
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.GetStatementsAsync(card.Id, 13));
         Assert.Equal(3, (await o.Service.GetStatementsAsync(card.Id, 3)).Past.Count);
+    }
+
+    // NEDEN: Bugün eklenen kart, hiç var olmadığı ayları ödenmiş gibi göstermemeli.
+    [Fact]
+    public async Task Ekstre_HesapAcilmadanOncekiBosDonemler_Donmez()
+    {
+        using var o = new Ortam();
+        var now = DateTime.UtcNow;
+        var card = await o.EkstreKarti(CardCycle.IstanbulDay(now), now);
+
+        var result = await o.Service.GetStatementsAsync(card.Id, 12);
+
+        Assert.Empty(result.Past);
+        Assert.Equal("open", result.Current.Status);
+    }
+
+    // NEDEN: Sonradan girilen eski harcama görünmeli; filtre count dışından dönem tamamlamamalı.
+    [Fact]
+    public async Task Ekstre_AcilistanOnceTarihliIslemVarsa_DonemGorunur()
+    {
+        using var o = new Ortam();
+        var now = DateTime.UtcNow;
+        var today = CardCycle.IstanbulDay(now);
+        var end = SonKesim(today);
+        var card = await o.EkstreKarti(today, now);
+        o.Db.Transactions.Add(new Transaction { UserId = 1, AccountId = card.Id,
+            TransactionDate = UtcGun(end), Amount = 137m, Type = TransactionType.Expense });
+        o.Db.Transactions.Add(new Transaction { UserId = 1, AccountId = card.Id,
+            TransactionDate = UtcGun(end.AddMonths(-12)), Amount = 23m, Type = TransactionType.Expense });
+        await o.Db.SaveChangesAsync();
+
+        var past = Assert.Single((await o.Service.GetStatementsAsync(card.Id, 12)).Past);
+
+        Assert.Equal(end.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), past.PeriodEnd);
+        Assert.Equal(137m, past.Amount);
+        Assert.Equal(137m, past.Remaining);
+        Assert.Contains(past.Status, new[] { "unpaid", "overdue" });
+    }
+
+    // NEDEN: Açılıştan sonra kesilen boş dönem geçmişte kalmalı, ödeme yapılmış sayılmamalı.
+    [Fact]
+    public async Task Ekstre_AcilistanSonraBosDonem_EmptyGorunur()
+    {
+        using var o = new Ortam();
+        var today = CardCycle.IstanbulDay(DateTime.UtcNow);
+        var card = await o.EkstreKarti(today, UtcGun(SonKesim(today).AddDays(-1)));
+
+        var result = await o.Service.GetStatementsAsync(card.Id, 12);
+        var past = Assert.Single(result.Past);
+
+        Assert.Equal("empty", past.Status);
+        Assert.Equal(0m, past.Amount);
+        Assert.Equal(0m, past.Paid);
+        Assert.Equal(0m, past.Remaining);
+        Assert.Equal("open", result.Current.Status);
+    }
+
+    // NEDEN: UTC açılış kesimle aynı gün görünse de TSİ'de ertesi güne geçebilir; eşit gün korunmalı.
+    [Theory]
+    [InlineData(20, true)]
+    [InlineData(21, false)]
+    public async Task Ekstre_AcilisGunu_TsiSiniriVeKesimleEsitlik(int utcHour, bool visible)
+    {
+        using var o = new Ortam();
+        var today = CardCycle.IstanbulDay(DateTime.UtcNow);
+        var end = SonKesim(today);
+        var created = DateTime.SpecifyKind(end.ToDateTime(new TimeOnly(utcHour, 30)), DateTimeKind.Utc);
+        var card = await o.EkstreKarti(today, created);
+
+        var result = await o.Service.GetStatementsAsync(card.Id, 12);
+
+        if (visible) Assert.Equal("empty", Assert.Single(result.Past).Status);
+        else Assert.Empty(result.Past);
     }
 
     // NEDEN: Opsiyonel açılış bakiyesi null gönderildiğinde sıfır olmalı.

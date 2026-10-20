@@ -101,10 +101,18 @@ StatementDto'nun bütün alanları:
 {"periodStart":"2026-09-21","periodEnd":"2026-10-20","dueDate":"2026-10-25","amount":1000,"paid":400,"remaining":600,"status":"partial"}
 ```
 
-Tarihler `yyyy-MM-dd`. `status`: paid/partial/unpaid/overdue; current her zaman
-open. Kesim günü dahil, önceki kesimin ertesi günü dahil. UTC işlem TSİ gününe
-çevrilir. Açılış borcu önce, bütün eski dönemler sonra FIFO kapanır; count yalnız
-görünen dönem sayısını sınırlar. Ödeme fazlası sonraki/açık döneme taşınır.
+Tarihler `yyyy-MM-dd`. `status`: empty/paid/partial/unpaid/overdue; current her zaman
+open. Kesimi geçmiş dönemde yalnız `amount == 0` ve `paid == 0` ise `empty` döner;
+bu durumda `remaining` da 0'dır. `amount == 0` ama `paid > 0` durumunda mevcut
+durum kuralları korunur. Kesim günü dahil, önceki kesimin ertesi günü dahil.
+UTC işlem TSİ gününe çevrilir. Açılış borcu önce, bütün eski dönemler sonra FIFO
+kapanır. `count` (1–12) kaç dönem geriye bakılacağını belirler; FIFO tarihçesini sınırlamaz.
+`past` içinde `periodEnd < hesabın CreatedDate değerinin TSİ günü` ve `amount == 0`
+ve `paid == 0` koşullarının tümünü sağlayan dönemler çıkarılır. Açılış günüyle aynı
+günde kesilen boş dönem ve açılıştan önce tarihli harcama içeren dönem görünür kalır.
+Çıkarılan dönemlerin yerine daha eski dönemler getirilmez; `past` kısalabilir veya
+boş olabilir. Açılıştan sonra kesilen boş dönemler `empty` olarak listede kalır.
+Ödeme fazlası sonraki/açık döneme taşınır.
 Ekstre tutarı gider eksi iadedir; avans yalnız toplam kart borcunu etkiler.
 Gelecek TSİ günündeki hareketler bugünün ekstresine/ödemesine katılmaz.
 

@@ -86,7 +86,8 @@ public static class CardCycle
                 PeriodEnd = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 DueDate = due.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 Amount = amount, Paid = paid, Remaining = remaining,
-                Status = open ? "open" : remaining == 0 ? "paid" : today > due ? "overdue" : paid > 0 ? "partial" : "unpaid"
+                Status = open ? "open" : amount == 0 && paid == 0 ? "empty"
+                    : remaining == 0 ? "paid" : today > due ? "overdue" : paid > 0 ? "partial" : "unpaid"
             };
         }
 

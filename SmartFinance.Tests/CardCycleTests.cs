@@ -4,6 +4,35 @@ namespace SmartFinance.Tests;
 
 public class CardCycleTests
 {
+    // NEDEN: Harcamasız geçmiş dönem ödeme yapılmış sayılmamalı; açık dönem open kalmalı.
+    [Fact]
+    public void Ekstre_HarcamasizGecmisDonem_EmptyDurumu()
+    {
+        var result = Hesapla(Array.Empty<CardCycle.Entry>());
+
+        Assert.All(result.Past, past =>
+        {
+            Assert.Equal("empty", past.Status);
+            Assert.Equal(0m, past.Amount);
+            Assert.Equal(0m, past.Paid);
+            Assert.Equal(0m, past.Remaining);
+        });
+        Assert.Equal("open", result.Current.Status);
+    }
+
+    // NEDEN: İadeyle net sıfır dönem empty olur; negatif tutarlı dönemin mevcut paid durumu korunur.
+    [Theory]
+    [InlineData(-100, "empty")]
+    [InlineData(-120, "paid")]
+    public void Ekstre_IadeSonrasiDurum_NetTutaraGoreBelirlenir(int refund, string status)
+    {
+        var result = Hesapla(new[] { Harcama(10, 1, 100), Harcama(10, 2, refund) }, payment: 45);
+
+        Assert.Equal(status, result.Past[0].Status);
+        Assert.Equal(0m, result.Past[0].Paid);
+        Assert.Equal(0m, result.Past[0].Remaining);
+    }
+
     // NEDEN: Şubat kesimi geçerli takvim gününde kalmalı.
     [Fact]
     public void KesimTarihi_KisaAydaAyinSonGunu() =>

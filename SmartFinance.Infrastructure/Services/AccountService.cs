@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Common;
 using SmartFinance.Application.DTOs.Account;
@@ -212,8 +213,13 @@ public class AccountService : IAccountService
         var payments = await _context.Transfers.AsNoTracking()
             .Where(x => x.UserId == _user.UserId && x.ToAccountId == id)
             .Select(x => new { x.TransferDate, x.Amount }).ToListAsync();
-        return CardCycle.Calculate(account.StatementDay!.Value, account.DueDay!.Value, account.OpeningBalance,
+        var statements = CardCycle.Calculate(account.StatementDay!.Value, account.DueDay!.Value, account.OpeningBalance,
             transactions.Select(x => new CardCycle.Entry(x.TransactionDate, x.Type == TransactionType.Expense ? x.Amount : -x.Amount)),
             payments.Select(x => new CardCycle.Entry(x.TransferDate, x.Amount)), DateTime.UtcNow, count);
+        var createdDay = CardCycle.IstanbulDay(account.CreatedDate);
+        // FIFO tamamlandıktan sonra yalnız görünümü süz; count penceresini eski dönemlerle doldurma.
+        statements.Past = statements.Past.Where(x => x.Amount != 0 || x.Paid != 0
+            || DateOnly.ParseExact(x.PeriodEnd, "yyyy-MM-dd", CultureInfo.InvariantCulture) >= createdDay).ToList();
+        return statements;
     }
 }

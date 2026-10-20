@@ -1,5 +1,10 @@
 # Planlı ödemeler — Aşama 1 teslim notu
 
+20.10.2026 (v16 yayın öncesi düzeltmeler): pay tarih kuralı (TSİ duvar saati), takvim
+yeniden hesaplamada vadenin geri gitmemesi, pasif→aktif PUT'ta ücretsiz sınır, silinmiş
+kategori, RemindDaysBefore SQL varsayılanının kaldırılması, tutarsız push metni,
+plan başına hata yalıtımı ve 09:00–23:00 açılış penceresi. Ayrıntılar ilgili bölümlerde.
+
 19.10.2026 kullanıcı onayı. Yalnız backend. Önce temel takvim, servis ve hatırlatma
 test dosyaları yazıldı, ardından uygulama ve ek sınır testleri eklendi.
 Build/test/EF komutu çalıştırılmadı; mevcut 483 testin veya yeni testlerin geçtiği
@@ -49,7 +54,7 @@ Değişen:
 
 Bütün uçlar kimlik doğrulama ister (yoksa 401). Alanlar camelCase. Tutarlar JSON
 sayıdır. `type`: 1 gelir, 2 gider. `frequency`: 1 haftalık, 2 aylık, 3 yıllık.
-DateOnly alanlar `yyyy-MM-dd`; işlem tarihi UTC ISO 8601 (`Z`).
+DateOnly alanlar `yyyy-MM-dd`; pay `transactionDate` TSİ duvar saati (`Z`/ofset yok, bkz. Zaman kuralı).
 
 | Uç | İstek | Başarı |
 | --- | --- | --- |
@@ -107,17 +112,29 @@ PUT /api/recurring/1 örnek istek:
 POST /api/recurring/1/pay örnek istek (yalnız dueDate zorunlu):
 
 ```json
-{"dueDate":"2026-10-19","amount":null,"transactionDate":"2026-10-19T12:00:00Z","accountId":null,"description":null}
+{"dueDate":"2026-10-19","amount":null,"transactionDate":"2026-10-19T15:00:00","accountId":null,"description":null}
 ```
 
 200 örnek yanıt, mevcut TransactionDto alanları aynen korunur:
 
 ```json
-{"transaction":{"id":11,"userId":1,"amount":21.75,"description":"Deneme Dijital Abonelik","merchantName":null,"transactionDate":"2026-10-19T12:00:00Z","type":2,"categoryId":null,"createdDate":"2026-10-19T12:00:00Z","accountId":null},"recurringPayment":{"id":1,"name":"Deneme Dijital Abonelik","amount":21.75,"type":2,"categoryId":null,"accountId":null,"frequency":2,"startDate":"2026-10-19","anchorDay":19,"nextDueDate":"2026-11-19","endDate":null,"remindDaysBefore":1,"isActive":true,"daysUntil":31,"status":"upcoming"}}
+{"transaction":{"id":11,"userId":1,"amount":21.75,"description":"Deneme Dijital Abonelik","merchantName":null,"transactionDate":"2026-10-19T15:00:00","type":2,"categoryId":null,"createdDate":"2026-10-19T12:00:00Z","accountId":null},"recurringPayment":{"id":1,"name":"Deneme Dijital Abonelik","amount":21.75,"type":2,"categoryId":null,"accountId":null,"frequency":2,"startDate":"2026-10-19","anchorDay":19,"nextDueDate":"2026-11-19","endDate":null,"remindDaysBefore":1,"isActive":true,"daysUntil":31,"status":"upcoming"}}
 ```
 
-`amount` null/yoksa plan tutarı; `transactionDate` null/yoksa UTC şimdi;
+`amount` null/yoksa plan tutarı; `transactionDate` null/yoksa TSİ şimdi (duvar saati);
 `accountId` null/yoksa plan hesabı; `description` null/yoksa plan adı.
+
+Pay `transactionDate` kuralı (20.10.2026): değer TSİ duvar saati olarak AYNEN saklanır
+(Kind belirsiz, `Z`/ofset yok). `Z` veya ofsetli gelirse (eski/yanlış istemci) TSİ'ye
+çevrilir; örn. `2026-10-18T22:00:00Z` → `2026-10-19T01:00:00`. Önceki "UTC olmalı" 400'ü
+kaldırıldı; yalnız `0001-01-01T00:00:00` (default) 400 `İşlem tarihi geçersiz.` döner.
+Varsayılan TSİ şimdi: 22:30Z → ertesi gün 01:30; böylece 00:00–03:00 TSİ ödemeleri
+önceki güne/aya (bütçe ayına) düşmez.
+
+Planın kategorisi sonradan silinmişse (soft-delete) pay 400 vermez: işlem kategorisiz
+oluşur ve planın `categoryId` alanı null yapılır. PUT'ta istemci planın bu silinmiş
+kategorisini geri gönderirse aynı şekilde null yapılır; planın kategorisi olmayan
+geçersiz bir kimlik yine 400'dür.
 Bu geçici değerler planın tutarını/hesabını/adını değiştirmez. CategoryId ve Type
 plandan alınır. Hesapsız ödeme için planın hesabı önce PUT ile null yapılabilir;
 pay isteğinde null bir override değil, plan hesabını kullan anlamındadır.
@@ -158,8 +175,11 @@ gecikmiş demektir. Durumlar:
 - `ended`: IsActive=false; tarih karşılaştırmasından önce uygulanır.
 
 Oluşturmada geçmiş StartDate, bugün veya sonraki ilk vadeye ilerletilir.
-Frequency/StartDate değişen PUT aynı hesabı tekrar yapar ve aktifliği yeni
-takvime göre belirler. Diğer alanlar değişince vade korunur. EndDate vadenin
+Frequency/StartDate değişen PUT takvimi yeniden hesaplar (20.10.2026): yeni NextDueDate,
+yeni takvimin ESKİ NextDueDate'ten küçük olmayan ilk vadesidir; eski NextDueDate'ten
+önceki vadeler işlenmiş sayılır (ödenmiş plan haftalığa çevrilince vade geri gitmez,
+gecikmiş mevcut vade de kaybolmaz). Aktiflik yeni takvime göre belirlenir.
+Diğer alanlar değişince vade korunur. EndDate vadenin
 önüne alınırsa plan pasif olur; yalnız EndDate uzatmak bitmiş planı etkinleştirmez.
 Takvim yeniden hesaplanırken ilk uygun vade EndDate sonrasındaysa plan pasiftir.
 
@@ -169,7 +189,8 @@ olmayan yılda 28 Şubat, artık yılda tekrar 29 Şubat. EndDate dahil son gün
 Pay/skip yalnız bir sonraki vadeye ilerler; aradaki gecikmiş vadeleri topluca
 atlamaz. Sonraki vade EndDate'i aşarsa IsActive=false ve status=ended olur.
 
-Ücretsiz sınır yalnız oluşturmada aktif, silinmemiş kayıt sayısına göre 3.
+Ücretsiz sınır oluşturmada ve pasif planı aktife çeviren PUT'ta (20.10.2026) aktif,
+silinmemiş kayıt sayısına göre 3. Aktif planın PUT'u sınırdan etkilenmez.
 Premium sınırsız. Premium bittikten sonra mevcut planların listelenmesi,
 güncellenmesi, ödenmesi, atlanması ve hatırlatmaları devam eder.
 
@@ -178,10 +199,10 @@ güncellenmesi, ödenmesi, atlanması ve hatırlatmaları devam eder.
 Mevcut hata gövdesi: statusCode, message, traceId. 402 ayrıca premiumRequired=true.
 
 - 400: geçersiz alan, eksik dueDate, pasif plan, kategori sahiplik/tür hatası,
-  hesap sahiplik/arşiv hatası, UTC olmayan transactionDate veya geçersiz days.
+  hesap sahiplik/arşiv hatası, default (0001-01-01) transactionDate veya geçersiz days.
   Pay description en fazla 500; override amount da plan tutarıyla aynı sınırlarda.
 - 404: başkasına ait, bulunamayan veya silinmiş plan.
-- 402: ücretsiz planda dördüncü aktif planı oluşturma.
+- 402: ücretsiz planda dördüncü aktif planı oluşturma veya pasif planı aktife çevirme.
 - 409: dueDate mevcut NextDueDate ile eşleşmiyorsa veya eşzamanlı vade işleme
   yarışında diğer istek önce kaydettiyse. Son vade planı bitirse de eski dueDate
   tekrarı 409'dur; mevcut vadeyi pasif kayıtta işlemek 400'dür.
@@ -200,19 +221,25 @@ Mevcut hata gövdesi: statusCode, message, traceId. 402 ayrıca premiumRequired=
 
 ## Hatırlatma ve push
 
-Her gün 09:00 Europe/Istanbul. Açılış TSİ 09:00 dahil–21:00 hariç arasındaysa
-hemen bir tur; sonra ertesi 09:00. Hata loglanır, hosted service döngüsü sürer.
+Her gün 09:00 Europe/Istanbul. Açılış TSİ 09:00 dahil–23:00 hariç arasındaysa
+hemen bir tur (20.10.2026: 21:00'dan 23:00'e); sonra ertesi 09:00. Hata loglanır,
+hosted service döngüsü sürer. Her plan ayrı işlenir: bir planın hatası loglanır,
+izleyici temizlenir ve sıradaki plana geçilir.
 Windows/Linux saat dilimi çözümü mevcut KAP servisindeki kalıpla aynıdır.
 
 Aktif/silinmemiş plan ve silinmemiş kullanıcı gerekir. NextDueDate baz alınır;
 gecikmiş vadeler için tekrar bildirim üretilmez. Ön hatırlatma yalnız
 RemindDaysBefore > 0 ve bugün == NextDueDate - RemindDaysBefore ise gönderilir.
 
-| Durum | Gider başlığı | Gelir başlığı | Metin örneği |
-| --- | --- | --- | --- |
-| 1 gün önce | Yaklaşan ödeme | Yaklaşan gelir | Deneme planı: ₺1.234,50 — yarın (20.10) |
-| 2–7 gün önce | Yaklaşan ödeme | Yaklaşan gelir | Deneme planı: ₺1.234,50 — 3 gün sonra (22.10) |
-| Vade günü | Bugün ödenecek | Bugün beklenen gelir | Deneme planı: ₺1.234,50 |
+| Durum | Gider başlığı | Gelir başlığı | Uygulama içi Message | Push gövdesi |
+| --- | --- | --- | --- | --- |
+| 1 gün önce | Yaklaşan ödeme | Yaklaşan gelir | Deneme planı: ₺1.234,50 — yarın (20.10) | Deneme planı — yarın (20.10) |
+| 2–7 gün önce | Yaklaşan ödeme | Yaklaşan gelir | Deneme planı: ₺1.234,50 — 3 gün sonra (22.10) | Deneme planı — 3 gün sonra (22.10) |
+| Vade günü | Bugün ödenecek | Bugün beklenen gelir | Deneme planı: ₺1.234,50 | Deneme planı — bugün |
+
+Push gövdesinde tutar YOKTUR (20.10.2026): kilit ekranında görünür ve kullanıcı
+uygulamada "Tutarları gizle" açmış olabilir. Push başlığı Notification.Title ile aynıdır;
+Notification.Message (bildirim listesi) tutarı içermeye devam eder.
 
 Notification.Type = 3 (RecurringDue).
 DedupeKey = `planli:{id}:{NextDueDate:yyyy-MM-dd}:{once|gun}`, en fazla 100
@@ -223,7 +250,15 @@ Mevcut UNIQUE(UserId,DedupeKey), aynı anda çalışan sunuculara karşı da kor
 Yalnız yeni kaydedilen bildirim push olarak gönderilir. IPushSender yoksa
 uygulama içi bildirim yeterlidir. Push data: type=notification, notificationId
 (string). Hata loglanır, kaydedilmiş bildirim geri alınmaz. Geçersiz cihaz
-token'ları silinir. Telefonu olmayan kullanıcı yine bildirim listesinde görür.
+token'ları silinir; bu silme düşerse izleyici temizlenir, sonraki planlar etkilenmez.
+Telefonu olmayan kullanıcı yine bildirim listesinde görür.
+
+## Zaman kuralı (20.10.2026)
+
+- Transaction.TransactionDate = TSİ duvar saati (Kind belirsiz); sunucu dönüştürmez,
+  gün = tarihin kendi günü. Pay'in oluşturduğu işlem de bu biçimdedir.
+- Transfer.TransferDate = UTC; gün = UTC→TSİ.
+- "Bugün"/"şimdi" = TSİ (RecurrenceSchedule.TodayTr / ToTrWallClock).
 
 ## Migration için beklenen model farkları
 
@@ -233,8 +268,9 @@ Migration DOSYASI YAZILMADI. Sunucuda kullanıcı üretecek.
   datetime2 nullable; IsDeleted bit; UserId int zorunlu; Name nvarchar(100)
   zorunlu; Amount decimal(18,2) zorunlu; Type int; CategoryId int nullable;
   AccountId int nullable; Frequency int; StartDate date; AnchorDay int;
-  NextDueDate date; EndDate date nullable; RemindDaysBefore int default 1;
-  IsActive bit. Nullable belirtilmeyen alanlar zorunludur.
+  NextDueDate date; EndDate date nullable; RemindDaysBefore int (SQL varsayılanı YOK,
+  20.10.2026: HasDefaultValue(1) kaldırıldı; değer her INSERT'te açıkça yazılır, entity
+  başlangıcı 1); IsActive bit. Nullable belirtilmeyen alanlar zorunludur.
 - FK: UserId → Users.Id, CategoryId → Categories.Id, AccountId → Accounts.Id;
   hepsi Restrict. İndeks (UserId,NextDueDate); EF FK konvansiyonuyla CategoryId
   ve AccountId indeksleri.

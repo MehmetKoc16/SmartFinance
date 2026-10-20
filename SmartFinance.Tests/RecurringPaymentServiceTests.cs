@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -19,7 +21,9 @@ public class RecurringPaymentServiceTests
 {
     internal sealed class Saat : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => new(2026, 10, 19, 12, 0, 0, TimeSpan.Zero);
+        private readonly DateTimeOffset _now;
+        public Saat(DateTimeOffset? now = null) => _now = now ?? new(2026, 10, 19, 12, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => _now;
     }
 
     internal sealed class Ortam : IDisposable
@@ -27,14 +31,14 @@ public class RecurringPaymentServiceTests
         public SmartFinanceDbContext Db { get; }
         public ICurrentUserService User { get; }
         public RecurringPaymentService Service { get; }
-        public Ortam(string? databaseName = null)
+        public Ortam(string? databaseName = null, DateTimeOffset? now = null)
         {
             Db = new SmartFinanceDbContext(new DbContextOptionsBuilder<SmartFinanceDbContext>()
                 .UseInMemoryDatabase(databaseName ?? Guid.NewGuid().ToString())
                 .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning)).Options);
             var user = new Mock<ICurrentUserService>(); user.SetupGet(x => x.UserId).Returns(1); User = user.Object;
             var transactions = new TransactionService(new GenericRepository<Transaction>(Db), Db, User, new NotificationService(Db, User));
-            Service = new RecurringPaymentService(Db, User, new EntitlementService(Db, User, new ConfigurationBuilder().Build()), transactions, new Saat());
+            Service = new RecurringPaymentService(Db, User, new EntitlementService(Db, User, new ConfigurationBuilder().Build()), transactions, new Saat(now));
         }
         public void Dispose() => Db.Dispose();
         public static CreateRecurringPaymentDto Dto() => new()
@@ -96,12 +100,13 @@ public class RecurringPaymentServiceTests
         Assert.Equal(p.NextDueDate, (await o.Service.UpdateAsync(p.Id, dto)).NextDueDate);
     }
 
-    // NEDEN: Yeni takvim bugünden önceki vadeyi yeniden başlatmamalı.
+    // NEDEN: Yeni takvim, eski NextDueDate'ten önceki (işlenmiş sayılan) vadeye dönmemeli;
+    // gecikmiş mevcut vade ise kaybolmamalı (madde 7, 20.10.2026).
     [Fact]
     public async Task Guncelle_FrekansDegisir_VadeYenidenHesaplanir()
     {
         using var o = new Ortam(); var p = await o.Kayit(-7); var dto = Ortam.Dto(); dto.StartDate = p.StartDate;
-        Assert.Equal(new DateOnly(2026, 11, 12), (await o.Service.UpdateAsync(p.Id, dto)).NextDueDate);
+        Assert.Equal(new DateOnly(2026, 10, 12), (await o.Service.UpdateAsync(p.Id, dto)).NextDueDate);
     }
 
     // NEDEN: Tek dokunuş işlem bağlantılarını ve bütçe yan etkisini korumalı.
@@ -250,7 +255,7 @@ public class RecurringPaymentServiceTests
         using var o = new Ortam(); var p = await o.Kayit(); var due = p.NextDueDate;
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.PayAsync(p.Id, new PayRecurringPaymentDto()));
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = due, Amount = -1 }));
-        await Assert.ThrowsAsync<BadRequestException>(() => o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = due, TransactionDate = new DateTime(2026, 10, 19) }));
+        await Assert.ThrowsAsync<BadRequestException>(() => o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = due, TransactionDate = default(DateTime) }));
         var a = new Account { UserId = 1, Name = "Deneme", IsArchived = true };
         o.Db.Accounts.Add(a); await o.Db.SaveChangesAsync(); p.AccountId = a.Id; await o.Db.SaveChangesAsync();
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = due }));
@@ -263,7 +268,8 @@ public class RecurringPaymentServiceTests
     {
         using var o = new Ortam(); var p = await o.Kayit();
         var a = new Account { UserId = 1, Name = "Deneme" }; o.Db.Accounts.Add(a); await o.Db.SaveChangesAsync();
-        var date = new DateTime(2026, 10, 18, 22, 0, 0, DateTimeKind.Utc);
+        // ZAMAN KURALI: işlem tarihi TSİ duvar saatidir (Kind belirsiz) ve aynen saklanır.
+        var date = new DateTime(2026, 10, 19, 1, 0, 0, DateTimeKind.Unspecified);
         var result = await o.Service.PayAsync(p.Id, new PayRecurringPaymentDto
             { DueDate = p.NextDueDate, Amount = 21.75m, AccountId = a.Id, Description = "Deneme ödeme", TransactionDate = date });
         Assert.Equal(21.75m, result.Transaction.Amount); Assert.Equal(a.Id, result.Transaction.AccountId);
@@ -290,5 +296,121 @@ public class RecurringPaymentServiceTests
         Assert.Equal(2, (await o.Service.UpcomingAsync(90)).Items.Count);
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.UpcomingAsync(0));
         await Assert.ThrowsAsync<BadRequestException>(() => o.Service.UpcomingAsync(91));
+    }
+
+    // ---- v16 yayın öncesi düzeltmeler (20.10.2026) ----
+
+    // NEDEN: 00:00–03:00 TSİ arasındaki ödeme UTC şimdiyle önceki güne/aya düşüyordu.
+    // 22:30 UTC = ertesi gün 01:30 TSİ duvar saati.
+    [Fact]
+    public async Task Ode_TarihVerilmezse_TsiSimdi()
+    {
+        using var o = new Ortam(now: new DateTimeOffset(2026, 10, 19, 22, 30, 0, TimeSpan.Zero)); var p = await o.Kayit();
+        var result = await o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = p.NextDueDate });
+        var expected = new DateTime(2026, 10, 20, 1, 30, 0, DateTimeKind.Unspecified);
+        Assert.Equal(expected, result.Transaction.TransactionDate);
+        Assert.Equal(DateTimeKind.Unspecified, result.Transaction.TransactionDate.Kind);
+        Assert.Equal(expected, o.Db.Transactions.Single().TransactionDate);
+    }
+
+    // NEDEN: Mobil işlem tarihini duvar saati (Kind belirsiz) gönderir; 400 verilmemeli, kaydırılmamalı.
+    [Fact]
+    public async Task Ode_DuvarSaatiTarih_AynenKaydedilir()
+    {
+        using var o = new Ortam(); var p = await o.Kayit();
+        var date = new DateTime(2026, 10, 19, 0, 30, 0, DateTimeKind.Unspecified);
+        var result = await o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = p.NextDueDate, TransactionDate = date });
+        Assert.Equal(date, result.Transaction.TransactionDate);
+        Assert.Equal(date, o.Db.Transactions.Single().TransactionDate);
+    }
+
+    // NEDEN: Eski/yanlış istemci 'Z' gönderse de işlem doğru TSİ gününe düşmeli.
+    [Fact]
+    public async Task Ode_UtcTarih_TsiyeCevrilir()
+    {
+        using var o = new Ortam(); var p = await o.Kayit();
+        var result = await o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = p.NextDueDate,
+            TransactionDate = new DateTime(2026, 10, 18, 22, 0, 0, DateTimeKind.Utc) });
+        Assert.Equal(new DateTime(2026, 10, 19, 1, 0, 0), result.Transaction.TransactionDate);
+        Assert.Equal(DateTimeKind.Unspecified, result.Transaction.TransactionDate.Kind);
+    }
+
+    // NEDEN: EF int 0'ı 'değer yok' sayıp SQL varsayılanını (1) yazıyordu; 'Günü gelince' (0)
+    // seçen kullanıcı bir gün önce bildirim alıyordu. InMemory bunu yakalamaz; model doğrulanır.
+    [Fact]
+    public void PlanliOdeme_RemindDaysBefore_VeritabaniVarsayilaniYok()
+    {
+        using var o = new Ortam();
+        var model = o.Db.GetService<IDesignTimeModel>().Model;
+        var property = model.FindEntityType(typeof(RecurringPayment))!.FindProperty(nameof(RecurringPayment.RemindDaysBefore))!;
+        // GetDefaultValue() EF 10'da tanımsızken CLR varsayılanını (0) döndürüyor; asıl kanıt annotation'ın yokluğu.
+        Assert.Null(property.FindAnnotation(RelationalAnnotationNames.DefaultValue));
+        Assert.Null(property.GetDefaultValueSql());
+        Assert.Equal(1, new RecurringPayment().RemindDaysBefore);
+    }
+
+    // NEDEN: Pasif planı güncellemeyle aktife çevirmek ücretsiz sınırı atlatmamalı.
+    [Fact]
+    public async Task Guncelle_PasifiAktifeCevirme_UcretsizSinirdaysa402()
+    {
+        using var o = new Ortam(); for (var i = 0; i < 3; i++) await o.Service.CreateAsync(Ortam.Dto());
+        var p = await o.Kayit(-14, false); p.EndDate = p.StartDate; await o.Db.SaveChangesAsync();
+        var dto = Ortam.Dto(); dto.StartDate = p.StartDate; dto.Frequency = RecurrenceFrequency.Monthly; dto.EndDate = null;
+        var ex = await Assert.ThrowsAsync<PremiumRequiredException>(() => o.Service.UpdateAsync(p.Id, dto));
+        Assert.Equal("Ücretsiz planda en fazla 3 planlı ödeme tanımlayabilirsiniz. Sınırsız planlı ödeme için Premium'a geçin.", ex.Message);
+        Assert.False(o.Db.RecurringPayments.AsNoTracking().Single(x => x.Id == p.Id).IsActive);
+    }
+
+    // NEDEN: Aktif planın güncellenmesi sınırda olsa da engellenmemeli (yalnız pasif→aktif geçişi sayılır).
+    [Fact]
+    public async Task Guncelle_AktifPlan_UcretsizSinirdaEngellenmez()
+    {
+        using var o = new Ortam(); for (var i = 0; i < 3; i++) await o.Service.CreateAsync(Ortam.Dto());
+        var id = o.Db.RecurringPayments.First().Id; var dto = Ortam.Dto(); dto.Frequency = RecurrenceFrequency.Weekly;
+        Assert.True((await o.Service.UpdateAsync(id, dto)).IsActive);
+    }
+
+    // NEDEN: Kategori silindi diye ödeme 400 vermemeli; mevcut geri alma kalıbı gibi kategorisiz işlenir.
+    [Fact]
+    public async Task Ode_KategoriSilinmis_KategorisizIslemOlusur()
+    {
+        using var o = new Ortam(); var p = await o.Kayit();
+        var c = new Category { UserId = 1, Name = "Deneme", Type = TransactionType.Expense };
+        o.Db.Categories.Add(c); await o.Db.SaveChangesAsync(); p.CategoryId = c.Id; c.IsDeleted = true; await o.Db.SaveChangesAsync();
+        var result = await o.Service.PayAsync(p.Id, new PayRecurringPaymentDto { DueDate = p.NextDueDate });
+        Assert.Null(result.Transaction.CategoryId); Assert.Null(result.RecurringPayment.CategoryId);
+        Assert.Null(o.Db.Transactions.Single().CategoryId);
+        Assert.Null(o.Db.RecurringPayments.AsNoTracking().Single().CategoryId);
+    }
+
+    // NEDEN: İstemci planın (silinmiş) mevcut kategorisini geri gönderdiğinde güncelleme 400 vermemeli.
+    [Fact]
+    public async Task Guncelle_KategoriSilinmis_KategoriBosalir()
+    {
+        using var o = new Ortam(); var p = await o.Kayit();
+        var c = new Category { UserId = 1, Name = "Deneme", Type = TransactionType.Expense };
+        o.Db.Categories.Add(c); await o.Db.SaveChangesAsync(); p.CategoryId = c.Id; c.IsDeleted = true; await o.Db.SaveChangesAsync();
+        var dto = Ortam.Dto(); dto.StartDate = p.StartDate; dto.Frequency = p.Frequency; dto.CategoryId = c.Id; dto.Amount = 21.75m;
+        var result = await o.Service.UpdateAsync(p.Id, dto);
+        Assert.Null(result.CategoryId); Assert.Equal(21.75m, result.Amount);
+        Assert.Null(o.Db.RecurringPayments.AsNoTracking().Single().CategoryId);
+        // Planın kategorisi olmayan başka bir (silinmiş/yabancı) kimlik yine 400.
+        var other = new Category { UserId = 2, Name = "Başka", Type = TransactionType.Expense };
+        o.Db.Categories.Add(other); await o.Db.SaveChangesAsync(); dto.CategoryId = other.Id;
+        await Assert.ThrowsAsync<BadRequestException>(() => o.Service.UpdateAsync(p.Id, dto));
+    }
+
+    // NEDEN: Ödenmiş aylık plan haftalığa çevrilince takvim baştan hesaplanıp ödenmiş döneme dönüyordu.
+    [Fact]
+    public async Task Guncelle_OdenmisPlanHaftaligaCevrilir_VadeGeriGitmez()
+    {
+        using var o = new Ortam(); var created = await o.Service.CreateAsync(Ortam.Dto());
+        var paid = await o.Service.PayAsync(created.Id, new PayRecurringPaymentDto { DueDate = created.NextDueDate });
+        Assert.Equal(new DateOnly(2026, 11, 19), paid.RecurringPayment.NextDueDate);
+        var dto = Ortam.Dto(); dto.Frequency = RecurrenceFrequency.Weekly;
+        // Haftalık takvim 19.10'dan: 19.10, 26.10, ..., 16.11, 23.11 → eski vadeden (19.11) küçük olmayan ilk vade.
+        var result = await o.Service.UpdateAsync(created.Id, dto);
+        Assert.Equal(new DateOnly(2026, 11, 23), result.NextDueDate);
+        Assert.True(result.IsActive);
     }
 }

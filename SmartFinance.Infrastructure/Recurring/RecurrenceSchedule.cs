@@ -16,6 +16,16 @@ public static class RecurrenceSchedule
     public static DateOnly TodayTr(DateTime utcNow) => DateOnly.FromDateTime(
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), TrTimeZone));
 
+    // ZAMAN KURALI: Transaction.TransactionDate TSİ duvar saatidir (Kind belirsiz).
+    // UTC (veya ofsetli → Local) gelen anı TSİ duvar saatine çevirir; sonuç her zaman Unspecified.
+    // Unspecified değer zaten duvar saatidir ve çağıran tarafından dönüştürülmeden kullanılmalıdır.
+    public static DateTime ToTrWallClock(DateTime instant)
+    {
+        var utc = instant.Kind == DateTimeKind.Local ? instant.ToUniversalTime()
+            : DateTime.SpecifyKind(instant, DateTimeKind.Utc);
+        return DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(utc, TrTimeZone), DateTimeKind.Unspecified);
+    }
+
     public static DateOnly Next(DateOnly current, RecurrenceFrequency frequency, int anchorDay)
     {
         if (anchorDay is < 1 or > 31) throw new ArgumentOutOfRangeException(nameof(anchorDay));

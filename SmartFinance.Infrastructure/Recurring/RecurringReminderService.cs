@@ -14,10 +14,11 @@ public class RecurringReminderService : BackgroundService
         _scopeFactory = scopeFactory; _logger = logger;
     }
 
+    // Açılış telafi penceresi: 09:00 dahil – 23:00 hariç TSİ (gece geç saatte bildirim gönderilmez).
     public static bool ShouldRunOnStartup(DateTime utcNow)
     {
         var tr = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), RecurrenceSchedule.TrTimeZone);
-        return tr.TimeOfDay >= TimeSpan.FromHours(9) && tr.TimeOfDay < TimeSpan.FromHours(21);
+        return tr.TimeOfDay >= TimeSpan.FromHours(9) && tr.TimeOfDay < TimeSpan.FromHours(23);
     }
 
     public static DateTime NextRunUtc(DateTime utcNow)

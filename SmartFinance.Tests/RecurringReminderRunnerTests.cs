@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using SmartFinance.Application.Interfaces;
 using SmartFinance.Domain.Entities;
 using SmartFinance.Domain.Enums;
+using SmartFinance.Infrastructure.Context;
 using SmartFinance.Infrastructure.Recurring;
 
 namespace SmartFinance.Tests;
@@ -110,7 +112,8 @@ public class RecurringReminderRunnerTests
         Assert.Empty(o.Db.DeviceTokens); Assert.Single(o.Db.Notifications);
     }
 
-    // NEDEN: Sonraki çalışma işletim sistemi saat diliminden bağımsız 09:00 TSİ olmalı.
+    // NEDEN: Sonraki çalışma işletim sistemi saat diliminden bağımsız 09:00 TSİ olmalı;
+    // açılış telafi penceresi 09:00 dahil–23:00 hariç TSİ (madde 9d, 20.10.2026).
     [Fact]
     public void SonrakiCalisma_09Tsi_VeAcilisPenceresi()
     {
@@ -118,7 +121,8 @@ public class RecurringReminderRunnerTests
         Assert.Equal(Now.AddDays(1), RecurringReminderService.NextRunUtc(Now));
         Assert.True(RecurringReminderService.ShouldRunOnStartup(Now));
         Assert.True(RecurringReminderService.ShouldRunOnStartup(Now.AddHours(11)));
-        Assert.False(RecurringReminderService.ShouldRunOnStartup(Now.AddHours(12)));
+        Assert.True(RecurringReminderService.ShouldRunOnStartup(Now.AddHours(13).AddMinutes(59)));
+        Assert.False(RecurringReminderService.ShouldRunOnStartup(Now.AddHours(14)));
         Assert.False(RecurringReminderService.ShouldRunOnStartup(Now.AddMinutes(-1)));
     }
 
@@ -133,5 +137,109 @@ public class RecurringReminderRunnerTests
         Assert.Equal("Yaklaşan gelir", first.Title); Assert.Contains("7 gün sonra (26.10)", first.Message);
         await runner.RunOnceAsync(Now.AddDays(7), default);
         Assert.Equal(2, o.Db.Notifications.Count());
+    }
+
+    // ---- v16 yayın öncesi düzeltmeler (20.10.2026) ----
+
+    // Seçilen kayıt anında SaveChanges'i düşürür; InMemory'de gerçek DB hatasının yerine geçer.
+    private sealed class BozukKayit : SaveChangesInterceptor
+    {
+        public Func<DbContext, bool>? Kosul { get; set; }
+        public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
+        {
+            Kontrol(eventData.Context); return base.SavingChanges(eventData, result);
+        }
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            Kontrol(eventData.Context); return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
+        private void Kontrol(DbContext? context)
+        {
+            if (context != null && Kosul != null && Kosul(context)) throw new DbUpdateException("Deneme kayıt hatası");
+        }
+    }
+
+    private static SmartFinanceDbContext BozulabilirDb(BozukKayit interceptor) => new(new DbContextOptionsBuilder<SmartFinanceDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+        .AddInterceptors(interceptor).Options);
+
+    private static RecurringPayment YarinkiPlan() => new()
+    {
+        UserId = 1, Name = "Deneme planı", Amount = 17.25m, Type = TransactionType.Expense,
+        Frequency = RecurrenceFrequency.Weekly, StartDate = new DateOnly(2026, 10, 20),
+        NextDueDate = new DateOnly(2026, 10, 20), AnchorDay = 20, IsActive = true, RemindDaysBefore = 1
+    };
+
+    // NEDEN: Tek bir planın kayıt hatası o turdaki diğer kullanıcıların hatırlatmasını düşürmemeli.
+    [Fact]
+    public async Task Hatirlatma_BirPlanHataVerirse_DigerleriDevamEder()
+    {
+        var interceptor = new BozukKayit();
+        using var db = BozulabilirDb(interceptor);
+        db.Users.Add(new User { Id = 1, FullName = "Deneme", Email = "dummy@example.invalid", PasswordHash = "deneme" });
+        var bozuk = YarinkiPlan(); var saglam = YarinkiPlan();
+        db.RecurringPayments.Add(bozuk); await db.SaveChangesAsync();
+        db.RecurringPayments.Add(saglam); await db.SaveChangesAsync();
+        Assert.True(bozuk.Id < saglam.Id); // Runner Id sırasıyla işler; hatalı plan önce gelir.
+        var prefix = $"planli:{bozuk.Id}:";
+        interceptor.Kosul = c => c.ChangeTracker.Entries<Notification>()
+            .Any(e => e.State == EntityState.Added && e.Entity.DedupeKey != null && e.Entity.DedupeKey.StartsWith(prefix));
+
+        await new RecurringReminderRunner(db).RunOnceAsync(Now, default);
+
+        var n = Assert.Single(db.Notifications.AsNoTracking());
+        Assert.Equal($"planli:{saglam.Id}:2026-10-20:once", n.DedupeKey);
+    }
+
+    // NEDEN: Geçersiz token temizliği düşerse izleyicide kalan silme kaydı sonraki planların kaydını bozmamalı.
+    [Fact]
+    public async Task Push_TokenTemizligiHataVerirse_SonrakiPlanlarKaydedilir()
+    {
+        var interceptor = new BozukKayit();
+        using var db = BozulabilirDb(interceptor);
+        db.Users.Add(new User { Id = 1, FullName = "Deneme", Email = "dummy@example.invalid", PasswordHash = "deneme" });
+        db.RecurringPayments.AddRange(YarinkiPlan(), YarinkiPlan());
+        db.DeviceTokens.Add(new DeviceToken { UserId = 1, Token = "deneme-token" });
+        await db.SaveChangesAsync();
+        interceptor.Kosul = c => c.ChangeTracker.Entries<DeviceToken>().Any(e => e.State == EntityState.Deleted);
+
+        var push = new SahtePush();
+        await new RecurringReminderRunner(db, push).RunOnceAsync(Now, default);
+
+        Assert.Equal(2, db.Notifications.AsNoTracking().Count());
+        Assert.Equal(2, push.Messages.Count);
+        Assert.Single(db.DeviceTokens.AsNoTracking());
+    }
+
+    // NEDEN: Push kilit ekranında görünür ve kullanıcı 'Tutarları gizle' açmış olabilir;
+    // tutar yalnız uygulama içi bildirimde kalmalı.
+    [Fact]
+    public async Task Push_MetnindeTutarYok_UygulamaIciMesajdaVar()
+    {
+        using var o = new RecurringPaymentServiceTests.Ortam(); await Hazirla(o); var p = await o.Kayit(1);
+        p.Amount = 1234.50m; o.Db.DeviceTokens.Add(new DeviceToken { UserId = 1, Token = "deneme-token" });
+        await o.Db.SaveChangesAsync();
+        var push = new SahtePush();
+        await new RecurringReminderRunner(o.Db, push).RunOnceAsync(Now, default);
+
+        var m = Assert.Single(push.Messages);
+        Assert.Equal("Yaklaşan ödeme", m.Title);
+        Assert.Equal("Deneme planı — yarın (20.10)", m.Body);
+        Assert.DoesNotContain("₺", m.Body); Assert.DoesNotContain("1.234", m.Body);
+        Assert.Equal("Deneme planı: ₺1.234,50 — yarın (20.10)", Assert.Single(o.Db.Notifications).Message);
+    }
+
+    // NEDEN: Vade günü push'u da tutarsız olmalı.
+    [Fact]
+    public async Task Push_VadeGunu_TutarYok()
+    {
+        using var o = new RecurringPaymentServiceTests.Ortam(); await Hazirla(o); await o.Kayit();
+        o.Db.DeviceTokens.Add(new DeviceToken { UserId = 1, Token = "deneme-token" }); await o.Db.SaveChangesAsync();
+        var push = new SahtePush();
+        await new RecurringReminderRunner(o.Db, push).RunOnceAsync(Now, default);
+        Assert.Equal("Deneme planı — bugün", Assert.Single(push.Messages).Body);
+        Assert.Equal("Deneme planı: ₺17,25", Assert.Single(o.Db.Notifications).Message);
     }
 }

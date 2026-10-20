@@ -12,7 +12,7 @@ using SmartFinance.Infrastructure.Context;
 namespace SmartFinance.Infrastructure.Migrations
 {
     [DbContext(typeof(SmartFinanceDbContext))]
-    [Migration("20261019164835_AddRecurringPayments")]
+    [Migration("20261020152911_AddRecurringPayments")]
     partial class AddRecurringPayments
     {
         /// <inheritdoc />
@@ -561,9 +561,7 @@ namespace SmartFinance.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<int>("RemindDaysBefore")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
+                        .HasColumnType("int");
 
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");

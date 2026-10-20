@@ -66,9 +66,23 @@ public class RecurringPaymentService : IRecurringPaymentService
 
     private static void ValidateAmount(decimal amount)
     {
-        if (amount <= 0 || amount > 9999999999999999.99m || decimal.Round(amount, 2) != amount)
+        if (amount <= 0 || !MoneyRules.FitsColumn(amount))
             throw new BadRequestException("Tutar pozitif, en fazla iki ondalık basamaklı ve decimal(18,2) sınırında olmalıdır.");
     }
+
+    // Planın MEVCUT kategorisi sonradan silindiyse (soft-delete) 400 yerine kategorisiz devam edilir
+    // (TransactionService.RestoreTransactionAsync kalıbı). Planın kategorisi olmayan kimlik normal doğrulamaya gider.
+    private async Task<int?> DropIfPlanCategoryDeletedAsync(int? categoryId, int? planCategoryId)
+    {
+        if (!categoryId.HasValue || categoryId != planCategoryId) return categoryId;
+        return await _context.Categories.AnyAsync(x => x.Id == categoryId && x.UserId == _user.UserId) ? categoryId : null;
+    }
+
+    private async Task EnsureFreeLimitAsync(int? excludeId = null) => await _entitlement.EnsureWithinFreeLimitAsync(
+        await _context.RecurringPayments.CountAsync(x => x.UserId == _user.UserId && x.IsActive
+            && (!excludeId.HasValue || x.Id != excludeId.Value)),
+        FreeTierLimits.RecurringPayments,
+        "Ücretsiz planda en fazla 3 planlı ödeme tanımlayabilirsiniz. Sınırsız planlı ödeme için Premium'a geçin.");
 
     private static void Apply(RecurringPayment p, CreateRecurringPaymentDto dto)
     {
@@ -77,12 +91,14 @@ public class RecurringPaymentService : IRecurringPaymentService
         p.StartDate = dto.StartDate; p.EndDate = dto.EndDate; p.RemindDaysBefore = dto.RemindDaysBefore;
     }
 
-    private void ResetSchedule(RecurringPayment p)
+    // İlk vade = StartDate'ten itibaren takvimin floor'dan küçük olmayan ilk vadesi.
+    // Oluşturma: floor = TSİ bugün (geçmiş başlangıç gecikmiş borç üretmez).
+    // Güncelleme: floor = eski NextDueDate (öncesi işlenmiş sayılır; vade geri gitmez, gecikmiş vade kaybolmaz).
+    private static void ResetSchedule(RecurringPayment p, DateOnly floor)
     {
         p.AnchorDay = p.StartDate.Day;
         p.NextDueDate = p.StartDate;
-        var today = Today;
-        while (p.NextDueDate < today && RecurrenceSchedule.CanAdvance(p.NextDueDate, p.Frequency))
+        while (p.NextDueDate < floor && RecurrenceSchedule.CanAdvance(p.NextDueDate, p.Frequency))
             p.NextDueDate = RecurrenceSchedule.Next(p.NextDueDate, p.Frequency, p.AnchorDay);
         p.IsActive = !p.EndDate.HasValue || p.NextDueDate <= p.EndDate.Value;
     }
@@ -110,12 +126,9 @@ public class RecurringPaymentService : IRecurringPaymentService
     public async Task<RecurringPaymentDto> CreateAsync(CreateRecurringPaymentDto dto)
     {
         await ValidateAsync(dto);
-        await _entitlement.EnsureWithinFreeLimitAsync(
-            await _context.RecurringPayments.CountAsync(x => x.UserId == _user.UserId && x.IsActive),
-            FreeTierLimits.RecurringPayments,
-            "Ücretsiz planda en fazla 3 planlı ödeme tanımlayabilirsiniz. Sınırsız planlı ödeme için Premium'a geçin.");
+        await EnsureFreeLimitAsync();
         var p = new RecurringPayment { UserId = _user.UserId };
-        Apply(p, dto); ResetSchedule(p);
+        Apply(p, dto); ResetSchedule(p, Today);
         _context.RecurringPayments.Add(p);
         await _context.SaveChangesAsync();
         return Map(p, Today);
@@ -124,11 +137,17 @@ public class RecurringPaymentService : IRecurringPaymentService
     public async Task<RecurringPaymentDto> UpdateAsync(int id, CreateRecurringPaymentDto dto)
     {
         var p = await OwnedAsync(id);
+        dto.CategoryId = await DropIfPlanCategoryDeletedAsync(dto.CategoryId, p.CategoryId);
         await ValidateAsync(dto);
+        var wasActive = p.IsActive;
+        var previousDue = p.NextDueDate;
         var reset = p.StartDate != dto.StartDate || p.Frequency != dto.Frequency;
         Apply(p, dto);
-        if (reset) ResetSchedule(p);
+        if (reset) ResetSchedule(p, previousDue);
         else if (p.EndDate.HasValue && p.NextDueDate > p.EndDate.Value) p.IsActive = false;
+        // Pasif → aktif geçişi yeni plan gibi sayılır; ücretsiz sınır oluşturmadaki gibi uygulanır.
+        // Exception SaveChanges'ten önce: veritabanındaki plan pasif kalır.
+        if (!wasActive && p.IsActive) await EnsureFreeLimitAsync(p.Id);
         p.UpdatedDate = _clock.GetUtcNow().UtcDateTime;
         await SaveAsync();
         return Map(p, Today);
@@ -173,9 +192,15 @@ public class RecurringPaymentService : IRecurringPaymentService
         var amount = dto.Amount ?? p.Amount;
         ValidateAmount(amount);
         if (dto.Description?.Length > 500) throw new BadRequestException("Açıklama en fazla 500 karakter olabilir!");
-        if (dto.TransactionDate.HasValue && (dto.TransactionDate.Value == default || dto.TransactionDate.Value.Kind != DateTimeKind.Utc))
-            throw new BadRequestException("İşlem tarihi UTC olmalıdır.");
+        if (dto.TransactionDate.HasValue && dto.TransactionDate.Value == default)
+            throw new BadRequestException("İşlem tarihi geçersiz.");
+        // ZAMAN KURALI: TransactionDate TSİ duvar saatidir. Kind belirsiz değer aynen kullanılır;
+        // UTC/ofsetli değer (eski/yanlış istemci) TSİ'ye çevrilir; verilmezse TSİ şimdi.
+        var transactionDate = dto.TransactionDate is { } date && date.Kind == DateTimeKind.Unspecified
+            ? date
+            : RecurrenceSchedule.ToTrWallClock(dto.TransactionDate ?? _clock.GetUtcNow().UtcDateTime);
         var accountId = dto.AccountId ?? p.AccountId;
+        p.CategoryId = await DropIfPlanCategoryDeletedAsync(p.CategoryId, p.CategoryId);
         await ValidateLinksAsync(p.CategoryId, p.Type, accountId);
         Advance(p);
         try
@@ -186,7 +211,7 @@ public class RecurringPaymentService : IRecurringPaymentService
             var transaction = await _transactions.CreateTransactionAsync(new CreateTransactionDto
             {
                 Amount = amount, Type = p.Type, CategoryId = p.CategoryId, AccountId = accountId,
-                Description = dto.Description ?? p.Name, TransactionDate = dto.TransactionDate ?? _clock.GetUtcNow().UtcDateTime
+                Description = dto.Description ?? p.Name, TransactionDate = transactionDate
             });
             return new PayRecurringPaymentResultDto { Transaction = transaction, RecurringPayment = Map(p, Today) };
         }

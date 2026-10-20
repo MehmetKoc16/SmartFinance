@@ -11,7 +11,8 @@ public class RecurringPaymentConfiguration : IEntityTypeConfiguration<RecurringP
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Name).IsRequired().HasMaxLength(100);
         builder.Property(x => x.Amount).IsRequired().HasColumnType("decimal(18,2)");
-        builder.Property(x => x.RemindDaysBefore).HasDefaultValue(1);
+        // HasDefaultValue(1) KULLANILMAZ: EF int için 0'ı 'değer yok' sayıp INSERT'e koymuyor,
+        // SQL varsayılanı 1 yazılıyordu ('Günü gelince' = 0 kayboluyordu). Başlangıç değeri entity'de (= 1).
         // Mevcut vade/aktiflik eşzamanlı pay ve skip isteklerinin ikisini birden kabul etmez.
         // RowVersion gibi mevcut tablolara veya yeni tabloya ek sütun gerekmez.
         builder.Property(x => x.NextDueDate).IsConcurrencyToken();

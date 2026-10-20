@@ -558,9 +558,7 @@ namespace SmartFinance.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<int>("RemindDaysBefore")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
+                        .HasColumnType("int");
 
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");

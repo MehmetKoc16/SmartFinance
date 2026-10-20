@@ -4,9 +4,14 @@ using SmartFinance.Application.DTOs.Account;
 namespace SmartFinance.Infrastructure.Accounts;
 
 // Saf hesap: zaman ve bütün hareketler çağıran tarafından verilir; DB/sistem saati yoktur.
+// ZAMAN KURALI: harcama/iade (Transaction) tarihi TSİ duvar saatidir → gün dönüştürülmeden alınır.
+// Ödeme (Transfer) tarihi UTC'dir → gün UTC→TSİ dönüşümüyle alınır. 'Bugün' TSİ'dir.
 public static class CardCycle
 {
-    public readonly record struct Entry(DateTime DateUtc, decimal Amount);
+    public readonly record struct Entry(DateTime Date, decimal Amount);
+
+    // Transaction.TransactionDate için: duvar saati, Kind'dan bağımsız olarak dönüştürülmez.
+    public static DateOnly WallClockDay(DateTime wallClock) => DateOnly.FromDateTime(wallClock);
 
     public static DateOnly IstanbulDay(DateTime utc)
     {
@@ -45,7 +50,7 @@ public static class CardCycle
         }
         var nextMonth = month.AddMonths(1);
         var openEnd = StatementDate(nextMonth.Year, nextMonth.Month, statementDay);
-        var datedCharges = charges.Select(x => (Day: IstanbulDay(x.DateUtc), x.Amount))
+        var datedCharges = charges.Select(x => (Day: WallClockDay(x.Date), x.Amount))
             .Where(x => x.Day <= today).ToArray();
         var amounts = new Dictionary<DateOnly, decimal>();
         foreach (var charge in datedCharges)
@@ -61,7 +66,7 @@ public static class CardCycle
 
         // Tüm tarihçe FIFO'ya katılır. İade fazlası kredi gibi sonraki borçlara taşınır.
         // Açılış borcu ilk kalemdir; API'de ekstre gibi gösterilmez.
-        var credit = payments.Where(x => IstanbulDay(x.DateUtc) <= today).Sum(x => x.Amount)
+        var credit = payments.Where(x => IstanbulDay(x.Date) <= today).Sum(x => x.Amount)
             + amounts.Values.Where(x => x < 0).Sum(x => -x);
         credit = Math.Max(0, credit - openingBalance);
         var paidByEnd = new Dictionary<DateOnly, decimal>();

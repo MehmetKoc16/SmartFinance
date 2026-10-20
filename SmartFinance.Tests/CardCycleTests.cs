@@ -61,13 +61,46 @@ public class CardCycleTests
     public void SonOdeme_DueDayKucukseErtesiAy(int day) =>
         Assert.Equal(new DateOnly(2026, 11, day), CardCycle.DueDate(new(2026, 10, 20), day));
 
-    // NEDEN: UTC'de kesim günündeki geç saat TSİ'de açık döneme aittir.
+    // NEDEN: Transfer (ödeme) UTC'dir; UTC'de bugün geç saatteki ödeme TSİ'de yarına düşer ve
+    // bugünün borcunu kapatmaz. 20:30 UTC = 23:30 TSİ (bugün), 21:30 UTC = 00:30 TSİ (yarın).
+    // ZAMAN KURALI (20.10.2026): bu dönüşüm yalnız transferler içindir; işlem günü dönüştürülmez.
     [Fact]
-    public void TsiGunSiniri_UtcGeceYarisiSonrasiIslemDogruDoneme()
+    public void TsiGunSiniri_UtcGeceYarisiSonrasiTransferDogruGune()
     {
-        var result = Hesapla(new[] { new CardCycle.Entry(new DateTime(2026, 10, 20, 21, 30, 0, DateTimeKind.Utc), 75) });
-        Assert.Equal(75m, result.Current.Amount);
-        Assert.Equal(0m, result.Past[0].Amount);
+        var r = CardCycle.Calculate(20, 25, 0, new[] { Harcama(10, 1, 100) },
+            new[]
+            {
+                new CardCycle.Entry(new DateTime(2026, 10, 22, 20, 30, 0, DateTimeKind.Utc), 40),
+                new CardCycle.Entry(new DateTime(2026, 10, 22, 21, 30, 0, DateTimeKind.Utc), 50)
+            },
+            new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc));
+        Assert.Equal(40m, r.Past[0].Paid);
+        Assert.Equal(60m, r.Past[0].Remaining);
+    }
+
+    // NEDEN: İşlem tarihi TSİ duvar saatidir; kesim günü 22:00'de girilen harcama UTC sanılıp
+    // ertesi güne (açık döneme) kaydırılmamalı.
+    [Fact]
+    public void Ekstre_KesimGunu22de_GirilenIslem_AyniEkstrede()
+    {
+        var result = Hesapla(new[] { new CardCycle.Entry(new DateTime(2026, 10, 20, 22, 0, 0, DateTimeKind.Unspecified), 75) });
+        Assert.Equal("2026-10-20", result.Past[0].PeriodEnd);
+        Assert.Equal(75m, result.Past[0].Amount);
+        Assert.Equal(0m, result.Current.Amount);
+    }
+
+    // NEDEN: 'Gelecek günlü hareket bugünün borcuna katılmaz' kuralı işlemde duvar saati gününe bakar:
+    // bugün (TSİ 22.10) 23:30 duvar saatli harcama sayılır, ertesi gün 00:30 sayılmaz.
+    [Fact]
+    public void GelecekGunluIslem_DuvarSaatiGunuyleAyiklanir()
+    {
+        var r = CardCycle.Calculate(20, 25, 0, new[]
+            {
+                new CardCycle.Entry(new DateTime(2026, 10, 22, 23, 30, 0, DateTimeKind.Unspecified), 30),
+                new CardCycle.Entry(new DateTime(2026, 10, 23, 0, 30, 0, DateTimeKind.Unspecified), 40)
+            },
+            Array.Empty<CardCycle.Entry>(), new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc));
+        Assert.Equal(30m, r.Current.Amount);
     }
 
     // NEDEN: Açılış borcu ve eski ekstre yeni ekstreden önce kapanmalı.
@@ -108,7 +141,7 @@ public class CardCycleTests
     public void EkstreDurumu_OdenenTutaraGoreBelirlenir(int payment, string status, int remaining)
     {
         var r = CardCycle.Calculate(20, 25, 0, new[] { Harcama(10, 1, 100) },
-            new[] { Harcama(10, 25, payment) }, new DateTime(2026, 10, 25, 12, 0, 0, DateTimeKind.Utc));
+            new[] { Odeme(10, 25, payment) }, new DateTime(2026, 10, 25, 12, 0, 0, DateTimeKind.Utc));
         Assert.Equal(status, r.Past[0].Status);
         Assert.Equal((decimal)remaining, r.Past[0].Remaining);
     }
@@ -118,7 +151,7 @@ public class CardCycleTests
     public void Fifo_GosterilenDonemSayisindanBagimsizdir()
     {
         var r = CardCycle.Calculate(20, 25, 0, new[] { Harcama(1, 1, 100), Harcama(10, 1, 200) },
-            new[] { Harcama(10, 21, 150) }, new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc), 1);
+            new[] { Odeme(10, 21, 150) }, new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc), 1);
         Assert.Equal(50m, Assert.Single(r.Past).Paid);
         Assert.Equal(150m, r.Past[0].Remaining);
     }
@@ -128,17 +161,21 @@ public class CardCycleTests
     public void Iade_NetHarcamayiAzaltir_GelecekOdemeSayilmaz()
     {
         var r = CardCycle.Calculate(20, 25, 0, new[] { Harcama(10, 1, 100), Harcama(10, 2, -30) },
-            new[] { Harcama(10, 23, 70) }, new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc));
+            new[] { Odeme(10, 23, 70) }, new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc));
         Assert.Equal(70m, r.Past[0].Amount);
         Assert.Equal(0m, r.Past[0].Paid);
         Assert.Equal(70m, r.Past[0].Remaining);
     }
 
+    // ZAMAN KURALI: harcama (Transaction) TSİ duvar saatidir; ödeme (Transfer) UTC'dir.
     private static CardCycle.Entry Harcama(int month, int day, decimal amount) =>
+        new(new DateTime(2026, month, day, 12, 0, 0, DateTimeKind.Unspecified), amount);
+
+    private static CardCycle.Entry Odeme(int month, int day, decimal amount) =>
         new(new DateTime(2026, month, day, 12, 0, 0, DateTimeKind.Utc), amount);
 
     private static SmartFinance.Application.DTOs.Account.StatementsDto Hesapla(
         CardCycle.Entry[] entries, decimal opening = 0, decimal payment = 0) =>
         CardCycle.Calculate(20, 25, opening, entries,
-            new[] { Harcama(10, 21, payment) }, new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc), 3);
+            new[] { Odeme(10, 21, payment) }, new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc), 3);
 }

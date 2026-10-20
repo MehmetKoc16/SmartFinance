@@ -55,7 +55,7 @@ namespace SmartFinance.API.Controllers{
             return CreatedAtAction("GetTransactionById", new {id=transaction.Id},transaction);
         }
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTransactionAsync(int id,CreateTransactionDto dto)
+        public async Task<IActionResult> UpdateTransactionAsync(int id,UpdateTransactionDto dto)
         {
             await _transactionService.UpdateTransactionAsync(id,dto);
             return NoContent();

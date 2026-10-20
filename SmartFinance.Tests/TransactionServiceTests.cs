@@ -138,7 +138,7 @@ public class TransactionServiceTests
         context.Transactions.Add(baskasininIslemi);
         await context.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<NotFoundException>(() => service.UpdateTransactionAsync(baskasininIslemi.Id, new CreateTransactionDto
+        await Assert.ThrowsAsync<NotFoundException>(() => service.UpdateTransactionAsync(baskasininIslemi.Id, new UpdateTransactionDto
         {
             Amount = 20,
             Description = "Değişiklik",

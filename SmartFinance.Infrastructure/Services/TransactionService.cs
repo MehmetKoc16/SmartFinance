@@ -192,7 +192,7 @@ public class TransactionService : ITransactionService
         };
     }
 
-    public async Task UpdateTransactionAsync(int id, CreateTransactionDto dto)
+    public async Task UpdateTransactionAsync(int id, UpdateTransactionDto dto)
     {
         var userId=_currentUserService.UserId;
         var transaction = await _repository.GetByIdAsync(id);
@@ -201,10 +201,25 @@ public class TransactionService : ITransactionService
 
         await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
-        await EnsureAccountOwnedAsync(dto.AccountId, userId);
+        // v14/v15 istemcileri PUT gövdesinde accountId göndermez: alan yoksa bağ korunur.
+        // Bağı kaldırmak için accountId null + clearAccount=true gerekir.
+        int? accountId;
+        if (dto.AccountId.HasValue)
+        {
+            if (dto.AccountId == transaction.AccountId)
+            {
+                // Aynı hesap: arşivli olsa da eski işlemin tutarı/açıklaması düzeltilebilmeli.
+                if (!await _context.Accounts.AnyAsync(a => a.Id == dto.AccountId.Value && a.UserId == userId))
+                    throw new BadRequestException("Hesap bulunamadı");
+            }
+            else
+                await EnsureAccountOwnedAsync(dto.AccountId, userId);
+            accountId = dto.AccountId;
+        }
+        else accountId = dto.ClearAccount == true ? null : transaction.AccountId;
 
         transaction.Amount = dto.Amount;
-        transaction.AccountId = dto.AccountId;
+        transaction.AccountId = accountId;
         transaction.Description = dto.Description;
         // Elle düzenleme, otomatik çıkarılmış işyeri adını geçersiz kılar —
         // arayüz artık kullanıcının az önce yazdığı Description'ı esas alsın.

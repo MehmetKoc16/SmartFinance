@@ -36,6 +36,11 @@ public class AccountService : IAccountService
     {
         if (string.IsNullOrWhiteSpace(dto.Name) || dto.Name.Length > 60 || !Enum.IsDefined(dto.Type))
             throw new BadRequestException("Geçersiz hesap adı veya türü");
+        // Nakit/banka açılışı negatif (eksi bakiye) olabilir; kart açılış borcunun işareti aşağıda.
+        if (dto.OpeningBalance.HasValue && !MoneyRules.FitsColumn(dto.OpeningBalance.Value))
+            throw new BadRequestException("Açılış bakiyesi en fazla iki ondalık basamaklı ve decimal(18,2) sınırında olmalıdır.");
+        if (dto.CreditLimit.HasValue && !MoneyRules.FitsColumn(dto.CreditLimit.Value))
+            throw new BadRequestException("Kart limiti en fazla iki ondalık basamaklı ve decimal(18,2) sınırında olmalıdır.");
         if (dto.Type == AccountType.CreditCard)
         {
             if (!dto.CreditLimit.HasValue || dto.CreditLimit <= 0 || dto.StatementDay is null or < 1 or > 28
@@ -168,6 +173,8 @@ public class AccountService : IAccountService
         if (from.Id == to.Id || dto.Amount <= 0 || from.IsArchived || to.IsArchived
             || dto.Description?.Length > 200 || dto.TransferDate == default)
             throw new BadRequestException("Geçersiz transfer: farklı ve aktif hesaplar, pozitif tutar ve tarih gereklidir.");
+        if (!MoneyRules.FitsColumn(dto.Amount))
+            throw new BadRequestException("Transfer tutarı en fazla iki ondalık basamaklı ve decimal(18,2) sınırında olmalıdır.");
         var transfer = new Transfer
         {
             UserId = _user.UserId, FromAccountId = from.Id, ToAccountId = to.Id,
@@ -213,6 +220,8 @@ public class AccountService : IAccountService
         var payments = await _context.Transfers.AsNoTracking()
             .Where(x => x.UserId == _user.UserId && x.ToAccountId == id)
             .Select(x => new { x.TransferDate, x.Amount }).ToListAsync();
+        // ZAMAN KURALI: TransactionDate TSİ duvar saati → CardCycle dönüştürmez;
+        // TransferDate UTC → CardCycle TSİ gününe çevirir. 'Bugün' UTC şimdiden TSİ'ye çevrilir.
         var statements = CardCycle.Calculate(account.StatementDay!.Value, account.DueDay!.Value, account.OpeningBalance,
             transactions.Select(x => new CardCycle.Entry(x.TransactionDate, x.Type == TransactionType.Expense ? x.Amount : -x.Amount)),
             payments.Select(x => new CardCycle.Entry(x.TransferDate, x.Amount)), DateTime.UtcNow, count);

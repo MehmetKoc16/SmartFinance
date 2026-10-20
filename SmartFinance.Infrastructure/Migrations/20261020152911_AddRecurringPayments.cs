@@ -28,7 +28,7 @@ namespace SmartFinance.Infrastructure.Migrations
                     AnchorDay = table.Column<int>(type: "int", nullable: false),
                     NextDueDate = table.Column<DateOnly>(type: "date", nullable: false),
                     EndDate = table.Column<DateOnly>(type: "date", nullable: true),
-                    RemindDaysBefore = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    RemindDaysBefore = table.Column<int>(type: "int", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedDate = table.Column<DateTime>(type: "datetime2", nullable: true),

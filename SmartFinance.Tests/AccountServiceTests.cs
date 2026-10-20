@@ -44,8 +44,9 @@ public class AccountServiceTests
             await Service.CreateAsync(new CreateAccountDto { Name = "Deneme", Type = type, OpeningBalance = opening,
                 CreditLimit = type == AccountType.CreditCard ? 5000 : null,
                 StatementDay = type == AccountType.CreditCard ? 20 : null, DueDay = type == AccountType.CreditCard ? 25 : null });
+        // ZAMAN KURALI: işlem tarihi TSİ duvar saati (Kind belirsiz); transfer tarihi UTC.
         public async Task Islem(int id, decimal amount, TransactionType type) => await Transactions.CreateTransactionAsync(new CreateTransactionDto
-            { AccountId = id, Amount = amount, Type = type, TransactionDate = new DateTime(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc) });
+            { AccountId = id, Amount = amount, Type = type, TransactionDate = new DateTime(2026, 10, 10, 12, 0, 0, DateTimeKind.Unspecified) });
         public Task<TransferDto> Transfer(int from, int to, decimal amount) => Service.CreateTransferAsync(new CreateTransferDto
             { FromAccountId = from, ToAccountId = to, Amount = amount, TransferDate = new DateTime(2026, 10, 11, 12, 0, 0, DateTimeKind.Utc) });
 
@@ -67,6 +68,9 @@ public class AccountServiceTests
 
     private static DateTime UtcGun(DateOnly day) =>
         DateTime.SpecifyKind(day.ToDateTime(new TimeOnly(12, 0)), DateTimeKind.Utc);
+
+    // İşlem (Transaction) tarihi için TSİ duvar saati.
+    private static DateTime DuvarGun(DateOnly day) => day.ToDateTime(new TimeOnly(12, 0));
 
     // NEDEN: Dört hareket türü tek bakiye formülünde doğru işaretle birleşmeli.
     [Fact]
@@ -217,7 +221,7 @@ public class AccountServiceTests
         var account = new Account { UserId = scenario == 0 ? 2 : 1, Name = "Geçersiz", Type = AccountType.Cash,
             IsArchived = scenario == 1, IsDeleted = scenario == 2 };
         o.Db.Accounts.Add(account); await o.Db.SaveChangesAsync();
-        var dto = new CreateTransactionDto { Amount = 10, Type = TransactionType.Expense, TransactionDate = DateTime.UtcNow };
+        var dto = new UpdateTransactionDto { Amount = 10, Type = TransactionType.Expense, TransactionDate = DateTime.UtcNow };
         var transaction = await o.Transactions.CreateTransactionAsync(dto);
         Assert.Null(transaction.AccountId);
         dto.AccountId = account.Id;
@@ -312,9 +316,9 @@ public class AccountServiceTests
         var end = SonKesim(today);
         var card = await o.EkstreKarti(today, now);
         o.Db.Transactions.Add(new Transaction { UserId = 1, AccountId = card.Id,
-            TransactionDate = UtcGun(end), Amount = 137m, Type = TransactionType.Expense });
+            TransactionDate = DuvarGun(end), Amount = 137m, Type = TransactionType.Expense });
         o.Db.Transactions.Add(new Transaction { UserId = 1, AccountId = card.Id,
-            TransactionDate = UtcGun(end.AddMonths(-12)), Amount = 23m, Type = TransactionType.Expense });
+            TransactionDate = DuvarGun(end.AddMonths(-12)), Amount = 23m, Type = TransactionType.Expense });
         await o.Db.SaveChangesAsync();
 
         var past = Assert.Single((await o.Service.GetStatementsAsync(card.Id, 12)).Past);
@@ -387,5 +391,114 @@ public class AccountServiceTests
         Assert.Empty(o.Db.Accounts.IgnoreQueryFilters().Where(x => x.UserId == 1));
         Assert.Empty(o.Db.Transfers.IgnoreQueryFilters().Where(x => x.UserId == 1));
         Assert.Single(o.Db.Accounts.Where(x => x.UserId == 2)); Assert.Single(o.Db.Transfers.Where(x => x.UserId == 2));
+    }
+
+    // ---- v16 yayın öncesi düzeltmeler (20.10.2026) ----
+
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+
+    // NEDEN: v14/v15 istemcileri PUT gövdesinde accountId göndermez; hesap bağı sessizce
+    // silinip kart borcu/ekstresi bozuluyordu. Alan yoksa mevcut bağ korunmalı.
+    [Fact]
+    public async Task IslemGuncelle_AccountIdYoksa_HesapBagiKorunur()
+    {
+        using var o = new Ortam(); var card = await o.Hesap(AccountType.CreditCard);
+        await o.Islem(card.Id, 100, TransactionType.Expense);
+        var id = o.Db.Transactions.Single().Id;
+        var eskiGovde = JsonSerializer.Deserialize<UpdateTransactionDto>(
+            """{"amount":120,"description":"Deneme harcama","transactionDate":"2026-10-10T12:00:00","type":2,"categoryId":null}""", Web)!;
+        Assert.Null(eskiGovde.AccountId); Assert.Null(eskiGovde.ClearAccount);
+
+        await o.Transactions.UpdateTransactionAsync(id, eskiGovde);
+
+        Assert.Equal(card.Id, o.Db.Transactions.AsNoTracking().Single().AccountId);
+        Assert.Equal(120m, (await o.Service.GetAsync(card.Id)).Debt);
+    }
+
+    // NEDEN: Yeni istemci bağı bilerek kaldırabilmeli; yalnız accountId:null bunun için yeterli değildir.
+    [Fact]
+    public async Task IslemGuncelle_ClearAccountTrue_BagKaldirilir()
+    {
+        using var o = new Ortam(); var a = await o.Hesap();
+        await o.Islem(a.Id, 10, TransactionType.Expense);
+        var id = o.Db.Transactions.Single().Id;
+        var govde = JsonSerializer.Deserialize<UpdateTransactionDto>(
+            """{"amount":10,"description":"Deneme","transactionDate":"2026-10-10T12:00:00","type":2,"categoryId":null,"accountId":null,"clearAccount":true}""", Web)!;
+
+        await o.Transactions.UpdateTransactionAsync(id, govde);
+
+        Assert.Null(o.Db.Transactions.AsNoTracking().Single().AccountId);
+        Assert.Equal(0m, (await o.Service.GetAsync(a.Id)).Balance);
+    }
+
+    // NEDEN: Dolu accountId her zaman doğrulanıp atanmalı (clearAccount'tan önce gelir).
+    [Fact]
+    public async Task IslemGuncelle_YeniAccountId_Atanir()
+    {
+        using var o = new Ortam(); var a = await o.Hesap(); var b = await o.Hesap();
+        await o.Islem(a.Id, 10, TransactionType.Expense);
+        var id = o.Db.Transactions.Single().Id;
+        await o.Transactions.UpdateTransactionAsync(id, new UpdateTransactionDto { AccountId = b.Id, ClearAccount = true,
+            Amount = 10, Type = TransactionType.Expense, TransactionDate = new DateTime(2026, 10, 10, 12, 0, 0) });
+        Assert.Equal(b.Id, o.Db.Transactions.AsNoTracking().Single().AccountId);
+    }
+
+    // NEDEN: Arşivli hesaptaki eski işlemin tutarı düzeltilebilmeli; başka arşivli hesaba taşımak yine 400.
+    [Fact]
+    public async Task IslemGuncelle_ArsivliHesaptakiIslem_AyniHesaplaDuzenlenebilir()
+    {
+        using var o = new Ortam(true); var a = await o.Hesap(); var other = await o.Hesap();
+        await o.Islem(a.Id, 10, TransactionType.Expense); await o.Islem(other.Id, 5, TransactionType.Expense);
+        Assert.True(await o.Service.DeleteAsync(a.Id)); Assert.True(await o.Service.DeleteAsync(other.Id));
+        var id = o.Db.Transactions.Single(x => x.AccountId == a.Id).Id;
+        var dto = new UpdateTransactionDto { AccountId = a.Id, Amount = 12.5m, Type = TransactionType.Expense,
+            TransactionDate = new DateTime(2026, 10, 10, 12, 0, 0) };
+
+        await o.Transactions.UpdateTransactionAsync(id, dto);
+        Assert.Equal(12.5m, o.Db.Transactions.AsNoTracking().Single(x => x.Id == id).Amount);
+
+        dto.AccountId = other.Id;
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() => o.Transactions.UpdateTransactionAsync(id, dto));
+        Assert.Equal("Hesap bulunamadı", ex.Message);
+        Assert.Equal(a.Id, o.Db.Transactions.AsNoTracking().Single(x => x.Id == id).AccountId);
+    }
+
+    // NEDEN: decimal(18,2) sütununa üçüncü ondalık sessizce yuvarlanarak yazılmamalı.
+    [Fact]
+    public async Task Transfer_UcOndalik_400()
+    {
+        using var o = new Ortam(); var a = await o.Hesap(); var b = await o.Hesap();
+        await Assert.ThrowsAsync<BadRequestException>(() => o.Transfer(a.Id, b.Id, 10.125m));
+        Assert.Empty(o.Db.Transfers);
+    }
+
+    // NEDEN: decimal(18,2) sınırını aşan tutar SQL'de taşma ile 500 üretmemeli.
+    [Fact]
+    public async Task Transfer_AsiriBuyuk_400()
+    {
+        using var o = new Ortam(); var a = await o.Hesap(); var b = await o.Hesap();
+        await Assert.ThrowsAsync<BadRequestException>(() => o.Transfer(a.Id, b.Id, 10_000_000_000_000_000m));
+        Assert.Empty(o.Db.Transfers);
+    }
+
+    // NEDEN: Açılış bakiyesi ve kart limiti de aynı tutar sınırlarına uymalı; nakit/banka açılışı
+    // negatif (eksi bakiye) olabilir, kart açılış borcu olamaz.
+    [Theory]
+    [InlineData(1, "0.001", null, false)]
+    [InlineData(1, "10000000000000000", null, false)]
+    [InlineData(1, "-10000000000000000", null, false)]
+    [InlineData(1, "-250.50", null, true)]
+    [InlineData(3, "100", "5000.001", false)]
+    [InlineData(3, "100", "10000000000000000", false)]
+    [InlineData(3, "100.25", "5000.75", true)]
+    public async Task Hesap_TutarAlanlari_SinirKontrolu(int type, string opening, string? limit, bool valid)
+    {
+        using var o = new Ortam(true);
+        var dto = new CreateAccountDto { Name = "Deneme", Type = (AccountType)type,
+            OpeningBalance = decimal.Parse(opening, System.Globalization.CultureInfo.InvariantCulture),
+            CreditLimit = limit == null ? null : decimal.Parse(limit, System.Globalization.CultureInfo.InvariantCulture),
+            StatementDay = type == 3 ? 20 : null, DueDay = type == 3 ? 25 : null };
+        if (valid) Assert.Equal(dto.OpeningBalance, (await o.Service.CreateAsync(dto)).OpeningBalance);
+        else await Assert.ThrowsAsync<BadRequestException>(() => o.Service.CreateAsync(dto));
     }
 }

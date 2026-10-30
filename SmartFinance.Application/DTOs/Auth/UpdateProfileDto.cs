@@ -12,4 +12,10 @@ public class UpdateProfileDto
     [EmailAddress(ErrorMessage = "Geçerli bir email adresi giriniz!")]
     [MaxLength(200, ErrorMessage = "Email en fazla 200 karakter olabilir!")]
     public string Email{get;set;}=string.Empty;
+
+    /// <summary>
+    /// Yalnizca e-posta degisiyorsa zorunlu (AuthService.UpdateProfileAsync
+    /// kontrol eder). Yalniz ad degistiren eski istemciler bu alani gondermez.
+    /// </summary>
+    public string? CurrentPassword{get;set;}
 }

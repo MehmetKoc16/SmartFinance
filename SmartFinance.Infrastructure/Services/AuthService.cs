@@ -114,9 +114,14 @@ public class AuthService : IAuthService{
         // Refresh token'in kendisi de bir "sifre" gibi davranilir — DB'de
         // birebir eslesen, henuz iptal edilmemis (RevokedAt=null) ve suresi
         // gecmemis (ExpiresAt>now) bir kayit aranir. IsActive bu ikisini kontrol eder.
+        // DB'de duz deger degil SHA-256 ozeti tutuldugu icin arama ozet uzerinden.
+        // Bos deger icin ozet hesaplanmiyor (null'da GetBytes patlar, 500 donerdi).
+        if (string.IsNullOrEmpty(refreshToken))
+            throw new UnauthorizedException("Oturum süresi dolmuş, lütfen tekrar giriş yapın.");
+        var hash = HashToken(refreshToken);
         var existing = await _context.RefreshTokens
             .Include(rt => rt.User)
-            .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+            .FirstOrDefaultAsync(rt => rt.Token == hash);
 
         if (existing == null || !existing.IsActive)
             throw new UnauthorizedException("Oturum süresi dolmuş, lütfen tekrar giriş yapın.");
@@ -131,7 +136,9 @@ public class AuthService : IAuthService{
 
     public async Task LogoutAsync(string refreshToken)
     {
-        var existing = await _context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+        if (string.IsNullOrEmpty(refreshToken)) return;
+        var hash = HashToken(refreshToken);
+        var existing = await _context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == hash);
         if (existing == null) return; // zaten yok/iptal — sessizce cik
         existing.RevokedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -181,12 +188,15 @@ public class AuthService : IAuthService{
         // 6. Refresh token uret — 64 byte kriptografik olarak guvenli rastgele
         //    deger, Base64'e cevrilir. JWT'nin aksine icinde bilgi tasimaz,
         //    sadece DB'deki kaydiyla eslesen opak bir anahtar.
+        //    Istemciye duz deger gider, DB'ye yalnizca SHA-256 ozeti yazilir:
+        //    veritabani ya da yedegi sizarsa 30 gunluk oturumlar dogrudan
+        //    kullanilamasin (sifre sifirlama token'lariyla ayni yaklasim).
         var refreshTokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var refreshTokenExpireDays = int.Parse(_configuration["Jwt:RefreshTokenExpireDays"] ?? "30");
 
         _context.RefreshTokens.Add(new RefreshToken
         {
-            Token = refreshTokenValue,
+            Token = HashToken(refreshTokenValue),
             ExpiresAt = DateTime.UtcNow.AddDays(refreshTokenExpireDays),
             UserId = user.Id,
         });
@@ -371,7 +381,14 @@ public class AuthService : IAuthService{
         foreach (var token in tokens) token.RevokedAt = now;
     }
 
-    private static string HashToken(string token) =>
+    /// <summary>
+    /// Sifre sifirlama ve refresh token'larin DB'de saklanan ozeti:
+    /// Base64(SHA-256(UTF-8(token))), 44 karakter, dolgulu standart base64.
+    /// Bicimi DEGISTIRME: mevcut PasswordResetTokens.TokenHash kayitlari ve
+    /// HashRefreshTokens migration'indaki SQL donusumu bu bicime dayaniyor.
+    /// Testler beklenen ozeti hesaplayabilsin diye public.
+    /// </summary>
+    public static string HashToken(string token) =>
         Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     private static string BuildResetEmail(string fullName, string link) => $@"
@@ -499,16 +516,29 @@ public class AuthService : IAuthService{
         var user = await _context.Users.FindAsync(userId)
             ?? throw new NotFoundException("Kullanıcı bulunamadı!");
 
+        var yeniEmail = dto.Email.Trim();
+
         // Email degistiriliyorsa baska bir kullanici zaten bu email'i almis mi kontrol et
-        if (!string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(user.Email, yeniEmail, StringComparison.OrdinalIgnoreCase))
         {
-            var emailTaken = await _context.Users.AnyAsync(u => u.Id != userId && u.Email == dto.Email);
+            // Premium muafiyeti e-postaya bagli ve e-posta sifre sifirlama
+            // kanali; acik unutulmus bir oturumla hesabin ele gecirilmemesi
+            // icin mevcut sifre isteniyor. 401 degil 400: mobilde 401 token
+            // yenileme / oturum kapatma akisini tetikler.
+            // Sifre kontrolu "e-posta kullanimda mi" kontrolunden ONCE: sifresiz
+            // bir oturum bu ucla kayitli adres sorgulayamasin.
+            if (string.IsNullOrEmpty(dto.CurrentPassword))
+                throw new BadRequestException("E-posta değiştirmek için mevcut şifreniz gerekli.");
+            if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+                throw new BadRequestException("Mevcut şifre hatalı.");
+
+            var emailTaken = await _context.Users.AnyAsync(u => u.Id != userId && u.Email == yeniEmail);
             if (emailTaken)
                 throw new BadRequestException("Bu email zaten kullanılıyor!");
         }
 
         user.FullName = dto.FullName.Trim();
-        user.Email = dto.Email.Trim();
+        user.Email = yeniEmail;
         user.UpdatedDate = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 

@@ -186,7 +186,8 @@ public class AuthServiceTests
         Assert.NotNull(result.Token);
         Assert.NotEqual(login.RefreshToken, result.RefreshToken);
 
-        var eskiToken = await context.RefreshTokens.FirstAsync(rt => rt.Token == login.RefreshToken);
+        var eskiOzet = AuthService.HashToken(login.RefreshToken);
+        var eskiToken = await context.RefreshTokens.FirstAsync(rt => rt.Token == eskiOzet);
         Assert.NotNull(eskiToken.RevokedAt);
         Assert.False(eskiToken.IsActive);
     }
@@ -261,7 +262,8 @@ public class AuthServiceTests
 
         var result = await service.UpdateProfileAsync(new UpdateProfileDto{
             FullName = "Yeni Ad",
-            Email = "yeni@test.com"
+            Email = "yeni@test.com",
+            CurrentPassword = "Sifre123!"
         });
 
         var guncel = await context.Users.FindAsync(user.Id);
@@ -289,7 +291,8 @@ public class AuthServiceTests
         await Assert.ThrowsAsync<BadRequestException>(
             ()=>service.UpdateProfileAsync(new UpdateProfileDto{
                 FullName = "Kullanici Iki",
-                Email = "biri@test.com"
+                Email = "biri@test.com",
+                CurrentPassword = "Sifre123!"
             })
         );
     }

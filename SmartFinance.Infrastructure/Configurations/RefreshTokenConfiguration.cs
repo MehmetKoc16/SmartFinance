@@ -10,10 +10,14 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
     {
         builder.HasKey(x => x.Id);
 
+        // Kolon token'in SHA-256 ozetini tutar (Base64, 44 karakter); 200 yeterli.
+        // Ad ve uzunluk bilerek degistirilmedi: sema degisikligi gerekmesin,
+        // HashRefreshTokens migration'i yalnizca veriyi donusturur.
         builder.Property(x => x.Token)
             .IsRequired()
             .HasMaxLength(200);
 
+        // Arama her zaman ozet uzerinden yapilir.
         builder.HasIndex(x => x.Token).IsUnique();
 
         builder.HasOne(x => x.User)

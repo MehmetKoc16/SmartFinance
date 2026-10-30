@@ -50,7 +50,9 @@ public class PasswordSessionTests
         context.ChangeTracker.Clear();
         foreach (var token in new[] { ilk.RefreshToken, ikinci.RefreshToken })
         {
-            Assert.NotNull(await context.RefreshTokens.Where(r => r.Token == token).Select(r => r.RevokedAt).SingleAsync());
+            // DB'de duz deger degil ozet tutuluyor; iptal kontrolu ozet uzerinden.
+            var ozet = AuthService.HashToken(token);
+            Assert.NotNull(await context.RefreshTokens.Where(r => r.Token == ozet).Select(r => r.RevokedAt).SingleAsync());
             await Assert.ThrowsAsync<UnauthorizedException>(() => service.RefreshTokenAsync(token));
         }
         Assert.Single(context.RefreshTokens.Where(r => r.UserId == 1 && r.RevokedAt == null));

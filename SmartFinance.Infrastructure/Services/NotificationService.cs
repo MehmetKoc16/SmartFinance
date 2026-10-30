@@ -33,7 +33,7 @@ public class NotificationService : INotificationService
     public const int PushBatchSize = 500;
 
     public async Task<BroadcastResult> BroadcastAsync(string key, string title, string message,
-        string? onlyEmail = null, CancellationToken ct = default)
+        string? onlyEmail = null, bool zorunlu = false, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
             throw new ArgumentException("Anahtar, başlık ve metin boş olamaz.");
@@ -50,9 +50,21 @@ public class NotificationService : INotificationService
             var eposta = onlyEmail.Trim().ToLower();
             kullanicilar = kullanicilar.Where(u => u.Email.ToLower() == eposta);
         }
-        var hedef = await kullanicilar.Select(u => u.Id).ToListAsync(ct);
-        if (onlyEmail != null && hedef.Count == 0)
+        var adaylar = await kullanicilar.Select(u => new { u.Id, u.NotifyAnnouncements }).ToListAsync(ct);
+        if (onlyEmail != null && adaylar.Count == 0)
             throw new ArgumentException($"{onlyEmail} ile kayıtlı kullanıcı yok.");
+
+        // 6563 sayili Kanun / KVKK: zorunlu olmayan duyuru yalnizca on onay (opt-in)
+        // vermis kullanicilara gider; onaysizlara ne uygulama ici kayit ne push.
+        // Zorunlu (guvenlik, veri ihlali, hukuki) bildirimde tercih yok sayilir.
+        var hedef = adaylar.Where(u => zorunlu || u.NotifyAnnouncements).Select(u => u.Id).ToList();
+        var onaysiz = adaylar.Count - hedef.Count;
+        if (hedef.Count == 0)
+        {
+            _logger.LogInformation("Duyuru {Key}: hedefte onay veren kullanici yok ({Skipped} kullanici onaysiz), gonderilmedi",
+                dedupeKey, onaysiz);
+            return new BroadcastResult(0, 0, 0, 0, onaysiz, zorunlu);
+        }
 
         // Ayni anahtarla daha once bildirim almis olanlar atlanir (tekrar calistirma
         // guvenli). Silinmis isaretliler de sayilir: (UserId, DedupeKey) tekil.
@@ -107,9 +119,66 @@ public class NotificationService : INotificationService
             }
         }
 
-        _logger.LogInformation("Duyuru {Key}: {New} kullaniciya bildirim ({Already} zaten almisti), {Push} cihaza push, {Invalid} gecersiz cihaz silindi",
-            dedupeKey, yeni.Count, zaten.Count, tokenlar.Count, silinen);
-        return new BroadcastResult(yeni.Count, zaten.Count, tokenlar.Count, silinen);
+        _logger.LogInformation("Duyuru {Key} (zorunlu: {Mandatory}): {New} kullaniciya bildirim ({Already} zaten almisti, {Skipped} onaysiz atlandi), {Push} cihaza push, {Invalid} gecersiz cihaz silindi",
+            dedupeKey, zorunlu, yeni.Count, zaten.Count, onaysiz, tokenlar.Count, silinen);
+        return new BroadcastResult(yeni.Count, zaten.Count, tokenlar.Count, silinen, onaysiz, zorunlu);
+    }
+
+    public async Task<NotificationPreferencesDto> GetPreferencesAsync()
+    {
+        var userId = GetUserId();
+        var tercih = await _context.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new NotificationPreferencesDto
+            {
+                BudgetAlerts = u.NotifyBudgetAlerts,
+                RecurringReminders = u.NotifyRecurringReminders,
+                Announcements = u.NotifyAnnouncements,
+            })
+            .FirstOrDefaultAsync();
+        return tercih ?? throw new NotFoundException("Kullanıcı bulunamadı!");
+    }
+
+    public async Task<NotificationPreferencesDto> UpdatePreferencesAsync(UpdateNotificationPreferencesDto dto)
+    {
+        var userId = GetUserId();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new NotFoundException("Kullanıcı bulunamadı!");
+
+        var simdi = DateTime.UtcNow;
+        var degisti = false;
+        if (dto.BudgetAlerts is bool butce && butce != user.NotifyBudgetAlerts)
+        {
+            user.NotifyBudgetAlerts = butce;
+            degisti = true;
+        }
+        if (dto.RecurringReminders is bool planli && planli != user.NotifyRecurringReminders)
+        {
+            user.NotifyRecurringReminders = planli;
+            degisti = true;
+        }
+        // Onay ve geri cekme tarihi yalnizca gercek degisimde yazilir: ayni degerle
+        // tekrar gelen istek (uygulama her acilista gonderebilir) onay tarihini kaydirmamali.
+        if (dto.Announcements is bool duyuru && duyuru != user.NotifyAnnouncements)
+        {
+            user.NotifyAnnouncements = duyuru;
+            if (duyuru) user.AnnouncementsConsentAt = simdi;
+            else user.AnnouncementsOptOutAt = simdi;
+            degisti = true;
+        }
+
+        if (degisti)
+        {
+            user.UpdatedDate = simdi;
+            await _context.SaveChangesAsync();
+        }
+
+        return new NotificationPreferencesDto
+        {
+            BudgetAlerts = user.NotifyBudgetAlerts,
+            RecurringReminders = user.NotifyRecurringReminders,
+            Announcements = user.NotifyAnnouncements,
+        };
     }
 
     public async Task<IEnumerable<NotificationDto>> GetAllAsync()
@@ -200,7 +269,11 @@ public class NotificationService : INotificationService
         _context.Notifications.Add(bildirim);
         await _context.SaveChangesAsync();
 
-        await PushGonderAsync(userId, bildirim);
+        // Tercih yalnizca push kanalini kapatir. Uygulama ici kayit kullanicinin
+        // kendi verisi oldugu icin yukarida her durumda yazildi.
+        if (_pushSender != null
+            && await _context.Users.AnyAsync(u => u.Id == userId && u.NotifyBudgetAlerts))
+            await PushGonderAsync(userId, bildirim);
     }
 
     /// Uygulama ici bildirimi kullanicinin telefonlarina da gonderir. Push ek

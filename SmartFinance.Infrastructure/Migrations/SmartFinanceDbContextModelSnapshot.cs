@@ -789,6 +789,12 @@ namespace SmartFinance.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AnnouncementsConsentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AnnouncementsOptOutAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
@@ -803,6 +809,15 @@ namespace SmartFinance.Infrastructure.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("NotifyAnnouncements")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("NotifyBudgetAlerts")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("NotifyRecurringReminders")
                         .HasColumnType("bit");
 
                     b.Property<string>("PasswordHash")

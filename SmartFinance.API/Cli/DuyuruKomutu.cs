@@ -3,23 +3,30 @@ using SmartFinance.Application.Interfaces;
 namespace SmartFinance.API.Cli;
 
 /// <summary>
-/// Tum kullanicilara duyuru gonderen komut. Web sunucusu baslatilmaz; is bitince
-/// program kapanir. HTTP ucu bilerek yok: internetten tetiklenemesin.
+/// Duyuru gonderen komut. Web sunucusu baslatilmaz; is bitince program kapanir.
+/// HTTP ucu bilerek yok: internetten tetiklenemesin.
 ///
 /// Sunucuda (ortam degiskenleri yuklu, root):
 ///   . /usr/local/bin/sf-env.sh
 ///   cd /var/www/smartfinance
-///   dotnet SmartFinance.API.dll duyuru 2026-09-surum11 "Baslik" "Metin" [--yalnizca e@posta.com]
+///   dotnet SmartFinance.API.dll duyuru 2026-09-surum11 "Baslik" "Metin" [--yalnizca e@posta.com] [--zorunlu]
+///
+/// Varsayilan olarak yalnizca duyurulara onay (opt-in) veren kullanicilara gider
+/// (6563 sayili Kanun, KVKK 14.01.2026 duyurusu). --zorunlu tercihleri yok sayar;
+/// yalniz guvenlik, veri ihlali ve hukuki zorunlu bildirimler icin.
 ///
 /// Ayni anahtarla tekrar calistirmak guvenli: daha once alan kimseye ikinci
 /// kez gitmez. Once --yalnizca ile tek hesapta denenmesi onerilir.
 /// </summary>
 public static class DuyuruKomutu
 {
-    public sealed record Istek(string Anahtar, string Baslik, string Metin, string? YalnizcaEposta);
+    public sealed record Istek(string Anahtar, string Baslik, string Metin, string? YalnizcaEposta, bool Zorunlu = false);
 
     public const string Kullanim =
-        "Kullanim: dotnet SmartFinance.API.dll duyuru <anahtar> \"<baslik>\" \"<metin>\" [--yalnizca <eposta>]";
+        "Kullanim: dotnet SmartFinance.API.dll duyuru <anahtar> \"<baslik>\" \"<metin>\" [--yalnizca <eposta>] [--zorunlu]\n" +
+        "  Varsayılan: yalnızca duyurulara onay veren kullanıcılara gider.\n" +
+        "  --yalnizca <eposta>  Yalnızca bu hesaba gönderir (deneme için).\n" +
+        "  --zorunlu            Bildirim tercihlerini yok sayar, herkese gider. Yalnız güvenlik, veri ihlali ve hukuki zorunlu bildirimler için.";
 
     /// Komut "duyuru" degilse null (normal web sunucusu baslar).
     public static bool KomutMu(string[] args) => args.Length > 0 && args[0] == "duyuru";
@@ -29,6 +36,7 @@ public static class DuyuruKomutu
     {
         var konumsal = new List<string>();
         string? eposta = null;
+        var zorunlu = false;
         for (var i = 1; i < args.Length; i++)
         {
             if (args[i] == "--yalnizca")
@@ -36,13 +44,31 @@ public static class DuyuruKomutu
                 if (i + 1 >= args.Length) throw new ArgumentException("--yalnizca icin e-posta verilmedi.\n" + Kullanim);
                 eposta = args[++i];
             }
+            else if (args[i] == "--zorunlu")
+            {
+                zorunlu = true;
+            }
             else
             {
                 konumsal.Add(args[i]);
             }
         }
         if (konumsal.Count != 3) throw new ArgumentException(Kullanim);
-        return new Istek(konumsal[0], konumsal[1], konumsal[2], eposta);
+        return new Istek(konumsal[0], konumsal[1], konumsal[2], eposta, zorunlu);
+    }
+
+    /// Sonuc satiri; test edilebilsin diye ayri.
+    public static string SonucMetni(Istek istek, BroadcastResult sonuc)
+    {
+        if (istek.YalnizcaEposta != null && !sonuc.Mandatory && sonuc.NotOptedInUsers > 0)
+            return $"Duyuru '{istek.Anahtar}': {istek.YalnizcaEposta} duyurulara onay vermemiş, gönderilmedi.";
+
+        var kanal = $"{sonuc.PushTargets} cihaza push, {sonuc.InvalidTokensRemoved} geçersiz cihaz silindi.";
+        if (sonuc.Mandatory)
+            return $"ZORUNLU duyuru '{istek.Anahtar}' (tercihler yok sayıldı): {sonuc.NotifiedUsers} kullanıcıya bildirim " +
+                   $"({sonuc.AlreadyNotifiedUsers} zaten almıştı), {kanal}";
+        return $"Duyuru '{istek.Anahtar}': onay veren {sonuc.NotifiedUsers} kullanıcıya bildirim " +
+               $"({sonuc.AlreadyNotifiedUsers} zaten almıştı, {sonuc.NotOptedInUsers} kullanıcı onay vermediği için atlandı), {kanal}";
     }
 
     public static async Task<int> CalistirAsync(string[] args, IServiceProvider services)
@@ -52,11 +78,9 @@ public static class DuyuruKomutu
             var istek = Ayristir(args);
             using var scope = services.CreateScope();
             var bildirimler = scope.ServiceProvider.GetRequiredService<INotificationService>();
-            var sonuc = await bildirimler.BroadcastAsync(istek.Anahtar, istek.Baslik, istek.Metin, istek.YalnizcaEposta);
-            Console.WriteLine(
-                $"Duyuru '{istek.Anahtar}': {sonuc.NotifiedUsers} kullaniciya bildirim " +
-                $"({sonuc.AlreadyNotifiedUsers} zaten almisti), {sonuc.PushTargets} cihaza push, " +
-                $"{sonuc.InvalidTokensRemoved} gecersiz cihaz silindi.");
+            var sonuc = await bildirimler.BroadcastAsync(istek.Anahtar, istek.Baslik, istek.Metin,
+                istek.YalnizcaEposta, istek.Zorunlu);
+            Console.WriteLine(SonucMetni(istek, sonuc));
             return 0;
         }
         catch (ArgumentException ex)

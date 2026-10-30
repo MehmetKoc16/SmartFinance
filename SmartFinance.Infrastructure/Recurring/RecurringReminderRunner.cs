@@ -86,6 +86,8 @@ public class RecurringReminderRunner
         if (_pushSender == null) return;
         try
         {
+            // Tercih yalnizca push kanalini kapatir; uygulama ici kayit (ProcessAsync) her durumda yazildi.
+            if (!await _context.Users.AnyAsync(u => u.Id == n.UserId && u.NotifyRecurringReminders, ct)) return;
             var tokens = await _context.DeviceTokens.Where(x => x.UserId == n.UserId).Select(x => x.Token).ToListAsync(ct);
             var invalid = new List<string>();
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);

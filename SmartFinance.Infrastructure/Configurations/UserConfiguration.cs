@@ -17,6 +17,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u=>u.PasswordHash).IsRequired();
 
+        // Bildirim tercihleri: HasDefaultValue KULLANILMIYOR (bool sentinel tuzagi,
+        // bkz. User.cs). Varsayilanlar C# ozellik baslaticisindan gelir; EF her
+        // INSERT'te degeri acikca gonderir. Mevcut satirlarin doldurulmasi
+        // AddNotificationPreferences migration'inda.
+        builder.Property(u=>u.NotifyBudgetAlerts).IsRequired();
+        builder.Property(u=>u.NotifyRecurringReminders).IsRequired();
+        builder.Property(u=>u.NotifyAnnouncements).IsRequired();
+
         builder.HasQueryFilter(u=>!u.IsDeleted);
     }
 }

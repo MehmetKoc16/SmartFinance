@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SmartFinance.Application.DTOs.Notification;
 using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.API.Controllers;
@@ -42,5 +43,20 @@ public class NotificationController : ControllerBase
     {
         await _notificationService.MarkAllAsReadAsync();
         return NoContent();
+    }
+
+    // GET /api/Notification/preferences -> {"budgetAlerts","recurringReminders","announcements"}
+    [HttpGet("preferences")]
+    public async Task<IActionResult> GetPreferences()
+    {
+        return Ok(await _notificationService.GetPreferencesAsync());
+    }
+
+    // PUT /api/Notification/preferences: alanlar istege bagli, null = degistirme.
+    // Yanit guncel uc alan.
+    [HttpPut("preferences")]
+    public async Task<IActionResult> UpdatePreferences([FromBody] UpdateNotificationPreferencesDto dto)
+    {
+        return Ok(await _notificationService.UpdatePreferencesAsync(dto));
     }
 }

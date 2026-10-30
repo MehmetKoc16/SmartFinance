@@ -20,6 +20,20 @@ public class DuyuruKomutuTests
 
         var herkes = DuyuruKomutu.Ayristir(["duyuru", "surum11", "Başlık", "Metin"]);
         Assert.Null(herkes.YalnizcaEposta);
+        Assert.False(herkes.Zorunlu);
+    }
+
+    // NEDEN: Tercihi yok sayan gonderim yalnizca acik bayrakla olmali ve yardim metni
+    // bayragin hangi bildirimler icin oldugunu soylemeli (KVKK / 6563).
+    [Fact]
+    public void ZorunluBayragi_Ayristirilir_VeYardimdaAciklanir()
+    {
+        var i = DuyuruKomutu.Ayristir(["duyuru", "guvenlik-1", "Başlık", "Metin", "--zorunlu", "--yalnizca", "a@b.com"]);
+        Assert.True(i.Zorunlu);
+        Assert.Equal("a@b.com", i.YalnizcaEposta);
+        Assert.Equal("guvenlik-1", i.Anahtar);
+        Assert.Contains("--zorunlu", DuyuruKomutu.Kullanim);
+        Assert.Contains("Yalnız güvenlik, veri ihlali ve hukuki zorunlu bildirimler için", DuyuruKomutu.Kullanim);
     }
 
     [Theory]

@@ -38,9 +38,12 @@ public class BroadcastNotificationTests
         return (servis, db, fcm);
     }
 
+    // Mevcut testler duyurunun dagitim mekanigini (tekrar, gruplama, gecersiz token)
+    // sinar; bu yuzden kullanicilar duyurulara onay vermis olarak kurulur. Onaysiz
+    // kullanici davranisi NotificationPreferencesTests'te.
     private static User Kullanici(SmartFinanceDbContext db, params string[] tokenlar)
     {
-        var u = new User { FullName = "Test", Email = $"{Guid.NewGuid()}@test.com", PasswordHash = "x" };
+        var u = new User { FullName = "Test", Email = $"{Guid.NewGuid()}@test.com", PasswordHash = "x", NotifyAnnouncements = true };
         db.Users.Add(u);
         db.SaveChanges();
         foreach (var t in tokenlar) db.DeviceTokens.Add(new DeviceToken { UserId = u.Id, Token = t });

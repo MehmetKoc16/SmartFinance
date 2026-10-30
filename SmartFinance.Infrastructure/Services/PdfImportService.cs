@@ -48,7 +48,9 @@ public class PdfImportService : IPdfImportService
 
     public async Task<PdfParseResultDto> ParsePdfAsync(Stream fileStream, string fileName)
     {
-        _logger.LogInformation("PDF/Excel ice aktarma basladi: {FileName}", fileName);
+        // Dosya adi kisinin adini soyadini icerebilir (KVKK); yalnizca uzanti ve boyut.
+        _logger.LogInformation("PDF/Excel ice aktarma basladi: uzanti {Extension}, {SizeBytes} bayt",
+            Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant(), fileStream.CanSeek ? fileStream.Length : (long?)null);
 
         List<ParsedTransactionDto> transactions;
         string bankName;

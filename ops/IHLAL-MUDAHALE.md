@@ -50,10 +50,11 @@ Kural: kanıtı **değiştirmeden kopyala**, kopyanın özetini (sha256) günlü
 - [ ] Caddy erişim logları (yapılandırmadaki log dosyası ve
       `journalctl -u caddy.service`). Bak: alışılmadık IP'ler, 401/403/429
       yoğunlukları, büyük yanıtlar, beklenmeyen uçlar.
-- [ ] Uygulama log olayları: "GirisBasarisiz" ve "RateLimitReddi". **Not:** v16
-      kodunda bu adlarla log olayı bulunmuyor; yoksa `İşlenen hata (401)` ve
-      `(429)` satırlarına, `Beklenmeyen hata` kayıtlarına ve şifre sıfırlama
-      loglarına bak.
+- [ ] Uygulama log olayları: `journalctl -u smartfinance-api.service` çıktısında
+      RateLimitReddi, GirisBasarisiz, YenilemeBasarisiz (aynı IP'den yoğunluk =
+      kaba kuvvet denemesi) ve GirisBasarili (hangi hesaplara hangi IP'lerden
+      girildi) satırlarını ara. Ayrıca `Beklenmeyen hata` kayıtlarına ve şifre
+      sıfırlama loglarına bak.
 - [ ] Veritabanı: olaydan önceki son yedeği ayrı tut (üzerine yazılmasın).
       Etkilenmiş olabilecek tablolar: Users, Transactions, Accounts, Transfers,
       RecurringPayments, Investments, Budgets, Categories, CategoryMappings,

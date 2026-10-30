@@ -34,7 +34,8 @@
     <!-- Gecisli bagimlilik olarak 9.0.0 geliyordu; o surumde 8 adet yuksek onem
          dereceli guvenlik acigi var (GHSA-mmjf-rqrv-855v ve digerleri).
          Acikca sabitleyerek yamali surume zorluyoruz. -->
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.11" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.13" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
   <PropertyGroup>

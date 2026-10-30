@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.IdentityModel.JsonWebTokens;
 using System.Security.Claims;
 using SmartFinance.Application.DTOs.Auth;
+using SmartFinance.Application.Exceptions;
 using SmartFinance.Application.Interfaces;
 
 namespace SmartFinance.API.Controllers;
@@ -11,12 +14,24 @@ namespace SmartFinance.API.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly IAuthService _authService;
+    public static readonly EventId GirisBasariliEvent = new(4101, "GirisBasarili");
+    public static readonly EventId GirisBasarisizEvent = new(4102, "GirisBasarisiz");
+    public static readonly EventId YenilemeBasarisizEvent = new(4103, "YenilemeBasarisiz");
 
-    public AuthController(IAuthService authService)
+    private readonly IAuthService _authService;
+    private readonly ILogger<AuthController> _logger;
+
+    // Logger istege bagli: testler ve eski kod kontrolcuyu tek parametreyle
+    // kuruyor. DI'da ILogger<T> her zaman kayitli oldugu icin gercek logger gelir.
+    public AuthController(IAuthService authService, ILogger<AuthController>? logger = null)
     {
         _authService=authService;
+        _logger = logger ?? NullLogger<AuthController>.Instance;
     }
+
+    // ProxyHeaders gercek istemci IP'sini RemoteIpAddress'e yerlestiriyor.
+    private string ClientIp =>
+        HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "bilinmiyor";
 
     [HttpPost("register")]
     [EnableRateLimiting("auth")]
@@ -31,8 +46,50 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login(LoginDto dto)
     {
-        var token=await _authService.LoginAsync(dto);
+        TokenDto token;
+        try
+        {
+            token=await _authService.LoginAsync(dto);
+        }
+        catch (UnauthorizedException)
+        {
+            // Ihlal tespiti icin IP yazilir; e-posta (kisisel veri) YAZILMAZ.
+            // throw; ile ayni istisna ayni yigin iziyle ExceptionMiddleware'e
+            // gider, cevap (401 + govde) degismez.
+            _logger.LogWarning(GirisBasarisizEvent, "GirisBasarisiz: IP={ClientIp}", ClientIp);
+            throw;
+        }
+
+        var userId = UserIdFromToken(token.Token);
+        if (userId != null)
+            _logger.LogInformation(GirisBasariliEvent, "GirisBasarili: UserId={UserId} IP={ClientIp}", userId, ClientIp);
+        else
+            _logger.LogInformation(GirisBasariliEvent, "GirisBasarili: IP={ClientIp}", ClientIp);
         return Ok(token);
+    }
+
+    /// TokenDto'da kullanici kimligi yok (DTO'ya dokunulmuyor); yeni uretilen
+    /// JWT'nin payload'indan okunur. Imza burada dogrulanmaz: token az once
+    /// servis tarafindan uretildi, deger yalnizca loga yazilir. JwtSecurityTokenHandler
+    /// ClaimTypes.NameIdentifier'i "nameid" olarak yazar; digerleri yedek.
+    private static string? UserIdFromToken(string? jwt)
+    {
+        if (string.IsNullOrWhiteSpace(jwt)) return null;
+        try
+        {
+            var parsed = new JsonWebToken(jwt);
+            foreach (var claimType in new[] { "nameid", ClaimTypes.NameIdentifier, "sub" })
+            {
+                if (parsed.TryGetPayloadValue<string>(claimType, out var value) && !string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+        }
+        catch (Exception)
+        {
+            // Bicimi bozuk token (SecurityTokenMalformedException vb.): giris
+            // basarili, yalnizca kimlik loga yazilamaz; cevap etkilenmemeli.
+        }
+        return null;
     }
 
     [HttpGet("me")]
@@ -110,8 +167,17 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto dto)
     {
-        var token = await _authService.RefreshTokenAsync(dto.RefreshToken);
-        return Ok(token);
+        try
+        {
+            var token = await _authService.RefreshTokenAsync(dto.RefreshToken);
+            return Ok(token);
+        }
+        catch (UnauthorizedException)
+        {
+            // Refresh token degeri bir sir: loga yalnizca IP yazilir.
+            _logger.LogWarning(YenilemeBasarisizEvent, "YenilemeBasarisiz: IP={ClientIp}", ClientIp);
+            throw;
+        }
     }
 
     /// <summary>Refresh token'i sunucu tarafinda iptal eder — cikis yapildiginda

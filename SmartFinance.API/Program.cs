@@ -95,6 +95,7 @@ builder.Services.AddHttpClient<IKapClient, KapClient>();
 builder.Services.AddHostedService<KapFundamentalsSyncService>();
 builder.Services.AddScoped<SmartFinance.Infrastructure.Recurring.RecurringReminderRunner>();
 builder.Services.AddHostedService<SmartFinance.Infrastructure.Recurring.RecurringReminderService>();
+builder.Services.AddHostedService<SmartFinance.Infrastructure.Retention.DataRetentionService>();
 
 // Premium hakki ve ucretsiz katman sinirlari. Sinirlarin uygulandigi TEK yer
 // sunucu: istemcinin "ben premium'um" demesine guvenilmez.

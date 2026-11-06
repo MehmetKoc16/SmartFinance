@@ -21,6 +21,7 @@ public class SmartFinanceDbContext : DbContext
     public DbSet<PriceHistory> PriceHistories {get;set;}
     // Premium abonelikler — premium durumunun tek dogruluk kaynagi.
     public DbSet<Subscription> Subscriptions {get;set;}
+    public DbSet<PurchaseConsent> PurchaseConsents {get;set;}
     // Ucretsiz katmanda aylik ice aktarma sinirini sayabilmek icin.
     public DbSet<ImportLog> ImportLogs {get;set;}
     // Sifre sifirlama baglantilari (token'in kendisi degil, ozeti saklanir).

@@ -1,6 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using SmartFinance.Domain.Entities;
+using SmartFinance.Infrastructure.Context;
 using SmartFinance.Infrastructure.Recurring;
 
 namespace SmartFinance.Infrastructure.Retention;
@@ -57,8 +60,46 @@ public class DataRetentionService : BackgroundService
             // (DbContext ve ILogger kapsamdan çözülür).
             var runner = ActivatorUtilities.CreateInstance<DataRetentionRunner>(scope.ServiceProvider);
             await runner.RunOnceAsync(DateTime.UtcNow, ct);
+            await CleanupPurchaseConsentsAsync(scope.ServiceProvider.GetRequiredService<SmartFinanceDbContext>(),
+                DateTime.UtcNow, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex) { _logger.LogError(ex, "Veri saklama temizliği başarısız oldu."); }
+    }
+
+    /// <summary>Kimliksiz kanıtları 3 yıl, satın almaya dönüşmeyen denemeleri 30 gün saklar.</summary>
+    public async Task<int> CleanupPurchaseConsentsAsync(SmartFinanceDbContext context, DateTime utcNow, CancellationToken ct)
+    {
+        var evidenceCutoff = utcNow.AddYears(-3);
+        var attemptCutoff = utcNow.AddDays(-30);
+        var deleted = 0;
+        try
+        {
+            var lastId = 0;
+            while (true)
+            {
+                var ids = await context.PurchaseConsents.IgnoreQueryFilters()
+                    .Where(x => x.Id > lastId &&
+                        ((x.UserId == null && x.ConsentedAt < evidenceCutoff) ||
+                         (x.UserId != null && x.PurchaseToken == null && x.ConsentedAt < attemptCutoff)))
+                    .OrderBy(x => x.Id).Select(x => x.Id).Take(DataRetentionRunner.BatchSize).ToListAsync(ct);
+                if (ids.Count == 0) break;
+                context.ChangeTracker.Clear();
+                context.PurchaseConsents.RemoveRange(ids.Select(id => new PurchaseConsent { Id = id }));
+                await context.SaveChangesAsync(ct);
+                context.ChangeTracker.Clear();
+                deleted += ids.Count;
+                lastId = ids[^1];
+                if (ids.Count < DataRetentionRunner.BatchSize) break;
+            }
+            _logger.LogInformation("Veri saklama: PurchaseConsents temizliği tamamlandı ({Deleted} kayıt silindi).", deleted);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Veri saklama: PurchaseConsents temizliği yarıda kaldı ({Deleted} kayıt silinmişti); sonraki turda tekrar denenecek.", deleted);
+        }
+        finally { context.ChangeTracker.Clear(); }
+        return deleted;
     }
 }

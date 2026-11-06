@@ -26,6 +26,14 @@ public class SubscriptionController : ControllerBase
     public async Task<IActionResult> GetStatus(CancellationToken ct)
         => Ok(await _subscriptionService.GetStatusAsync(ct));
 
+    /// <summary>Satın alma öncesi ön bilgilendirme ve erken ifa onayını kaydeder.</summary>
+    [HttpPost("consent")]
+    public async Task<IActionResult> Consent([FromBody] PurchaseConsentDto dto, CancellationToken ct)
+    {
+        await _subscriptionService.RecordPurchaseConsentAsync(dto.ProductId, dto.TextVersion, ct);
+        return NoContent();
+    }
+
     [HttpPost("verify")]
     public async Task<IActionResult> Verify([FromBody] VerifyPurchaseDto dto, CancellationToken ct)
         => Ok(await _subscriptionService.VerifyPurchaseAsync(dto.ProductId, dto.PurchaseToken, ct));

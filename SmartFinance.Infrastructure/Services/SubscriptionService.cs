@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using SmartFinance.Application.Common;
@@ -27,6 +28,7 @@ public class SubscriptionService : ISubscriptionService
     private readonly IPlayBillingClient? _playBillingClient;
     private readonly IConfiguration? _configuration;
     private readonly ILogger<SubscriptionService> _logger;
+    private readonly IEmailSender? _emailSender;
 
     private const string VerificationUnavailable =
         "Satın alma şu an doğrulanamıyor. Lütfen biraz sonra tekrar deneyin.";
@@ -37,7 +39,8 @@ public class SubscriptionService : ISubscriptionService
         IEntitlementService entitlementService,
         IPlayBillingClient? playBillingClient = null,
         IConfiguration? configuration = null,
-        ILogger<SubscriptionService>? logger = null)
+        ILogger<SubscriptionService>? logger = null,
+        IEmailSender? emailSender = null)
     {
         _context = context;
         _currentUserService = currentUserService;
@@ -45,6 +48,24 @@ public class SubscriptionService : ISubscriptionService
         _playBillingClient = playBillingClient;
         _configuration = configuration;
         _logger = logger ?? NullLogger<SubscriptionService>.Instance;
+        _emailSender = emailSender;
+    }
+
+    public async Task RecordPurchaseConsentAsync(string productId, string textVersion, CancellationToken ct)
+    {
+        if (!SubscriptionUpdater.IsProductSupported(productId))
+            throw new BadRequestException("Geçersiz ürün.");
+        if (!PurchaseConsentTexts.IsAllowed(textVersion))
+            throw new BadRequestException("Geçersiz onay metni sürümü.");
+
+        _context.PurchaseConsents.Add(new PurchaseConsent
+        {
+            UserId = _currentUserService.UserId,
+            ProductId = productId,
+            TextVersion = textVersion,
+            ConsentedAt = DateTime.UtcNow,
+        });
+        await _context.SaveChangesAsync(ct);
     }
 
     public string AccountToken(int userId)
@@ -106,7 +127,62 @@ public class SubscriptionService : ISubscriptionService
         row.IsDeleted = false;
         if (isNew) _context.Subscriptions.Add(row);
         await _context.SaveChangesAsync(ct);
+        await BindPurchaseConsentAsync(row, ct);
         return await GetStatusAsync(ct);
+    }
+
+    private async Task BindPurchaseConsentAsync(Subscription subscription, CancellationToken ct)
+    {
+        // Restore/tekrar verify, kimliksiz saklananlar dahil aynı kanıtı yeniden bağlamaz.
+        if (await _context.PurchaseConsents.IgnoreQueryFilters()
+            .AnyAsync(x => x.PurchaseToken == subscription.PurchaseToken, ct)) return;
+
+        var cutoff = DateTime.UtcNow.AddHours(-24);
+        var consent = await _context.PurchaseConsents
+            .Where(x => x.UserId == subscription.UserId && x.ProductId == subscription.ProductId
+                && x.PurchaseToken == null && x.ConsentedAt >= cutoff)
+            .OrderByDescending(x => x.ConsentedAt).ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+        if (consent is null)
+        {
+            _logger.LogWarning("OnaysizSatinAlma UserId={UserId} ProductId={ProductId}",
+                subscription.UserId, subscription.ProductId);
+            return;
+        }
+
+        consent.PurchaseToken = subscription.PurchaseToken;
+        consent.OrderId = subscription.OrderId;
+        await _context.SaveChangesAsync(ct);
+
+        // Önce kanıt kalıcılaşır; gönderim hatası verify'ı bozmaz, tekrar verify mail göndermez.
+        try
+        {
+            if (_emailSender is null) return;
+            var email = await _context.Users.Where(x => x.Id == subscription.UserId)
+                .Select(x => x.Email).SingleAsync(ct);
+            static string Encode(string value) => WebUtility.HtmlEncode(value);
+            static string TrDate(DateTime utc, string format) =>
+                DateTime.SpecifyKind(utc, DateTimeKind.Utc).AddHours(3).ToString(format, CultureInfo.InvariantCulture);
+            var plan = subscription.ProductId == "premium_monthly" ? "Aylık Premium" : "Yıllık Premium";
+            var order = consent.OrderId is null ? "" : $"<p>Sipariş no: {Encode(consent.OrderId)}</p>";
+            var body = $"""
+                <p>Plan: {Encode(plan)}</p>
+                <p>Başlangıç tarihi: {Encode(TrDate(subscription.StartsAt, "dd.MM.yyyy"))} (TSİ)</p>
+                {order}
+                <p>{Encode($"Satın almadan önce ön bilgilendirmeyi ve Kullanım ve Abonelik Koşulları'nı (sürüm {consent.TextVersion}) okuduğunuzu ve hizmetin cayma süresi dolmadan hemen başlamasını onayladığınızı {TrDate(consent.ConsentedAt, "dd.MM.yyyy HH:mm")} (TSİ) tarihinde bildirdiniz. Onayınızla ifasına başlanan hizmette cayma hakkı kullanılamaz (Mesafeli Sözleşmeler Yönetmeliği md.15/1-h).")}</p>
+                <p>Aboneliğiniz siz iptal edene kadar her dönem sonunda otomatik yenilenir. İptal: Google Play &gt; Profil &gt; Ödemeler ve abonelikler &gt; Abonelikler.</p>
+                <p><a href="https://play.google.com/store/account/subscriptions?package=com.walletmark.app">Aboneliği yönet</a></p>
+                <p><a href="https://walletmark.com.tr/kosullar">Koşullar</a> · <a href="https://walletmark.com.tr/gizlilik">Gizlilik</a></p>
+                <p>{Encode("Sağlayıcı: Mehmet Koç (Wallet Mark) · destek@walletmark.com.tr")}</p>
+                """;
+            await _emailSender.SendAsync(email, "Wallet Mark Premium aboneliğiniz başladı", body, ct);
+        }
+        catch (Exception ex)
+        {
+            // İstisna mesajı adres içerebilir; yalnız kullanıcı ve hata türü loglanır.
+            _logger.LogWarning("Satın alma teyit e-postası gönderilemedi. UserId={UserId} ErrorType={ErrorType}",
+                subscription.UserId, ex.GetType().Name);
+        }
     }
 
     private static ExternalServiceException Unavailable()

@@ -500,6 +500,18 @@ public class AuthService : IAuthService{
             await _context.Categories.IgnoreQueryFilters().Where(x => x.UserId == userId).ToListAsync());
         await _context.SaveChangesAsync();
 
+        // MSY md.20 ve KVKK md.5/2-e: satın almaya bağlı kanıt 3 yıl kimliksiz saklanır.
+        // InMemory FK davranışına güvenmeden bağsız denemeleri sil, bağlıların kullanıcı bağını kaldır.
+        var consents = await _context.PurchaseConsents.IgnoreQueryFilters()
+            .Where(x => x.UserId == userId).ToListAsync();
+        _context.PurchaseConsents.RemoveRange(consents.Where(x => x.PurchaseToken == null));
+        foreach (var consent in consents.Where(x => x.PurchaseToken != null))
+        {
+            consent.UserId = null;
+            consent.User = null;
+        }
+        await _context.SaveChangesAsync();
+
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
 

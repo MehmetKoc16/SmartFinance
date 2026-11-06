@@ -8,4 +8,5 @@ public interface ISubscriptionService
     /// abonelik durumu ve mevcut kullanim.
     Task<SubscriptionStatusDto> GetStatusAsync(CancellationToken ct = default);
     Task<SubscriptionStatusDto> VerifyPurchaseAsync(string productId, string purchaseToken, CancellationToken ct);
+    Task RecordPurchaseConsentAsync(string productId, string textVersion, CancellationToken ct);
 }

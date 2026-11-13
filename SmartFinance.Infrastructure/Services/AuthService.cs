@@ -131,7 +131,16 @@ public class AuthService : IAuthService{
         // sonra tekrar kullanilamaz.
         existing.RevokedAt = DateTime.UtcNow;
 
-        return await GenerateTokenAsync(existing.User);
+        try
+        {
+            // İptal ve yeni kayıt aynı SaveChanges içinde atomik olarak yazılır.
+            return await GenerateTokenAsync(existing.User, rotating: true);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _context.Entry(existing).State = EntityState.Detached;
+            throw new UnauthorizedException("Oturum süresi dolmuş, lütfen tekrar giriş yapın.");
+        }
     }
 
     public async Task LogoutAsync(string refreshToken)
@@ -141,13 +150,13 @@ public class AuthService : IAuthService{
         var existing = await _context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == hash);
         if (existing == null) return; // zaten yok/iptal — sessizce cik
         existing.RevokedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await SaveRevocationsAsync();
     }
 
     // Token üret (private = sadece bu sınıf içinden çağrılabilir).
     // Hem erisim (JWT) hem de yenileme (refresh) token'i uretip refresh
     // token'i DB'ye kaydeder — bu yuzden artik async.
-    private async Task<TokenDto> GenerateTokenAsync(User user)
+    private async Task<TokenDto> GenerateTokenAsync(User user, bool rotating = false)
     {
         // 1. Token'a gömülecek bilgiler (Claims = iddialar/bilgiler)
         //    Bu bilgiler token içinde şifreli olarak taşınır
@@ -176,15 +185,6 @@ public class AuthService : IAuthService{
         var expireMinutes = int.Parse(_configuration["Jwt:ExpireMinutes"]!);
         var expiration = DateTime.UtcNow.AddMinutes(expireMinutes);
 
-        // 5. Token'ı oluştur
-        var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:Issuer"],      // Kim üretti?
-            audience: _configuration["Jwt:Audience"],   // Kim kullanacak?
-            claims: claims,                             // İçindeki bilgiler
-            expires: expiration,                        // Ne zaman biter?
-            signingCredentials: credentials             // İmza
-        );
-
         // 6. Refresh token uret — 64 byte kriptografik olarak guvenli rastgele
         //    deger, Base64'e cevrilir. JWT'nin aksine icinde bilgi tasimaz,
         //    sadece DB'deki kaydiyla eslesen opak bir anahtar.
@@ -194,13 +194,40 @@ public class AuthService : IAuthService{
         var refreshTokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var refreshTokenExpireDays = int.Parse(_configuration["Jwt:RefreshTokenExpireDays"] ?? "30");
 
-        _context.RefreshTokens.Add(new RefreshToken
+        var refreshToken = new RefreshToken
         {
             Token = HashToken(refreshTokenValue),
             ExpiresAt = DateTime.UtcNow.AddDays(refreshTokenExpireDays),
             UserId = user.Id,
-        });
-        await _context.SaveChangesAsync();
+        };
+        // Toplu iptal yeniden denenirken yeni token Added durumunda olmamalı.
+        // InMemory başarısız SaveChanges içindeki eklemeyi geri almaz; tekrar
+        // aynı anahtarı ekleyebilir. SQL Server'da da önce şifre + iptaller
+        // tamamlanır, ardından yeni oturum açılır. İkinci kayıt başarısız olursa
+        // şifre değişikliği ve eski oturumların iptali geçerli kalır.
+        if (!rotating) await SaveRevocationsAsync(userId: user.Id);
+
+        _context.RefreshTokens.Add(refreshToken);
+        try
+        {
+            // Rotasyonda eski token'ın iptali ve yenisinin eklenmesi tek
+            // SaveChanges olarak kalır; SQL Server ikisini atomik kaydeder.
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Kaybeden isteğin adayı sonraki bir SaveChanges ile kaydedilmemeli.
+            _context.Entry(refreshToken).State = EntityState.Detached;
+            throw;
+        }
+
+        // JWT yalnız başarılı kayıttan sonra üretilir; yarışı kaybedene çift verilmez.
+        var token = new JwtSecurityToken(
+            issuer: _configuration["Jwt:Issuer"],
+            audience: _configuration["Jwt:Audience"],
+            claims: claims,
+            expires: expiration,
+            signingCredentials: credentials);
 
         // 7. Token'ı metne çevir ve DTO olarak döndür
         return new TokenDto
@@ -221,7 +248,8 @@ public class AuthService : IAuthService{
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
         user.UpdatedDate = DateTime.UtcNow;
         await RevokeRefreshTokensAsync(userId);
-        // Hash, iptaller ve yeni refresh token tek SaveChanges ile kaydedilir.
+        await InvalidatePasswordResetTokensAsync(userId);
+        // Önce hash ve iptaller yeniden denemeli kaydedilir, sonra yeni token eklenir.
         return await GenerateTokenAsync(user);
     }
 
@@ -367,9 +395,47 @@ public class AuthService : IAuthService{
         // Sifre degistiyse mevcut oturumlar da dusmeli: hesabi ele geciren
         // biri varsa yenileme token'iyla erisimini surdurememeli.
         await RevokeRefreshTokensAsync(kayit.UserId, ct);
+        await InvalidatePasswordResetTokensAsync(kayit.UserId, ct);
 
-        await _context.SaveChangesAsync(ct);
+        await SaveRevocationsAsync(ct, kayit.UserId);
         _logger.LogInformation("Şifre sıfırlandı. UserId: {UserId}", kayit.UserId);
+    }
+
+    private async Task SaveRevocationsAsync(CancellationToken ct = default, int? userId = null)
+    {
+        // Toplu iptal/çıkış idempotenttir: başka isteğin iptal ettiği satır
+        // yüzünden şifre değişikliği başarısız olmamalı. Rotasyon buraya girmez.
+        while (true)
+        {
+            try
+            {
+                await _context.SaveChangesAsync(ct);
+                return;
+            }
+            catch (DbUpdateConcurrencyException ex) when (
+                ex.Entries.Count > 0 && ex.Entries.All(e => e.Entity is RefreshToken))
+            {
+                foreach (var entry in ex.Entries)
+                {
+                    await entry.ReloadAsync(ct);
+                    if (entry.State != EntityState.Detached && ((RefreshToken)entry.Entity).RevokedAt == null)
+                        ((RefreshToken)entry.Entity).RevokedAt = DateTime.UtcNow;
+                }
+                // Yarışı kazanan rotasyon yeni bir token yazmış olabilir;
+                // şifre değişimi/sıfırlama onu da iptal etmeli. Çıkış yalnız kendi token'ını kapatır.
+                if (userId.HasValue) await RevokeRefreshTokensAsync(userId.Value, ct);
+            }
+        }
+    }
+
+    private async Task InvalidatePasswordResetTokensAsync(int userId, CancellationToken ct = default)
+    {
+        // Eski e-postaya gönderilmiş bağlantılar kimlik değişiminden sonra çalışmamalı.
+        // Süresi dolmuş olanlar da dahil; kayıt çağıranın SaveChanges işlemine aittir.
+        var now = DateTime.UtcNow;
+        var tokens = await _context.PasswordResetTokens.IgnoreQueryFilters()
+            .Where(t => t.UserId == userId && t.UsedAt == null).ToListAsync(ct);
+        foreach (var token in tokens) token.UsedAt = now;
     }
 
     private async Task RevokeRefreshTokensAsync(int userId, CancellationToken ct = default)
@@ -547,6 +613,7 @@ public class AuthService : IAuthService{
             var emailTaken = await _context.Users.AnyAsync(u => u.Id != userId && u.Email == yeniEmail);
             if (emailTaken)
                 throw new BadRequestException("Bu email zaten kullanılıyor!");
+            await InvalidatePasswordResetTokensAsync(userId);
         }
 
         user.FullName = dto.FullName.Trim();

@@ -182,10 +182,12 @@ public class DataRetentionRunnerTests
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
 
-        await new DataRetentionRunner(db).RunOnceAsync(Now, default);
+        var sonuc = await new DataRetentionRunner(db).RunOnceAsync(Now, default);
 
         var kalan = await db.RefreshTokens.IgnoreQueryFilters().Select(t => t.Id).ToListAsync();
         Assert.Equal(new[] { yeniIptal.Id }, kalan);
+        Assert.Equal(1, sonuc.DeletedRefreshTokens);
+        Assert.Empty(sonuc.FailedKinds);
     }
 
     // NEDEN: Parti boyutunu (500) aşan kayıtlar da tek turda silinmeli; döngü ilk partide durmamalı.
@@ -194,7 +196,10 @@ public class DataRetentionRunnerTests
     {
         using var db = Baglam();
         var adet = DataRetentionRunner.BatchSize + 1;
-        for (var i = 0; i < adet; i++) db.RefreshTokens.Add(Rt(Now.AddDays(-10)));
+        for (var i = 0; i < adet; i++)
+            db.RefreshTokens.Add(i % 2 == 0
+                ? Rt(Now.AddDays(10), Now.AddDays(-8))
+                : Rt(Now.AddDays(-10)));
         db.RefreshTokens.Add(Rt(Now.AddDays(5)));
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();

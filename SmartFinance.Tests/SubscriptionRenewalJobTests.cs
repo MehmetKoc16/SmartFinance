@@ -203,7 +203,8 @@ public class SubscriptionRenewalJobTests
         var rows = new[]
         {
             Kayit("ornek-cok-eski", Simdi.AddDays(-7).AddTicks(-1)),
-            Kayit("ornek-cok-ileri", Simdi.AddDays(2).AddTicks(1)),
+            // NEDEN: Uzak bitişli satır artık günlük pencereye girer; bu testte yeni doğrulanmış olmalı.
+            Kayit("ornek-cok-ileri", Simdi.AddDays(2).AddTicks(1), Simdi.AddHours(-23)),
             Kayit("ornek-yeni-dogrulama", verified: Simdi.AddHours(-1)),
             Kayit("ornek-alti-saat", verified: Simdi.AddHours(-6)),
             Kayit("ornek-alt-sinir", Simdi.AddDays(-7)),
@@ -272,13 +273,49 @@ public class SubscriptionRenewalJobTests
     public async Task BagliToken_YenilemedeEskiAboneligiSonlandirir()
     {
         using var o = new Ortam();
-        await o.Ekle(Kayit("ornek-eski-token", Simdi.AddDays(10)), Kayit("ornek-yeni-token"));
+        // NEDEN: Eski token'ın günlük sorgusu değil, bağlı token üzerinden sonlandırılması sınanıyor.
+        await o.Ekle(Kayit("ornek-eski-token", Simdi.AddDays(10), Simdi.AddHours(-1)), Kayit("ornek-yeni-token"));
         o.Client.Result = o.Client.Result! with { LinkedPurchaseToken = "ornek-eski-token" };
         await o.Job.RunOnceAsync(Simdi, default);
         var rows = await o.Oku();
         Assert.Equal(Simdi, rows.Single(s => s.PurchaseToken == "ornek-eski-token").ExpiresAt);
         Assert.Equal(o.Client.Result.ExpiresAtUtc, rows.Single(s => s.PurchaseToken == "ornek-yeni-token").ExpiresAt);
         Assert.Equal("ornek-yeni-token", Assert.Single(o.Client.QueriedTokens));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(25)]
+    public async Task YenilemeIsi_UzakBitisliAmaBirGundurDogrulanmamisAboneligiSecer(int? saatOnce)
+    {
+        // NEDEN: İade edilen yıllık abonelik aylarca Premium kalmamalı; otomatik yenileme şart değil.
+        using var o = new Ortam();
+        DateTime? verified = saatOnce.HasValue ? Simdi.AddHours(-saatOnce.Value) : null;
+        await o.Ekle(Kayit("ornek-yillik", Simdi.AddDays(300), verified, autoRenewing: false));
+        o.Client.Result = null;
+        await o.Job.RunOnceAsync(Simdi, default);
+        Assert.Equal("ornek-yillik", Assert.Single(o.Client.QueriedTokens));
+        var row = Assert.Single(await o.Oku());
+        Assert.Equal(Simdi, row.ExpiresAt);
+        Assert.Equal(Simdi, row.LastVerifiedAt);
+        Assert.False(row.AutoRenewing);
+    }
+
+    [Theory]
+    [InlineData(23)]
+    [InlineData(24)]
+    public async Task YenilemeIsi_UzakBitisliVeYeniDogrulanmisAboneligiSecmez(int saatOnce)
+    {
+        // NEDEN: Günlük kontrol API kotasını korumalı; tam 24 saat sınırı henüz bayat sayılmaz.
+        using var o = new Ortam();
+        var verified = Simdi.AddHours(-saatOnce);
+        var expiry = Simdi.AddDays(300);
+        await o.Ekle(Kayit("ornek-yillik", expiry, verified));
+        await o.Job.RunOnceAsync(Simdi, default);
+        Assert.Empty(o.Client.QueriedTokens);
+        var row = Assert.Single(await o.Oku());
+        Assert.Equal(expiry, row.ExpiresAt);
+        Assert.Equal(verified, row.LastVerifiedAt);
     }
 
     /// NEDEN: Google onayı hata verse de yenilenen süre kaydedilmeli ve sonraki uygun tur tekrar denemeli.

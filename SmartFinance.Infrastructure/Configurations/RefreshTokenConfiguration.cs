@@ -9,6 +9,8 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
     {
         builder.HasKey(x => x.Id);
+        // Aynı token'ı okuyan iki istekten yalnızca ilk iptal işlemi kazanır.
+        builder.Property(x => x.RevokedAt).IsConcurrencyToken();
 
         // Kolon token'in SHA-256 ozetini tutar (Base64, 44 karakter); 200 yeterli.
         // Ad ve uzunluk bilerek degistirilmedi: sema degisikligi gerekmesin,

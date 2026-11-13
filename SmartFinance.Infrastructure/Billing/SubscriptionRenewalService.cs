@@ -51,12 +51,17 @@ public sealed class SubscriptionRenewalService : BackgroundService
         // son doğrulama 10 dakikadan eski. AutoRenewing == false (iptal) olanlara dokunulmaz.
         var expiredFrom = nowUtc.Subtract(SubscriptionRefresher.ExpiredLookback);
         var expiredStale = nowUtc.Subtract(SubscriptionRefresher.ExpiredStaleAfter);
+        // (c) Uzak bitişli abonelikleri de günlük doğrula: iade edilen yıllık
+        // abonelik, eski bitiş tarihi yüzünden aylarca Premium kalmamalı.
+        var activeStale = nowUtc.Subtract(SubscriptionRefresher.ActiveStaleAfter);
         var ids = await context.Subscriptions.AsNoTracking()
             .Where(s =>
                 (s.ExpiresAt > nowUtc && s.ExpiresAt <= expiringTo
                     && (s.LastVerifiedAt == null || s.LastVerifiedAt < expiringStale))
                 || (s.ExpiresAt >= expiredFrom && s.ExpiresAt <= nowUtc && s.AutoRenewing
-                    && (s.LastVerifiedAt == null || s.LastVerifiedAt < expiredStale)))
+                    && (s.LastVerifiedAt == null || s.LastVerifiedAt < expiredStale))
+                || (s.ExpiresAt > expiringTo
+                    && (s.LastVerifiedAt == null || s.LastVerifiedAt < activeStale)))
             .OrderBy(s => s.LastVerifiedAt).ThenBy(s => s.Id)
             .Select(s => s.Id).Take(200).ToListAsync(ct);
 

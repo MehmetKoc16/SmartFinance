@@ -74,7 +74,7 @@ public class DataRetentionRunner
         }
 
         var refreshTokens = await RunKindAsync("RefreshTokens", failed, ct, counter =>
-            DeleteInBatchesAsync(_context.RefreshTokens.IgnoreQueryFilters()
+            DeleteRefreshTokensInBatchesAsync(_context.RefreshTokens.IgnoreQueryFilters()
                 .Where(t => t.ExpiresAt < tokenCutoff || (t.RevokedAt != null && t.RevokedAt < tokenCutoff)),
                 counter, ct));
 
@@ -121,6 +121,35 @@ public class DataRetentionRunner
 
     // ExecuteDeleteAsync yerine RemoveRange + SaveChanges: InMemory sağlayıcı toplu silmeyi desteklemiyor
     // ve sağlayıcıya göre iki ayrı yol tutmak testlerin gerçek yolu sınamamasına yol açardı.
+    private async Task DeleteRefreshTokensInBatchesAsync(IQueryable<RefreshToken> source,
+        Counter counter, CancellationToken ct)
+    {
+        var lastId = 0;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var rows = await source.Where(x => x.Id > lastId).OrderBy(x => x.Id)
+                .Select(x => new { x.Id, x.RevokedAt }).Take(BatchSize).ToListAsync(ct);
+            if (rows.Count == 0) return;
+
+            _context.ChangeTracker.Clear();
+            // RemoveRange taslağı izlemeye alırken RevokedAt özgün değerini de
+            // yakalar. Yalnız Id verilirse DELETE yanlışlıkla RevokedAt IS NULL
+            // koşulu kullanır ve önceden iptal edilmiş satırlar silinemez.
+            _context.RefreshTokens.RemoveRange(rows.Select(x => new RefreshToken
+            {
+                Id = x.Id,
+                RevokedAt = x.RevokedAt
+            }));
+            await _context.SaveChangesAsync(ct);
+            _context.ChangeTracker.Clear();
+
+            counter.Value += rows.Count;
+            lastId = rows[^1].Id;
+            if (rows.Count < BatchSize) return;
+        }
+    }
+
     // Yalnız Id okunur (kişisel alanlar belleğe alınmaz), anahtardan saplama varlık silinir.
     // Id üzerinden ilerleyen sayfalama: bir parti beklenmedik şekilde silinmese bile döngü sonsuza girmez.
     private async Task DeleteInBatchesAsync<T>(IQueryable<T> source, Counter counter, CancellationToken ct)

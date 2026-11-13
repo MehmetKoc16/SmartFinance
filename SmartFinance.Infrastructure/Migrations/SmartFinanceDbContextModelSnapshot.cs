@@ -651,6 +651,7 @@ namespace SmartFinance.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("RevokedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Token")

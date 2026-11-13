@@ -18,6 +18,8 @@ namespace SmartFinance.Infrastructure.Billing;
 /// </summary>
 internal static class SubscriptionRefresher
 {
+    internal static readonly TimeSpan ActiveStaleAfter = TimeSpan.FromHours(24);
+
     /// Süresi bu kadar içinde dolacak abonelikler önceden yeniden doğrulanır.
     internal static readonly TimeSpan ExpiringWindow = TimeSpan.FromDays(2);
 

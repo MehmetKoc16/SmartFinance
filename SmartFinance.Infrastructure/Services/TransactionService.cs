@@ -6,6 +6,9 @@ using SmartFinance.Infrastructure.Context;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using SmartFinance.Application.Exceptions;
+using SmartFinance.Application.Common;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SmartFinance.Infrastructure.Services;
 
@@ -15,14 +18,16 @@ public class TransactionService : ITransactionService
     private readonly SmartFinanceDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly INotificationService _notificationService;
+    private readonly ILogger<TransactionService> _logger;
 
     public TransactionService(IGenericRepository<Transaction> repository, SmartFinanceDbContext context,
-        ICurrentUserService currentUserService, INotificationService notificationService)
+        ICurrentUserService currentUserService, INotificationService notificationService, ILogger<TransactionService>? logger = null)
     {
         _repository = repository;
         _context = context;
         _currentUserService = currentUserService;
         _notificationService = notificationService;
+        _logger = logger ?? NullLogger<TransactionService>.Instance;
     }
     public async Task<object> GetFilteredTransactionsAsync(TransactionFilterDto filter)
     {
@@ -151,18 +156,40 @@ public class TransactionService : ITransactionService
             throw new BadRequestException("Kategori tipi işlem tipiyle uyuşmuyor!");
     }
 
+    private async Task EvaluateBudgetSafelyAsync(int userId, Transaction transaction)
+    {
+        try
+        {
+            await _notificationService.EvaluateBudgetForTransactionAsync(userId, transaction.CategoryId, transaction.TransactionDate);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // İstisna nesnesi/mesajı kişisel veri içerebilir; yalnız tür ve kullanıcı kimliği.
+            _logger.LogWarning("Bütçe bildirimi değerlendirilemedi. Kullanıcı {UserId}, istisna türü {ExceptionType}",
+                userId, ex.GetType().Name);
+        }
+    }
+
+    private static decimal RoundedAmount(decimal amount)
+    {
+        var rounded = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+        if (!MoneyRules.FitsColumn(rounded)) throw new BadRequestException("Tutar çok büyük.");
+        return rounded;
+    }
+
     public async Task<TransactionDto> CreateTransactionAsync(CreateTransactionDto dto)
     {
         // Token'dan UserId al
         var userId = _currentUserService.UserId;
 
+        var amount = RoundedAmount(dto.Amount);
         await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
         await EnsureAccountOwnedAsync(dto.AccountId, userId);
 
         var transaction = new Transaction
         {
-            Amount = dto.Amount,
+            Amount = amount,
             AccountId = dto.AccountId,
             Description = dto.Description,
             TransactionDate = dto.TransactionDate,
@@ -175,7 +202,7 @@ public class TransactionService : ITransactionService
         await _context.SaveChangesAsync();
 
         if (transaction.Type == TransactionType.Expense)
-            await _notificationService.EvaluateBudgetForTransactionAsync(userId, transaction.CategoryId, transaction.TransactionDate);
+            await EvaluateBudgetSafelyAsync(userId, transaction);
 
         return new TransactionDto
         {
@@ -199,6 +226,7 @@ public class TransactionService : ITransactionService
         if(transaction == null || transaction.UserId!=userId)
             throw new NotFoundException("İşlem bulunamadı!");
 
+        var amount = RoundedAmount(dto.Amount);
         await EnsureCategoryOwnedAsync(dto.CategoryId, userId, dto.Type);
 
         // v14/v15 istemcileri PUT gövdesinde accountId göndermez: alan yoksa bağ korunur.
@@ -218,7 +246,7 @@ public class TransactionService : ITransactionService
         }
         else accountId = dto.ClearAccount == true ? null : transaction.AccountId;
 
-        transaction.Amount = dto.Amount;
+        transaction.Amount = amount;
         transaction.AccountId = accountId;
         transaction.Description = dto.Description;
         // Elle düzenleme, otomatik çıkarılmış işyeri adını geçersiz kılar —
@@ -232,7 +260,7 @@ public class TransactionService : ITransactionService
         await _context.SaveChangesAsync();
 
         if (transaction.Type == TransactionType.Expense)
-            await _notificationService.EvaluateBudgetForTransactionAsync(userId, transaction.CategoryId, transaction.TransactionDate);
+            await EvaluateBudgetSafelyAsync(userId, transaction);
     }
 
     public async Task DeleteTransactionAsync(int id)

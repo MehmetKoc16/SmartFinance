@@ -20,6 +20,29 @@ namespace SmartFinance.Tests;
 
 public class AccountServiceTests
 {
+    [Fact]
+    public async Task Ekstre_KarttanCikanTransfer_DonemBorcunaGirer()
+    {
+        // NEDEN: Kesim günü 22:00 UTC, TSİ'de ertesi gündür; avans açık döneme borç yazılmalı.
+        using var o = new Ortam();
+        var today = CardCycle.IstanbulDay(DateTime.UtcNow);
+        var closed = SonKesim(today);
+        var card = await o.EkstreKarti(today, UtcGun(closed.AddMonths(-1)));
+        var cash = await o.Hesap();
+        await o.Service.CreateTransferAsync(new CreateTransferDto
+        {
+            FromAccountId = card.Id, ToAccountId = cash.Id, Amount = 2000m,
+            TransferDate = DateTime.SpecifyKind(closed.ToDateTime(new TimeOnly(22, 0)), DateTimeKind.Utc)
+        });
+        var balance = await o.Service.GetAsync(card.Id);
+        var statements = await o.Service.GetStatementsAsync(card.Id);
+        Assert.Equal(2000m, balance.Debt);
+        Assert.Equal(2000m, statements.Current.Amount);
+        Assert.Equal(2000m, statements.Current.Remaining);
+        Assert.All(statements.Past, x => Assert.Equal(0m, x.Amount));
+        Assert.Equal(balance.Debt, statements.Current.Amount + statements.Past.Sum(x => x.Amount));
+    }
+
     private sealed class Ortam : IDisposable
     {
         public SmartFinanceDbContext Db { get; } = new(new DbContextOptionsBuilder<SmartFinanceDbContext>()

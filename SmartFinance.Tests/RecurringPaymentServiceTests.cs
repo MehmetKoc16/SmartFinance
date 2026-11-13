@@ -19,6 +19,67 @@ namespace SmartFinance.Tests;
 
 public class RecurringPaymentServiceTests
 {
+    private static CreateRecurringPaymentDto Degistirmeden(RecurringPayment p, DateOnly? end) => new()
+    {
+        Name = p.Name, Amount = p.Amount, Type = p.Type, CategoryId = p.CategoryId, AccountId = p.AccountId,
+        Frequency = p.Frequency, StartDate = p.StartDate, EndDate = end, RemindDaysBefore = p.RemindDaysBefore
+    };
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PlanliOdeme_BitisUzatilinca_YenidenEtkin(bool removeEnd)
+    {
+        // NEDEN: Son vade işlendikten sonra bitişi uzatmak/kaldırmak planı tekrar kullanılabilir yapmalı.
+        using var o = new Ortam(); var p = await o.Kayit();
+        p.EndDate = p.NextDueDate; await o.Db.SaveChangesAsync();
+        await o.Service.SkipAsync(p.Id, new ProcessRecurringPaymentDto { DueDate = p.NextDueDate });
+        Assert.False(p.IsActive); var due = p.NextDueDate;
+        var result = await o.Service.UpdateAsync(p.Id, Degistirmeden(p, removeEnd ? null : due));
+        Assert.True(result.IsActive); Assert.Equal(due, result.NextDueDate);
+        Assert.True((await o.Db.RecurringPayments.AsNoTracking().SingleAsync()).IsActive);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PlanliOdeme_BitisUzatilinca_UcretsizSinirUygulanir(bool removeEnd)
+    {
+        // NEDEN: Tarih uzatmayla yeniden etkinleşme dördüncü ücretsiz planı gizlice açmamalı.
+        using var o = new Ortam(); var p = await o.Kayit();
+        p.EndDate = p.NextDueDate; await o.Db.SaveChangesAsync();
+        await o.Service.SkipAsync(p.Id, new ProcessRecurringPaymentDto { DueDate = p.NextDueDate });
+        for (var i = 0; i < 3; i++) await o.Service.CreateAsync(Ortam.Dto());
+        var oldEnd = p.EndDate;
+        await Assert.ThrowsAsync<PremiumRequiredException>(() => o.Service.UpdateAsync(p.Id,
+            Degistirmeden(p, removeEnd ? null : p.NextDueDate)));
+        var stored = await o.Db.RecurringPayments.AsNoTracking().SingleAsync(x => x.Id == p.Id);
+        Assert.False(stored.IsActive); Assert.Equal(oldEnd, stored.EndDate);
+    }
+
+    [Fact]
+    public async Task PlanliOdeme_ElleKapaliPlan_BitisDegisinceKapaliKalir()
+    {
+        // NEDEN: Eski bitiş vadenin gerisinde değilse pasifliği bitişe bağlayıp açamayız.
+        // DTO/model pasiflik nedenini ayrıca saklamaz; bu test ayırt edilebilen durumu korur.
+        using var o = new Ortam(); var p = await o.Kayit(active: false);
+        p.EndDate = p.NextDueDate.AddDays(7); await o.Db.SaveChangesAsync();
+        var result = await o.Service.UpdateAsync(p.Id, Degistirmeden(p, p.NextDueDate.AddDays(14)));
+        Assert.False(result.IsActive);
+        Assert.False((await o.Db.RecurringPayments.AsNoTracking().SingleAsync()).IsActive);
+    }
+
+    [Fact]
+    public async Task PlanliOdeme_YetersizBitisUzatmasi_PasifKalir()
+    {
+        // NEDEN: Yeni bitiş hâlâ vadeden önceyse henüz ödenebilir vade yoktur.
+        using var o = new Ortam(); var p = await o.Kayit();
+        p.EndDate = p.NextDueDate; await o.Db.SaveChangesAsync();
+        await o.Service.SkipAsync(p.Id, new ProcessRecurringPaymentDto { DueDate = p.NextDueDate });
+        var result = await o.Service.UpdateAsync(p.Id, Degistirmeden(p, p.NextDueDate.AddDays(-1)));
+        Assert.False(result.IsActive);
+    }
+
     internal sealed class Saat : TimeProvider
     {
         private readonly DateTimeOffset _now;

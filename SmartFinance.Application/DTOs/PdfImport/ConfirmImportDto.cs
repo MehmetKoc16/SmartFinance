@@ -13,6 +13,7 @@ public class ConfirmImportDto
 /// </summary>
 public class ConfirmTransactionItemDto
 {
+    // Servis bütün satırları kayıt öncesi doğrular; eski istemcilerin üç haneli tutarı yuvarlanır.
     public decimal Amount { get; set; }
     public string Description { get; set; } = string.Empty;
     public DateTime TransactionDate { get; set; }

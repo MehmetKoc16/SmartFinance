@@ -1,4 +1,5 @@
 using System.Text;
+using SmartFinance.Application.Exceptions;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -89,6 +90,9 @@ public class PdfImportService : IPdfImportService
     private async Task<PdfParseResultDto> TamamlaAsync(
         List<ParsedTransactionDto> transactions, string bankName, string? period)
     {
+        // Metin/Excel ayrıştırıcıları sıfır üretebilir; sıfır bir para hareketi değildir.
+        // Ayrıştırıcılar işareti Type'a taşıyıp Amount'u zaten mutlak değer yapar.
+        transactions.RemoveAll(t => t.Amount == 0);
         var userId = GetUserId();
 
         // Kategori eşleştirme (öğrenilen + default)
@@ -161,6 +165,10 @@ public class PdfImportService : IPdfImportService
     public async Task<ImportResultDto> ConfirmImportAsync(ConfirmImportDto dto)
     {
         var userId = GetUserId();
+        // Tüm isteği ekleme/öğrenme başlamadan doğrula; eski istemciler üç hane gönderebilir.
+        if (dto.Transactions.Any(t => t.Amount <= 0 || t.Type is not (1 or 2)
+            || !MoneyRules.FitsColumn(Math.Round(t.Amount, 2, MidpointRounding.AwayFromZero))))
+            throw new BadRequestException("İçe aktarılacak işlemlerde geçersiz tutar ya da tür var.");
         var savedCount = 0;
         var skippedCount = 0;
 
@@ -209,7 +217,7 @@ public class PdfImportService : IPdfImportService
             // Transaction kaydet
             var transaction = new Transaction
             {
-                Amount = item.Amount,
+                Amount = Math.Round(item.Amount, 2, MidpointRounding.AwayFromZero),
                 // Ekstredeki havale satirlari karsi tarafin IBAN'ini iceriyor;
                 // o kisi bizim kullanicimiz degil ve saklamak icin gerekcemiz yok.
                 Description = HassasVeriMaskeleyici.Maskele(item.Description),
@@ -292,9 +300,9 @@ public class PdfImportService : IPdfImportService
     private static string DuplicateKey(DateTime date, decimal amount, int type, string? description)
     {
         var normalized = string.Join(' ',
-            (description ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            HassasVeriMaskeleyici.Maskele(description).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         return string.Create(System.Globalization.CultureInfo.InvariantCulture,
-            $"{date:yyyy-MM-dd}|{Math.Round(amount, 2)}|{type}|{normalized}");
+            $"{date:yyyy-MM-dd}|{Math.Round(amount, 2, MidpointRounding.AwayFromZero):F2}|{type}|{normalized}");
     }
 
     // ─── Private Helpers ─────────────────────────────────────────
@@ -379,24 +387,16 @@ public class PdfImportService : IPdfImportService
 
     private async Task MarkDuplicates(List<ParsedTransactionDto> transactions, int userId)
     {
-        if (!transactions.Any()) return;
-
-        var minDate = transactions.Min(t => t.TransactionDate).Date;
-        var maxDate = transactions.Max(t => t.TransactionDate).Date.AddDays(1);
-
-        // Aynı dönemdeki mevcut işlemleri çek
-        var existingTransactions = await _context.Transactions
-            .Where(t => t.UserId == userId
-                && t.TransactionDate >= minDate
-                && t.TransactionDate < maxDate)
-            .ToListAsync();
+        var counts = await BuildExistingCountsAsync(userId, transactions.Select(t => new ConfirmTransactionItemDto
+        {
+            TransactionDate = t.TransactionDate, Amount = t.Amount, Type = t.Type, Description = t.Description
+        }).ToList());
 
         foreach (var t in transactions)
         {
-            t.IsDuplicate = existingTransactions.Any(e =>
-                e.TransactionDate.Date == t.TransactionDate.Date
-                && e.Amount == t.Amount
-                && (e.Description?.Contains(t.MerchantName ?? "", StringComparison.OrdinalIgnoreCase) ?? false));
+            var key = DuplicateKey(t.TransactionDate, t.Amount, t.Type, t.Description);
+            t.IsDuplicate = counts.TryGetValue(key, out var remaining) && remaining > 0;
+            if (t.IsDuplicate) counts[key] = remaining - 1;
         }
     }
 

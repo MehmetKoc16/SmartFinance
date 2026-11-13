@@ -140,11 +140,14 @@ public class RecurringPaymentService : IRecurringPaymentService
         dto.CategoryId = await DropIfPlanCategoryDeletedAsync(dto.CategoryId, p.CategoryId);
         await ValidateAsync(dto);
         var wasActive = p.IsActive;
+        // DTO'da elle pasif tercihi/sebep alanı yok; yalnız eski bitişi aşmış plan tanınabilir.
+        var endedByDate = !wasActive && p.EndDate.HasValue && p.NextDueDate > p.EndDate.Value;
         var previousDue = p.NextDueDate;
         var reset = p.StartDate != dto.StartDate || p.Frequency != dto.Frequency;
         Apply(p, dto);
         if (reset) ResetSchedule(p, previousDue);
         else if (p.EndDate.HasValue && p.NextDueDate > p.EndDate.Value) p.IsActive = false;
+        else if (endedByDate) p.IsActive = true;
         // Pasif → aktif geçişi yeni plan gibi sayılır; ücretsiz sınır oluşturmadaki gibi uygulanır.
         // Exception SaveChanges'ten önce: veritabanındaki plan pasif kalır.
         if (!wasActive && p.IsActive) await EnsureFreeLimitAsync(p.Id);

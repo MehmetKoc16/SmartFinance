@@ -47,6 +47,8 @@ public class BudgetService : IBudgetService
     public async Task<BudgetDto> UpsertAsync(CreateBudgetDto dto)
     {
         var userId = GetUserId();
+        var monthlyLimit = Math.Round(dto.MonthlyLimit, 2, MidpointRounding.AwayFromZero);
+        if (!MoneyRules.FitsColumn(monthlyLimit)) throw new BadRequestException("Tutar çok büyük.");
 
         var category = await _context.Categories
             .FirstOrDefaultAsync(c => c.Id == dto.CategoryId && c.UserId == userId);
@@ -70,7 +72,7 @@ public class BudgetService : IBudgetService
         if (existing != null)
         {
             existing.IsDeleted = false;
-            existing.MonthlyLimit = dto.MonthlyLimit;
+            existing.MonthlyLimit = monthlyLimit;
             existing.UpdatedDate = DateTime.UtcNow;
             _repository.Update(existing);
             await _context.SaveChangesAsync();
@@ -90,7 +92,7 @@ public class BudgetService : IBudgetService
         {
             UserId = userId,
             CategoryId = dto.CategoryId,
-            MonthlyLimit = dto.MonthlyLimit,
+            MonthlyLimit = monthlyLimit,
         };
         await _repository.AddAsync(budget);
         await _context.SaveChangesAsync();

@@ -217,14 +217,17 @@ public class AccountService : IAccountService
         var transactions = await _context.Transactions.AsNoTracking()
             .Where(x => x.UserId == _user.UserId && x.AccountId == id)
             .Select(x => new { x.TransactionDate, x.Amount, x.Type }).ToListAsync();
-        var payments = await _context.Transfers.AsNoTracking()
-            .Where(x => x.UserId == _user.UserId && x.ToAccountId == id)
-            .Select(x => new { x.TransferDate, x.Amount }).ToListAsync();
+        var transfers = await _context.Transfers.AsNoTracking()
+            .Where(x => x.UserId == _user.UserId && (x.ToAccountId == id || x.FromAccountId == id))
+            .Select(x => new { x.TransferDate, x.Amount, x.FromAccountId, x.ToAccountId }).ToListAsync();
         // ZAMAN KURALI: TransactionDate TSİ duvar saati → CardCycle dönüştürmez;
         // TransferDate UTC → CardCycle TSİ gününe çevirir. 'Bugün' UTC şimdiden TSİ'ye çevrilir.
         var statements = CardCycle.Calculate(account.StatementDay!.Value, account.DueDay!.Value, account.OpeningBalance,
-            transactions.Select(x => new CardCycle.Entry(x.TransactionDate, x.Type == TransactionType.Expense ? x.Amount : -x.Amount)),
-            payments.Select(x => new CardCycle.Entry(x.TransferDate, x.Amount)), DateTime.UtcNow, count);
+            transactions.Select(x => new CardCycle.Entry(x.TransactionDate, x.Type == TransactionType.Expense ? x.Amount : -x.Amount))
+                // Çıkış transferinin UTC tarihi harcama listesine TSİ günü olarak girer.
+                .Concat(transfers.Where(x => x.FromAccountId == id).Select(x => new CardCycle.Entry(
+                    CardCycle.IstanbulDay(x.TransferDate).ToDateTime(TimeOnly.MinValue), x.Amount))),
+            transfers.Where(x => x.ToAccountId == id).Select(x => new CardCycle.Entry(x.TransferDate, x.Amount)), DateTime.UtcNow, count);
         var createdDay = CardCycle.IstanbulDay(account.CreatedDate);
         // FIFO tamamlandıktan sonra yalnız görünümü süz; count penceresini eski dönemlerle doldurma.
         statements.Past = statements.Past.Where(x => x.Amount != 0 || x.Paid != 0
